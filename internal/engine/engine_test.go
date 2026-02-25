@@ -27,17 +27,17 @@ func TestNewEngine(t *testing.T) {
 func TestCreateSession(t *testing.T) {
 	tests := []struct {
 		name      string
-		sessionID string
+		sessionId string
 		wantErr   bool
 	}{
 		{
 			name:      "create session with valid ID",
-			sessionID: "test-session-1",
+			sessionId: "test-session-1",
 			wantErr:   false,
 		},
 		{
 			name:      "create session with empty ID",
-			sessionID: "",
+			sessionId: "",
 			wantErr:   true,
 		},
 	}
@@ -45,7 +45,7 @@ func TestCreateSession(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e := NewEngine()
-			err := e.CreateSession(tt.sessionID)
+			err := e.CreateSession(tt.sessionId)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateSession() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -56,17 +56,17 @@ func TestCreateSession(t *testing.T) {
 func TestCloseSession(t *testing.T) {
 	tests := []struct {
 		name      string
-		sessionID string
+		sessionId string
 		wantErr   bool
 	}{
 		{
 			name:      "close existing session",
-			sessionID: "test-session-1",
+			sessionId: "test-session-1",
 			wantErr:   false,
 		},
 		{
 			name:      "close non-existent session",
-			sessionID: "non-existent",
+			sessionId: "non-existent",
 			wantErr:   false,
 		},
 	}
@@ -74,10 +74,10 @@ func TestCloseSession(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e := NewEngine()
-			if !tt.wantErr && tt.sessionID != "non-existent" {
-				_ = e.CreateSession(tt.sessionID)
+			if !tt.wantErr && tt.sessionId != "non-existent" {
+				_ = e.CreateSession(tt.sessionId)
 			}
-			err := e.CloseSession(tt.sessionID)
+			err := e.CloseSession(tt.sessionId)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CloseSession() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -88,25 +88,25 @@ func TestCloseSession(t *testing.T) {
 func TestProcessMessage(t *testing.T) {
 	tests := []struct {
 		name      string
-		sessionID string
+		sessionId string
 		message   string
 		wantErr   bool
 	}{
 		{
 			name:      "process message with valid session",
-			sessionID: "test-session-1",
+			sessionId: "test-session-1",
 			message:   "Hello, world!",
 			wantErr:   false,
 		},
 		{
 			name:      "process empty message",
-			sessionID: "test-session-2",
+			sessionId: "test-session-2",
 			message:   "",
 			wantErr:   true,
 		},
 		{
 			name:      "process message without session",
-			sessionID: "",
+			sessionId: "",
 			message:   "Hello!",
 			wantErr:   true,
 		},
@@ -117,11 +117,11 @@ func TestProcessMessage(t *testing.T) {
 			e := NewEngine()
 			ctx := context.Background()
 
-			if tt.sessionID != "" {
-				_ = e.CreateSession(tt.sessionID)
+			if tt.sessionId != "" {
+				_ = e.CreateSession(tt.sessionId)
 			}
 
-			resp, err := e.ProcessMessage(ctx, tt.sessionID, tt.message)
+			resp, err := e.ProcessMessage(ctx, tt.sessionId, tt.message)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ProcessMessage() error = %v, wantErr %v", err, tt.wantErr)
 			}

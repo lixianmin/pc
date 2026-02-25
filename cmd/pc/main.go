@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/lixianmin/pc/internal/wizard"
 	"github.com/lixianmin/pc/internal/logger"
+	"github.com/lixianmin/pc/internal/wizard"
 )
 
 var version = "dev"
@@ -17,7 +17,7 @@ func main() {
 	}
 
 	// Initialize logger with default settings
-	logger.Init("info", "stdout")
+	logger.Init("info")
 
 	// Check if config exists, run wizard if not
 	configPath := wizard.GenerateConfigPath("")

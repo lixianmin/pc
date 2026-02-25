@@ -54,7 +54,12 @@
 ### 5 技术规范
 
 - **日志库**: 使用 `github.com/lixianmin/logo` 作为日志库，优先使用logo.JsonI(), logo.JsonW(), logo.JsonE()打印日志
-- **自动生成的随机id**: 使用ulid而不是uuid，方便db存储的时候满足自增的需要。
+- **自动生成的随机id**: 使用ulid而不是uuid，方便db存储的时候满足自增的需要
+- **Receiver 命名**: 结构体方法的 receiver 变量名统一使用 `my`，禁止使用 `s`、`this`、`self` 等其他命名
+- **变量命名**: 缩略词使用驼峰式命名，如 `sessionId` 而非 `sessionID`，`userId` 而非 `userID`
+- **文件命名**: 文件名应反映文件中主要类型名，如 `MemoryServiceImpl` 对应 `memory_service_impl.go`
+- **接口分离**: 接口定义（如 `memory_service.go`）应与实现（如 `memory_service_impl.go`）放在不同文件中
+- **时间戳**: 所有时间戳使用毫秒级（而非秒级），变量命名为 `UpdateAt`/`update_at`、`CreateAt`/`create_at` 或 `Ts`/`ts`
 
 ### 6 错误经验参考
 

@@ -26,35 +26,35 @@ func TestNewService(t *testing.T) {
 func TestAddMessage(t *testing.T) {
 	tests := []struct {
 		name      string
-		sessionID string
+		sessionId string
 		role      string
 		content   string
 		wantErr   bool
 	}{
 		{
 			name:      "add user message",
-			sessionID: "test-session",
+			sessionId: "test-session",
 			role:      "user",
 			content:   "Hello, world!",
 			wantErr:   false,
 		},
 		{
 			name:      "add assistant message",
-			sessionID: "test-session",
+			sessionId: "test-session",
 			role:      "assistant",
 			content:   "Hi there!",
 			wantErr:   false,
 		},
 		{
 			name:      "add message with empty session",
-			sessionID: "",
+			sessionId: "",
 			role:      "user",
 			content:   "Hello!",
 			wantErr:   true,
 		},
 		{
 			name:      "add message with empty content",
-			sessionID: "test-session",
+			sessionId: "test-session",
 			role:      "user",
 			content:   "",
 			wantErr:   true,
@@ -64,7 +64,7 @@ func TestAddMessage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewService()
-			err := s.AddMessage(tt.sessionID, tt.role, tt.content)
+			err := s.AddMessage(tt.sessionId, tt.role, tt.content)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("AddMessage() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -75,14 +75,14 @@ func TestAddMessage(t *testing.T) {
 func TestGetMessages(t *testing.T) {
 	tests := []struct {
 		name      string
-		sessionID string
+		sessionId string
 		setup     func(*Service)
 		wantCount int
 		wantErr   bool
 	}{
 		{
 			name:      "get messages from existing session",
-			sessionID: "test-session",
+			sessionId: "test-session",
 			setup: func(s *Service) {
 				s.AddMessage("test-session", "user", "Hello")
 				s.AddMessage("test-session", "assistant", "Hi")
@@ -92,7 +92,7 @@ func TestGetMessages(t *testing.T) {
 		},
 		{
 			name:      "get messages from empty session",
-			sessionID: "empty-session",
+			sessionId: "empty-session",
 			setup:     func(s *Service) {},
 			wantCount: 0,
 			wantErr:   false,
@@ -104,7 +104,7 @@ func TestGetMessages(t *testing.T) {
 			s := NewService()
 			tt.setup(s)
 
-			msgs, err := s.GetMessages(tt.sessionID)
+			msgs, err := s.GetMessages(tt.sessionId)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetMessages() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -118,19 +118,19 @@ func TestGetMessages(t *testing.T) {
 func TestSetContextLimit(t *testing.T) {
 	tests := []struct {
 		name      string
-		sessionID string
+		sessionId string
 		limit     int
 		wantErr   bool
 	}{
 		{
 			name:      "set valid context limit",
-			sessionID: "test-session",
+			sessionId: "test-session",
 			limit:     10,
 			wantErr:   false,
 		},
 		{
 			name:      "set negative limit",
-			sessionID: "test-session",
+			sessionId: "test-session",
 			limit:     -1,
 			wantErr:   true,
 		},
@@ -139,7 +139,7 @@ func TestSetContextLimit(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewService()
-			err := s.SetContextLimit(tt.sessionID, tt.limit)
+			err := s.SetContextLimit(tt.sessionId, tt.limit)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("SetContextLimit() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -150,13 +150,13 @@ func TestSetContextLimit(t *testing.T) {
 func TestClearSession(t *testing.T) {
 	tests := []struct {
 		name      string
-		sessionID string
+		sessionId string
 		setup     func(*Service)
 		wantErr   bool
 	}{
 		{
 			name:      "clear existing session",
-			sessionID: "test-session",
+			sessionId: "test-session",
 			setup: func(s *Service) {
 				s.AddMessage("test-session", "user", "Hello")
 			},
@@ -164,7 +164,7 @@ func TestClearSession(t *testing.T) {
 		},
 		{
 			name:      "clear non-existent session",
-			sessionID: "non-existent",
+			sessionId: "non-existent",
 			setup:     func(s *Service) {},
 			wantErr:   false,
 		},
@@ -175,13 +175,13 @@ func TestClearSession(t *testing.T) {
 			s := NewService()
 			tt.setup(s)
 
-			err := s.ClearSession(tt.sessionID)
+			err := s.ClearSession(tt.sessionId)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ClearSession() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			if !tt.wantErr {
-				msgs, _ := s.GetMessages(tt.sessionID)
+				msgs, _ := s.GetMessages(tt.sessionId)
 				if len(msgs) != 0 {
 					t.Errorf("ClearSession() session not cleared, got %d messages", len(msgs))
 				}

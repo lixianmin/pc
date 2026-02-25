@@ -5,16 +5,16 @@ import "fmt"
 // MemoryService is the interface for the memory service.
 type MemoryService interface {
 	// AddMessage adds a message to a session.
-	AddMessage(sessionID, role, content string) error
+	AddMessage(sessionId, role, content string) error
 
 	// GetMessages returns all messages for a session.
-	GetMessages(sessionID string) ([]Message, error)
+	GetMessages(sessionId string) ([]Message, error)
 
 	// SetContextLimit sets the context window limit for a session.
-	SetContextLimit(sessionID string, limit int) error
+	SetContextLimit(sessionId string, limit int) error
 
 	// ClearSession clears all messages for a session.
-	ClearSession(sessionID string) error
+	ClearSession(sessionId string) error
 
 	// Close closes the memory service.
 	Close() error
@@ -41,8 +41,8 @@ func NewService() *Service {
 }
 
 // AddMessage adds a message to a session.
-func (s *Service) AddMessage(sessionID, role, content string) error {
-	if sessionID == "" {
+func (s *Service) AddMessage(sessionId, role, content string) error {
+	if sessionId == "" {
 		return fmt.Errorf("session ID cannot be empty")
 	}
 	if content == "" {
@@ -55,25 +55,25 @@ func (s *Service) AddMessage(sessionID, role, content string) error {
 	}
 
 	// Check context limit and trim if needed
-	if limit, ok := s.limits[sessionID]; ok && limit > 0 {
-		sessions := s.sessions[sessionID]
+	if limit, ok := s.limits[sessionId]; ok && limit > 0 {
+		sessions := s.sessions[sessionId]
 		if len(sessions) >= limit {
 			// Keep only the last (limit-1) messages
 			start := len(sessions) - (limit - 1)
-			s.sessions[sessionID] = append(sessions[start:], msg)
+			s.sessions[sessionId] = append(sessions[start:], msg)
 		} else {
-			s.sessions[sessionID] = append(s.sessions[sessionID], msg)
+			s.sessions[sessionId] = append(s.sessions[sessionId], msg)
 		}
 	} else {
-		s.sessions[sessionID] = append(s.sessions[sessionID], msg)
+		s.sessions[sessionId] = append(s.sessions[sessionId], msg)
 	}
 
 	return nil
 }
 
 // GetMessages returns all messages for a session.
-func (s *Service) GetMessages(sessionID string) ([]Message, error) {
-	messages, ok := s.sessions[sessionID]
+func (s *Service) GetMessages(sessionId string) ([]Message, error) {
+	messages, ok := s.sessions[sessionId]
 	if !ok {
 		return []Message{}, nil
 	}
@@ -84,17 +84,17 @@ func (s *Service) GetMessages(sessionID string) ([]Message, error) {
 }
 
 // SetContextLimit sets the context window limit for a session.
-func (s *Service) SetContextLimit(sessionID string, limit int) error {
+func (s *Service) SetContextLimit(sessionId string, limit int) error {
 	if limit < 0 {
 		return fmt.Errorf("limit cannot be negative")
 	}
-	s.limits[sessionID] = limit
+	s.limits[sessionId] = limit
 	return nil
 }
 
 // ClearSession clears all messages for a session.
-func (s *Service) ClearSession(sessionID string) error {
-	s.sessions[sessionID] = []Message{}
+func (s *Service) ClearSession(sessionId string) error {
+	s.sessions[sessionId] = []Message{}
 	return nil
 }
 

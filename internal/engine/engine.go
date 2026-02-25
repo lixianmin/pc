@@ -8,13 +8,13 @@ import (
 // CoreEngine is the interface for the core engine.
 type CoreEngine interface {
 	// ProcessMessage processes an incoming message and returns the response.
-	ProcessMessage(ctx context.Context, sessionID, message string) (string, error)
+	ProcessMessage(ctx context.Context, sessionId, message string) (string, error)
 
 	// CreateSession creates a new session.
-	CreateSession(sessionID string) error
+	CreateSession(sessionId string) error
 
 	// CloseSession closes a session.
-	CloseSession(sessionID string) error
+	CloseSession(sessionId string) error
 
 	// Close closes the engine.
 	Close() error
@@ -34,9 +34,9 @@ func NewEngine() *Engine {
 }
 
 // ProcessMessage processes an incoming message.
-func (e *Engine) ProcessMessage(ctx context.Context, sessionID, message string) (string, error) {
+func (e *Engine) ProcessMessage(ctx context.Context, sessionId, message string) (string, error) {
 	// Validate inputs
-	if sessionID == "" {
+	if sessionId == "" {
 		return "", fmt.Errorf("session ID cannot be empty")
 	}
 	if message == "" {
@@ -44,8 +44,8 @@ func (e *Engine) ProcessMessage(ctx context.Context, sessionID, message string) 
 	}
 
 	// Check if session exists
-	if !e.sessions[sessionID] {
-		return "", fmt.Errorf("session not found: %s", sessionID)
+	if !e.sessions[sessionId] {
+		return "", fmt.Errorf("session not found: %s", sessionId)
 	}
 
 	// TODO: Implement actual message processing with LLM plugin
@@ -54,17 +54,17 @@ func (e *Engine) ProcessMessage(ctx context.Context, sessionID, message string) 
 }
 
 // CreateSession creates a new session.
-func (e *Engine) CreateSession(sessionID string) error {
-	if sessionID == "" {
+func (e *Engine) CreateSession(sessionId string) error {
+	if sessionId == "" {
 		return fmt.Errorf("session ID cannot be empty")
 	}
-	e.sessions[sessionID] = true
+	e.sessions[sessionId] = true
 	return nil
 }
 
 // CloseSession closes a session.
-func (e *Engine) CloseSession(sessionID string) error {
-	delete(e.sessions, sessionID)
+func (e *Engine) CloseSession(sessionId string) error {
+	delete(e.sessions, sessionId)
 	return nil
 }
 
