@@ -45,3 +45,61 @@ func (p PluginType) IsValid() bool {
 		return false
 	}
 }
+
+// Plugin represents a loaded plugin with its metadata.
+type Plugin struct {
+	Name    string    `yaml:"name"`     // Plugin name
+	Type    PluginType `yaml:"type"`     // Plugin type (llm, search, channel, tool)
+	Enabled bool      `yaml:"enabled"`  // Whether the plugin is enabled
+	Version string    `yaml:"version"`  // Plugin version
+	Entry   string    `yaml:"entry"`   // Entry point executable path
+	Path    string    // Full path to the plugin directory
+	Permissions []Permission `yaml:"permissions"` // Declared permissions
+}
+
+// PermissionType represents the type of permission.
+type PermissionType string
+
+const (
+	// PermissionNetwork allows network access.
+	PermissionNetwork PermissionType = "network"
+	// PermissionFilesystem allows filesystem access.
+	PermissionFilesystem PermissionType = "filesystem"
+	// PermissionSystem allows system-level access.
+	PermissionSystem PermissionType = "system"
+)
+
+// Permission represents a plugin permission.
+type Permission struct {
+	Type PermissionType `yaml:"type"` // Permission type
+}
+
+// PermissionTypeFromString converts a string to PermissionType.
+// Returns PermissionNetwork for unknown types.
+func PermissionTypeFromString(s string) PermissionType {
+	switch s {
+	case string(PermissionNetwork):
+		return PermissionNetwork
+	case string(PermissionFilesystem):
+		return PermissionFilesystem
+	case string(PermissionSystem):
+		return PermissionSystem
+	default:
+		return PermissionNetwork
+	}
+}
+
+// String returns the string representation of PermissionType.
+func (p PermissionType) String() string {
+	return string(p)
+}
+
+// IsValid returns true if the permission type is valid.
+func (p PermissionType) IsValid() bool {
+	switch p {
+	case PermissionNetwork, PermissionFilesystem, PermissionSystem:
+		return true
+	default:
+		return false
+	}
+}

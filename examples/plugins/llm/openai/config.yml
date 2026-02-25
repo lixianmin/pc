@@ -1,0 +1,4 @@
+# GLM API Configuration
+api_key: your-glm-api-key-here
+model: glm-4.7
+base_url: https://open.bigmodel.cn/api/coding/paas/v4

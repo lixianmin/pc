@@ -1,0 +1,5 @@
+name: glm-llm
+type: llm
+enabled: true
+version: 1.0.0
+entry: ./cmd/openai-llm/openai-llm

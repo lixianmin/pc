@@ -1,4 +1,4 @@
-module github.com/xmli/personalclaw
+module github.com/lixianmin/pc
 
 go 1.25
 
