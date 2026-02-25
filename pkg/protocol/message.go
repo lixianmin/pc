@@ -25,20 +25,20 @@ const (
 
 // Request represents a protocol request message.
 type Request struct {
-	Version string    `json:"version"` // Protocol version
-	ID      string    `json:"id"`      // Request ID
+	Version string      `json:"version"` // Protocol version
+	ID      string      `json:"id"`      // Request ID
 	Type    MessageType `json:"type"`    // Message type
-	Method  string    `json:"method"`  // Method name
-	Params  any       `json:"params"`  // Method parameters
+	Method  string      `json:"method"`  // Method name
+	Params  any         `json:"params"`  // Method parameters
 }
 
 // Response represents a protocol response message.
 type Response struct {
-	Version string  `json:"version"` // Protocol version
-	ID      string  `json:"id"`      // Request ID (correlated)
-	Type    MessageType `json:"type"`  // Message type
-	Result  any     `json:"result"`  // Result value (success)
-	Error   *Error  `json:"error"`   // Error value (failure)
+	Version string      `json:"version"` // Protocol version
+	ID      string      `json:"id"`      // Request ID (correlated)
+	Type    MessageType `json:"type"`    // Message type
+	Result  any         `json:"result"`  // Result value (success)
+	Error   *Error      `json:"error"`   // Error value (failure)
 }
 
 // Error represents a protocol error.

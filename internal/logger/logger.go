@@ -71,11 +71,11 @@ func Initialize(level, output string) (Logger, error) {
 		} else {
 			// File output using RollingFileHook
 			fileHook := logo.NewRollingFileHook(logo.RollingFileHookArgs{
-				Flag:         logo.FlagDate | logo.FlagTime | logo.FlagLevel,
-				FilterLevel:  logLevel,
-				DirName:      output,
+				Flag:           logo.FlagDate | logo.FlagTime | logo.FlagLevel,
+				FilterLevel:    logLevel,
+				DirName:        output,
 				FileNamePrefix: "pc",
-				MaxFileSize:  10 * 1024 * 1024, // 10MB
+				MaxFileSize:    10 * 1024 * 1024, // 10MB
 			})
 			loggerInstance.AddHook(fileHook)
 			instance.(*loggerImpl).hooks = append(instance.(*loggerImpl).hooks, fileHook)

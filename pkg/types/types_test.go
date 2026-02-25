@@ -76,8 +76,8 @@ func TestPluginTypeIsValid(t *testing.T) {
 
 func TestAgentJSON(t *testing.T) {
 	agent := Agent{
-		Name:       "TestAgent",
-		Profession: "TestProfession",
+		Name:        "TestAgent",
+		Profession:  "TestProfession",
 		Personality: []string{"Friendly", "Helpful"},
 		Skills: []Skill{
 			{
@@ -150,11 +150,11 @@ func TestSkillJSON(t *testing.T) {
 
 func TestTaskJSON(t *testing.T) {
 	task := Task{
-		ID:         "task-001",
-		Title:      "Test Task",
-		State:      TaskStateInProgress,
-		CreateTime:  1234567890,
-		UpdateTime:  1234567891,
+		ID:           "task-001",
+		Title:        "Test Task",
+		State:        TaskStateInProgress,
+		CreateTime:   1234567890,
+		UpdateTime:   1234567891,
 		CompleteTime: 0,
 		Steps: []TaskStep{
 			{Description: "Step 1", Done: true},
@@ -188,10 +188,10 @@ func TestTaskJSON(t *testing.T) {
 
 func TestHeartbeatTaskJSON(t *testing.T) {
 	ht := HeartbeatTask{
-		Schedule:   "0 2 * * *",
+		Schedule:    "0 2 * * *",
 		Description: "Daily backup",
-		OnFailure:  "notify",
-		Enabled:    true,
+		OnFailure:   "notify",
+		Enabled:     true,
 	}
 
 	data, err := json.Marshal(ht)
@@ -369,7 +369,7 @@ func TestPluginTypeConstantValues(t *testing.T) {
 func TestTaskStepJSON(t *testing.T) {
 	step := TaskStep{
 		Description: "Test step",
-		Done:       false,
+		Done:        false,
 	}
 
 	data, err := json.Marshal(step)

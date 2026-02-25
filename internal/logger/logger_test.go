@@ -119,10 +119,10 @@ func TestLoggerLevels(t *testing.T) {
 
 func TestLoggerFormattedOutput(t *testing.T) {
 	tests := []struct {
-		name    string
-		level   string
-		format  string
-		args    []any
+		name   string
+		level  string
+		format string
+		args   []any
 	}{
 		{
 			name:   "Infof",
@@ -242,38 +242,38 @@ func TestLoggerMultipleArgs(t *testing.T) {
 
 func TestLoggerLevelParsing(t *testing.T) {
 	tests := []struct {
-		name     string
-		level    string
+		name      string
+		level     string
 		wantPanic bool
 	}{
 		{
-			name:     "debug",
-			level:    "debug",
+			name:      "debug",
+			level:     "debug",
 			wantPanic: false,
 		},
 		{
-			name:     "info",
-			level:    "info",
+			name:      "info",
+			level:     "info",
 			wantPanic: false,
 		},
 		{
-			name:     "warn",
-			level:    "warn",
+			name:      "warn",
+			level:     "warn",
 			wantPanic: false,
 		},
 		{
-			name:     "error",
-			level:    "error",
+			name:      "error",
+			level:     "error",
 			wantPanic: false,
 		},
 		{
-			name:     "invalid level defaults to info",
-			level:    "invalid",
+			name:      "invalid level defaults to info",
+			level:     "invalid",
 			wantPanic: false,
 		},
 		{
-			name:     "empty defaults to info",
-			level:    "",
+			name:      "empty defaults to info",
+			level:     "",
 			wantPanic: false,
 		},
 	}

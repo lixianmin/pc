@@ -187,7 +187,10 @@ func (p *StdioProtocol) readResponses() {
 	}
 
 	if err := scanner.Err(); err != nil {
-		fmt.Fprintf(os.Stderr, "error reading stdout: %v\n", err)
+		// Ignore closed pipe errors (normal when protocol is closed)
+		if err.Error() != "io: read/write on closed pipe" {
+			fmt.Fprintf(os.Stderr, "error reading stdout: %v\n", err)
+		}
 	}
 }
 

@@ -26,7 +26,7 @@ const (
 // LogConfig holds logging configuration.
 type LogConfig struct {
 	Level  LogLevel `yaml:"level"`  // Logging level (debug, info, warn, error)
-	Output string  `yaml:"output"` // Output destination (stdout, file, or path)
+	Output string   `yaml:"output"` // Output destination (stdout, file, or path)
 }
 
 // AgentConfig holds agent-specific configuration.
@@ -38,10 +38,10 @@ type AgentConfig struct {
 
 // Config holds the complete configuration.
 type Config struct {
-	Agent      AgentConfig `yaml:"agent"`      // Agent configuration
-	Workspace  string      `yaml:"workspace"`  // Workspace directory
-	Log        LogConfig   `yaml:"log"`        // Logging configuration
-	SkillsDir  string      `yaml:"skills_dir"` // Skills directory
+	Agent      AgentConfig `yaml:"agent"`       // Agent configuration
+	Workspace  string      `yaml:"workspace"`   // Workspace directory
+	Log        LogConfig   `yaml:"log"`         // Logging configuration
+	SkillsDir  string      `yaml:"skills_dir"`  // Skills directory
 	PluginsDir string      `yaml:"plugins_dir"` // Plugins directory
 }
 

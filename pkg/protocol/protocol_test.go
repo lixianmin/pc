@@ -10,8 +10,8 @@ import (
 
 // mockExecCmd is a mock implementation of execCmd for testing.
 type mockExecCmd struct {
-	stdinR  *io.PipeReader
-	stdinW  *io.PipeWriter
+	stdinR   *io.PipeReader
+	stdinW   *io.PipeWriter
 	stdoutR  *io.PipeReader
 	stdoutW  *io.PipeWriter
 	stderrR  *io.PipeReader
@@ -67,7 +67,7 @@ func (m *mockExecCmd) Close() {
 
 func TestNewRequest(t *testing.T) {
 	tests := []struct {
-		name  string
+		name   string
 		method string
 		params any
 	}{
@@ -278,11 +278,11 @@ func TestStdioProtocolTimeout(t *testing.T) {
 		t.Fatalf("Connect() error = %v", err)
 	}
 
-	// Ensure protocol is closed after test
-	defer proto.Close()
-
 	// Call without response should timeout
 	_, err := proto.Call("test.method", nil)
+
+	// Close protocol before checking error to clean up goroutines
+	_ = proto.Close()
 
 	if err == nil {
 		t.Error("Call() should timeout")

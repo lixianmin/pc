@@ -12,10 +12,10 @@ func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
 
 	tests := []struct {
-		name     string
-		want     string
-		got      string
-		notZero  bool
+		name    string
+		want    string
+		got     string
+		notZero bool
 	}{
 		{"agent name", "PersonalClaw", cfg.Agent.Name, true},
 		{"agent profession", "通用助手", cfg.Agent.Profession, true},
