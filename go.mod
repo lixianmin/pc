@@ -8,4 +8,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-require github.com/lixianmin/got v0.0.0-20241022084720-9b9e479e6a53 // indirect
+require (
+	github.com/lixianmin/got v0.0.0-20241022084720-9b9e479e6a53 // indirect
+	github.com/oklog/ulid/v2 v2.1.1 // indirect
+)
