@@ -1,2 +1,2 @@
 # pc
-Abbreviated for PersonalClaw as an alternative to openclaw
+PC is abbreviated for PersonalClaw, as an alternative to openclaw
