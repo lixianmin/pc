@@ -132,6 +132,56 @@ func TestProcessMessage(t *testing.T) {
 	}
 }
 
+func TestProcessMessageWithContext(t *testing.T) {
+	tests := []struct {
+		name          string
+		sessionId     string
+		messages      []struct {
+			role    string
+			content string
+		}
+		finalMessage  string
+		wantContextLen int
+	}{
+		{
+			name:      "maintain conversation context",
+			sessionId: "test-session-context",
+			messages: []struct {
+				role    string
+				content string
+			}{
+				{role: "user", content: "My name is Alice"},
+				{role: "assistant", content: "Hello Alice!"},
+			},
+			finalMessage:   "What is my name?",
+			wantContextLen: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := NewEngine()
+			ctx := context.Background()
+			_ = e.CreateSession(tt.sessionId)
+
+			// Add historical messages
+			for _, msg := range tt.messages {
+				if msg.role == "user" {
+					e.memory.AddMessage(tt.sessionId, msg.role, msg.content)
+				}
+			}
+
+			_, _ = e.ProcessMessage(ctx, tt.sessionId, tt.finalMessage)
+
+			// Verify context is maintained
+			msgs, _ := e.memory.GetMessages(tt.sessionId)
+			if len(msgs) != tt.wantContextLen {
+				t.Errorf("context length = %v, want %v", len(msgs), tt.wantContextLen)
+			}
+		})
+	}
+}
+
 func TestClose(t *testing.T) {
 	tests := []struct {
 		name    string

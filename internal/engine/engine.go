@@ -3,6 +3,8 @@ package engine
 import (
 	"context"
 	"fmt"
+
+	"github.com/lixianmin/pc/internal/memory"
 )
 
 // CoreEngine is the interface for the core engine.
@@ -22,14 +24,16 @@ type CoreEngine interface {
 
 // Engine is the core engine implementation.
 type Engine struct {
-	// TODO: Add plugin manager, memory, etc.
+	// TODO: Add plugin manager
 	sessions map[string]bool
+	memory   memory.MemoryService
 }
 
 // NewEngine creates a new core engine.
 func NewEngine() *Engine {
 	return &Engine{
 		sessions: make(map[string]bool),
+		memory:   memory.NewService(),
 	}
 }
 
@@ -48,9 +52,21 @@ func (e *Engine) ProcessMessage(ctx context.Context, sessionId, message string) 
 		return "", fmt.Errorf("session not found: %s", sessionId)
 	}
 
+	// Save user message to memory
+	if err := e.memory.AddMessage(sessionId, "user", message); err != nil {
+		return "", fmt.Errorf("failed to save user message: %w", err)
+	}
+
 	// TODO: Implement actual message processing with LLM plugin
-	// For now, return a mock response
-	return fmt.Sprintf("Echo: %s", message), nil
+	// For now, return a mock response and save it to memory
+	response := fmt.Sprintf("Echo: %s", message)
+
+	// Save assistant response to memory
+	if err := e.memory.AddMessage(sessionId, "assistant", response); err != nil {
+		return "", fmt.Errorf("failed to save assistant response: %w", err)
+	}
+
+	return response, nil
 }
 
 // CreateSession creates a new session.
@@ -70,6 +86,8 @@ func (e *Engine) CloseSession(sessionId string) error {
 
 // Close closes the engine.
 func (e *Engine) Close() error {
-	// TODO: Implement cleanup
+	if e.memory != nil {
+		return e.memory.Close()
+	}
 	return nil
 }
