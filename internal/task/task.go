@@ -35,8 +35,9 @@ type Task struct {
 	Title      string `json:"title"`
 	State      State  `json:"state"`
 	Steps      []Step `json:"steps"`
-	CreateAt   int64  `json:"create_at"`
-	CompleteAt int64  `json:"complete_at"`
+	CreateAt   int64  `json:"create_at"`   // Creation time (Unix milliseconds)
+	UpdateAt   int64  `json:"update_at"`   // Last update time (Unix milliseconds)
+	CompleteAt int64  `json:"complete_at"` // Completion time (Unix milliseconds)
 }
 
 // NewTask creates a new task with the given title.
@@ -54,6 +55,7 @@ func NewTask(title string) (*Task, error) {
 		State:    StatePending,
 		Steps:    []Step{},
 		CreateAt: now,
+		UpdateAt: now,
 	}, nil
 }
 
@@ -74,8 +76,9 @@ func (my *Task) AddStep(title string) error {
 // UpdateState updates the state of the task.
 func (my *Task) UpdateState(state State) {
 	my.State = state
+	my.UpdateAt = time.Now().UnixMilli()
 	if state == StateCompleted {
-		my.CompleteAt = time.Now().UnixMilli()
+		my.CompleteAt = my.UpdateAt
 	}
 }
 
@@ -195,6 +198,7 @@ func (my *Manager) generateMarkdown() string {
 		sb.WriteString(fmt.Sprintf("## [%s] %s\n", task.State, task.Title))
 		sb.WriteString(fmt.Sprintf("- ID: %s\n", task.Id))
 		sb.WriteString(fmt.Sprintf("- CreateAt: %d\n", task.CreateAt))
+		sb.WriteString(fmt.Sprintf("- UpdateAt: %d\n", task.UpdateAt))
 		if task.State == StateCompleted {
 			sb.WriteString(fmt.Sprintf("- CompleteAt: %d\n", task.CompleteAt))
 		}
@@ -258,6 +262,14 @@ func (my *Manager) parseMarkdown(content string) error {
 		if strings.HasPrefix(line, "- CreateAt:") {
 			if currentTask != nil {
 				fmt.Sscanf(strings.TrimSpace(line[11:]), "%d", &currentTask.CreateAt)
+			}
+			continue
+		}
+
+		// Parse UpdateAt
+		if strings.HasPrefix(line, "- UpdateAt:") {
+			if currentTask != nil {
+				fmt.Sscanf(strings.TrimSpace(line[11:]), "%d", &currentTask.UpdateAt)
 			}
 			continue
 		}

@@ -16,7 +16,7 @@ func TestNewManager(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewManager()
+			got := NewSkillManager()
 			if got == nil {
 				t.Error("NewManager() returned nil")
 			}
@@ -26,9 +26,9 @@ func TestNewManager(t *testing.T) {
 
 func TestLoadSkills(t *testing.T) {
 	tests := []struct {
-		name     string
-		setup    func(t *testing.T) string
-		wantErr  bool
+		name    string
+		setup   func(t *testing.T) string
+		wantErr bool
 	}{
 		{
 			name: "load skills from directory",
@@ -59,7 +59,7 @@ A simple test skill.
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := NewManager()
+			m := NewSkillManager()
 			skillDir := tt.setup(t)
 
 			skills, err := m.LoadSkills(skillDir)
@@ -75,14 +75,14 @@ A simple test skill.
 
 func TestGetSkill(t *testing.T) {
 	tests := []struct {
-		name    string
-		setup   func(*Manager)
+		name      string
+		setup     func(*SkillManager)
 		skillName string
-		wantErr bool
+		wantErr   bool
 	}{
 		{
 			name: "get existing skill",
-			setup: func(m *Manager) {
+			setup: func(m *SkillManager) {
 				m.skills = []Skill{
 					{Name: "test-skill", Description: "Test", Steps: []string{"step1", "step2"}, FilePath: "/path/to/skill.md"},
 				}
@@ -92,7 +92,7 @@ func TestGetSkill(t *testing.T) {
 		},
 		{
 			name: "get non-existent skill",
-			setup: func(m *Manager) {
+			setup: func(m *SkillManager) {
 				m.skills = []Skill{}
 			},
 			skillName: "non-existent",
@@ -102,7 +102,7 @@ func TestGetSkill(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := NewManager()
+			m := NewSkillManager()
 			tt.setup(m)
 
 			skill, err := m.GetSkill(tt.skillName)
@@ -118,13 +118,13 @@ func TestGetSkill(t *testing.T) {
 
 func TestListSkills(t *testing.T) {
 	tests := []struct {
-		name       string
-		setup      func(*Manager)
-		wantCount  int
+		name      string
+		setup     func(*SkillManager)
+		wantCount int
 	}{
 		{
 			name: "list skills with entries",
-			setup: func(m *Manager) {
+			setup: func(m *SkillManager) {
 				m.skills = []Skill{
 					{Name: "skill1", Description: "First skill", Steps: []string{"a"}, FilePath: "/path1"},
 					{Name: "skill2", Description: "Second skill", Steps: []string{"b"}, FilePath: "/path2"},
@@ -134,7 +134,7 @@ func TestListSkills(t *testing.T) {
 		},
 		{
 			name: "list empty skills",
-			setup: func(m *Manager) {
+			setup: func(m *SkillManager) {
 				m.skills = []Skill{}
 			},
 			wantCount: 0,
@@ -143,7 +143,7 @@ func TestListSkills(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := NewManager()
+			m := NewSkillManager()
 			tt.setup(m)
 
 			skills := m.ListSkills()

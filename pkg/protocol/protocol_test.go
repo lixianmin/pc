@@ -278,6 +278,24 @@ func TestStdioProtocolTimeout(t *testing.T) {
 		t.Fatalf("Connect() error = %v", err)
 	}
 
+	// Start a goroutine to consume the request and NOT send response (to trigger timeout)
+	go func() {
+		// Read the request to unblock the writer
+		buf := make([]byte, 4096)
+		for {
+			n, err := cmd.stdinR.Read(buf)
+			if err != nil {
+				return
+			}
+			if n > 0 {
+				// Consume data but don't respond - this will cause timeout
+				// Give some time before closing to ensure timeout happens
+				time.Sleep(200 * time.Millisecond)
+				return
+			}
+		}
+	}()
+
 	// Call without response should timeout
 	_, err := proto.Call("test.method", nil)
 
@@ -286,6 +304,9 @@ func TestStdioProtocolTimeout(t *testing.T) {
 
 	if err == nil {
 		t.Error("Call() should timeout")
+	}
+	if err.Error() != "timeout waiting for response" {
+		t.Errorf("Expected timeout error, got: %v", err)
 	}
 }
 

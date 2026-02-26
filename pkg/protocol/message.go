@@ -3,7 +3,7 @@ package protocol
 import (
 	"encoding/json"
 
-	"github.com/google/uuid"
+	"github.com/oklog/ulid/v2"
 )
 
 // Version is the protocol version.
@@ -52,7 +52,7 @@ type Error struct {
 func NewRequest(method string, params any) *Request {
 	return &Request{
 		Version: Version,
-		ID:      uuid.New().String(),
+		ID:      ulid.Make().String(),
 		Type:    MessageTypeCall,
 		Method:  method,
 		Params:  params,
@@ -97,8 +97,8 @@ func NewErrorWithData(id string, code int, message string, data any) *Response {
 }
 
 // Encode encodes a request to JSON bytes.
-func (r *Request) Encode() ([]byte, error) {
-	return json.Marshal(r)
+func (my *Request) Encode() ([]byte, error) {
+	return json.Marshal(my)
 }
 
 // DecodeRequest decodes JSON bytes to a request.
@@ -109,8 +109,8 @@ func DecodeRequest(data []byte) (*Request, error) {
 }
 
 // Encode encodes a response to JSON bytes.
-func (r *Response) Encode() ([]byte, error) {
-	return json.Marshal(r)
+func (my *Response) Encode() ([]byte, error) {
+	return json.Marshal(my)
 }
 
 // DecodeResponse decodes JSON bytes to a response.
@@ -121,11 +121,11 @@ func DecodeResponse(data []byte) (*Response, error) {
 }
 
 // IsSuccess returns true if the response is successful (no error).
-func (r *Response) IsSuccess() bool {
-	return r.Error == nil
+func (my *Response) IsSuccess() bool {
+	return my.Error == nil
 }
 
 // IsError returns true if the response is an error.
-func (r *Response) IsError() bool {
-	return r.Error != nil
+func (my *Response) IsError() bool {
+	return my.Error != nil
 }

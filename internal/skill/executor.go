@@ -43,7 +43,7 @@ func NewExecutor() *Engine {
 }
 
 // ExecuteSkill executes a skill.
-func (e *Engine) ExecuteSkill(skill *Skill, context map[string]any) (map[string]any, error) {
+func (my *Engine) ExecuteSkill(skill *Skill, context map[string]any) (map[string]any, error) {
 	// Create execution steps from skill steps
 	var steps []ExecutionStep
 	for _, stepDesc := range skill.Steps {
@@ -56,7 +56,7 @@ func (e *Engine) ExecuteSkill(skill *Skill, context map[string]any) (map[string]
 	// Execute all steps sequentially
 	results := []any{}
 	for _, step := range steps {
-		result, err := e.ExecuteStep(step, context)
+		result, err := my.ExecuteStep(step, context)
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute step: %w", err)
 		}
@@ -69,7 +69,7 @@ func (e *Engine) ExecuteSkill(skill *Skill, context map[string]any) (map[string]
 }
 
 // ExecuteStep executes a single step.
-func (e *Engine) ExecuteStep(step ExecutionStep, context map[string]any) (map[string]any, error) {
+func (my *Engine) ExecuteStep(step ExecutionStep, context map[string]any) (map[string]any, error) {
 	switch step.Type {
 	case "action":
 		if step.Command == "" {
@@ -93,14 +93,14 @@ func (e *Engine) ExecuteStep(step ExecutionStep, context map[string]any) (map[st
 		if step.Loop == nil {
 			return nil, fmt.Errorf("loop step requires loop config")
 		}
-		return e.executeLoop(*step.Loop, step.Steps, context)
+		return my.executeLoop(*step.Loop, step.Steps, context)
 	default:
 		return nil, fmt.Errorf("unknown step type: %s", step.Type)
 	}
 }
 
 // executeLoop handles loop execution.
-func (e *Engine) executeLoop(loop LoopConfig, steps []ExecutionStep, context map[string]any) (map[string]any, error) {
+func (my *Engine) executeLoop(loop LoopConfig, steps []ExecutionStep, context map[string]any) (map[string]any, error) {
 	results := []any{}
 
 	switch loop.Type {
@@ -110,7 +110,7 @@ func (e *Engine) executeLoop(loop LoopConfig, steps []ExecutionStep, context map
 		}
 		for i := 0; i < loop.Count; i++ {
 			for _, step := range steps {
-				result, err := e.ExecuteStep(step, context)
+				result, err := my.ExecuteStep(step, context)
 				if err != nil {
 					return nil, fmt.Errorf("failed to execute loop step %d: %w", i, err)
 				}
@@ -124,7 +124,7 @@ func (e *Engine) executeLoop(loop LoopConfig, steps []ExecutionStep, context map
 		// Simple while loop - execute once for now (mock)
 		// In a real implementation, this would check the condition after each iteration
 		for _, step := range steps {
-			result, err := e.ExecuteStep(step, context)
+			result, err := my.ExecuteStep(step, context)
 			if err != nil {
 				return nil, fmt.Errorf("failed to execute while loop step: %w", err)
 			}
@@ -142,7 +142,7 @@ func (e *Engine) executeLoop(loop LoopConfig, steps []ExecutionStep, context map
 }
 
 // CallTool calls a tool plugin.
-func (e *Engine) CallTool(toolName string, params map[string]any) (any, error) {
+func (my *Engine) CallTool(toolName string, params map[string]any) (any, error) {
 	// TODO: Implement actual tool calling via plugin manager
 	// For now, return a mock result
 	if toolName == "" {

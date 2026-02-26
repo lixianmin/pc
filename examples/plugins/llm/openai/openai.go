@@ -25,7 +25,7 @@ func NewGLMClient(apiKey, model, baseURL string) *GLMClient {
 }
 
 // Complete generates a text completion.
-func (c *GLMClient) Complete(prompt string, options map[string]any) (string, error) {
+func (my *GLMClient) Complete(prompt string, options map[string]any) (string, error) {
 	// Validate prompt
 	if prompt == "" {
 		return "", fmt.Errorf("prompt cannot be empty")
@@ -37,7 +37,7 @@ func (c *GLMClient) Complete(prompt string, options map[string]any) (string, err
 }
 
 // Stream generates a streaming text completion.
-func (c *GLMClient) Stream(prompt string, options map[string]any) (<-chan string, error) {
+func (my *GLMClient) Stream(prompt string, options map[string]any) (<-chan string, error) {
 	// TODO: Implement actual GLM streaming API call
 	ch := make(chan string)
 	go func() {
@@ -48,7 +48,7 @@ func (c *GLMClient) Stream(prompt string, options map[string]any) (<-chan string
 }
 
 // Models returns the list of available models.
-func (c *GLMClient) Models() ([]string, error) {
+func (my *GLMClient) Models() ([]string, error) {
 	// TODO: Implement actual GLM models API call
 	// For now, return a mock list for testing
 	return []string{"glm-5", "glm-4.7"}, nil

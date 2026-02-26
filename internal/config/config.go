@@ -101,36 +101,36 @@ func Load(path string) (*Config, error) {
 }
 
 // Validate validates the configuration.
-func (c *Config) Validate() error {
-	if c.Agent.Name == "" {
+func (my *Config) Validate() error {
+	if my.Agent.Name == "" {
 		return fmt.Errorf("agent.name is required")
 	}
 
-	if c.Workspace == "" {
+	if my.Workspace == "" {
 		return fmt.Errorf("workspace is required")
 	}
 
-	if c.SkillsDir == "" {
+	if my.SkillsDir == "" {
 		return fmt.Errorf("skills_dir is required")
 	}
 
-	if c.PluginsDir == "" {
+	if my.PluginsDir == "" {
 		return fmt.Errorf("plugins_dir is required")
 	}
 
 	// Validate log level
-	switch c.Log.Level {
+	switch my.Log.Level {
 	case DebugLevel, InfoLevel, WarnLevel, ErrorLevel:
 		// Valid
 	default:
-		return fmt.Errorf("invalid log level: %s", c.Log.Level)
+		return fmt.Errorf("invalid log level: %s", my.Log.Level)
 	}
 
 	return nil
 }
 
 // Save saves the configuration to a YAML file.
-func (c *Config) Save(path string) error {
+func (my *Config) Save(path string) error {
 	// Create directory if it doesn't exist
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -138,7 +138,7 @@ func (c *Config) Save(path string) error {
 	}
 
 	// Marshal to YAML
-	data, err := yaml.Marshal(c)
+	data, err := yaml.Marshal(my)
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
@@ -214,41 +214,41 @@ func expandPath(path string) string {
 }
 
 // GetAgentName returns the agent name.
-func (c *Config) GetAgentName() string {
-	return c.Agent.Name
+func (my *Config) GetAgentName() string {
+	return my.Agent.Name
 }
 
 // GetAgentProfession returns the agent profession.
-func (c *Config) GetAgentProfession() string {
-	return c.Agent.Profession
+func (my *Config) GetAgentProfession() string {
+	return my.Agent.Profession
 }
 
 // GetAgentPersonality returns the agent personality traits.
-func (c *Config) GetAgentPersonality() []string {
-	return c.Agent.Personality
+func (my *Config) GetAgentPersonality() []string {
+	return my.Agent.Personality
 }
 
 // GetWorkspace returns the workspace directory.
-func (c *Config) GetWorkspace() string {
-	return c.Workspace
+func (my *Config) GetWorkspace() string {
+	return my.Workspace
 }
 
 // GetSkillsDir returns the skills directory.
-func (c *Config) GetSkillsDir() string {
-	return c.SkillsDir
+func (my *Config) GetSkillsDir() string {
+	return my.SkillsDir
 }
 
 // GetPluginsDir returns the plugins directory.
-func (c *Config) GetPluginsDir() string {
-	return c.PluginsDir
+func (my *Config) GetPluginsDir() string {
+	return my.PluginsDir
 }
 
 // GetLogLevel returns the log level.
-func (c *Config) GetLogLevel() LogLevel {
-	return c.Log.Level
+func (my *Config) GetLogLevel() LogLevel {
+	return my.Log.Level
 }
 
 // GetLogOutput returns the log output destination.
-func (c *Config) GetLogOutput() string {
-	return c.Log.Output
+func (my *Config) GetLogOutput() string {
+	return my.Log.Output
 }

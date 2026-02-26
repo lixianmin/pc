@@ -15,8 +15,8 @@ type Skill struct {
 	FilePath    string   `json:"file_path"`
 }
 
-// SkillManager is the interface for skill management.
-type SkillManager interface {
+// ISkillManager is the interface for skill management.
+type ISkillManager interface {
 	// LoadSkills loads all skills from the skill directory.
 	LoadSkills(skillDir string) ([]Skill, error)
 
@@ -27,20 +27,20 @@ type SkillManager interface {
 	ListSkills() []Skill
 }
 
-// Manager is the skill manager implementation.
-type Manager struct {
+// SkillManager is the skill manager implementation.
+type SkillManager struct {
 	skills []Skill
 }
 
-// NewManager creates a new skill manager.
-func NewManager() *Manager {
-	return &Manager{
+// NewSkillManager creates a new skill manager.
+func NewSkillManager() *SkillManager {
+	return &SkillManager{
 		skills: []Skill{},
 	}
 }
 
 // LoadSkills loads all skills from the skill directory.
-func (m *Manager) LoadSkills(skillDir string) ([]Skill, error) {
+func (my *SkillManager) LoadSkills(skillDir string) ([]Skill, error) {
 	// Check if directory exists
 	if _, err := os.Stat(skillDir); os.IsNotExist(err) {
 		return nil, fmt.Errorf("skill directory not found: %s", skillDir)
@@ -68,7 +68,7 @@ func (m *Manager) LoadSkills(skillDir string) ([]Skill, error) {
 		skills = append(skills, skill)
 	}
 
-	m.skills = skills
+	my.skills = skills
 	return skills, nil
 }
 
@@ -128,8 +128,8 @@ func parseSkillFile(filePath string) (Skill, error) {
 }
 
 // GetSkill returns a skill by name.
-func (m *Manager) GetSkill(name string) (*Skill, error) {
-	for _, skill := range m.skills {
+func (my *SkillManager) GetSkill(name string) (*Skill, error) {
+	for _, skill := range my.skills {
 		if skill.Name == name {
 			return &skill, nil
 		}
@@ -138,7 +138,6 @@ func (m *Manager) GetSkill(name string) (*Skill, error) {
 }
 
 // ListSkills returns all loaded skills.
-func (m *Manager) ListSkills() []Skill {
-	return m.skills
+func (my *SkillManager) ListSkills() []Skill {
+	return my.skills
 }
-

@@ -28,7 +28,7 @@ func TestPluginManager_NewManager(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mgr, err := NewManager(tt.pluginsDir)
+			mgr, err := NewPluginManager(tt.pluginsDir)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewManager() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -42,10 +42,10 @@ func TestPluginManager_NewManager(t *testing.T) {
 
 func TestPluginManager_DiscoverPlugins(t *testing.T) {
 	tests := []struct {
-		name       string
-		setupFunc  func() string
-		wantCount  int
-		wantErr    bool
+		name      string
+		setupFunc func() string
+		wantCount int
+		wantErr   bool
 	}{
 		{
 			name: "discover with valid plugin structure",
@@ -154,7 +154,7 @@ enabled: true
 		t.Run(tt.name, func(t *testing.T) {
 			pluginsDir := tt.setupFunc()
 
-			mgr, err := NewManager(pluginsDir)
+			mgr, err := NewPluginManager(pluginsDir)
 			if err != nil {
 				t.Fatalf("NewManager() failed: %v", err)
 			}
@@ -174,11 +174,11 @@ enabled: true
 
 func TestPluginManager_LoadPlugin(t *testing.T) {
 	tests := []struct {
-		name       string
-		pluginYml  string
-		wantName   string
-		wantType   types.PluginType
-		wantErr    bool
+		name      string
+		pluginYml string
+		wantName  string
+		wantType  types.PluginType
+		wantErr   bool
 	}{
 		{
 			name: "load valid LLM plugin",
@@ -228,11 +228,11 @@ entry: ./bin/test
 			wantErr:  false,
 		},
 		{
-			name: "load plugin with invalid YAML",
+			name:      "load plugin with invalid YAML",
 			pluginYml: `invalid yaml: [unclosed`,
-			wantName: "",
-			wantType: "",
-			wantErr:  true,
+			wantName:  "",
+			wantType:  "",
+			wantErr:   true,
 		},
 	}
 
@@ -250,7 +250,7 @@ entry: ./bin/test
 				t.Fatalf("setup failed: %v", err)
 			}
 
-			mgr, err := NewManager("/tmp/plugins")
+			mgr, err := NewPluginManager("/tmp/plugins")
 			if err != nil {
 				t.Fatalf("NewManager() failed: %v", err)
 			}
@@ -278,17 +278,17 @@ entry: ./bin/test
 
 func TestPluginManager_CallPlugin(t *testing.T) {
 	tests := []struct {
-		name       string
-		setupFunc  func() (*Manager, *types.Plugin)
-		method     string
-		params     any
-		wantErr    bool
+		name      string
+		setupFunc func() (*PluginManager, *types.Plugin)
+		method    string
+		params    any
+		wantErr   bool
 	}{
 		{
 			name: "call plugin with no plugin loaded",
-			setupFunc: func() (*Manager, *types.Plugin) {
+			setupFunc: func() (*PluginManager, *types.Plugin) {
 				tmpDir := t.TempDir()
-				mgr, _ := NewManager(filepath.Join(tmpDir, "plugins"))
+				mgr, _ := NewPluginManager(filepath.Join(tmpDir, "plugins"))
 				return mgr, nil
 			},
 			method:  "test",

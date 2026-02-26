@@ -32,13 +32,13 @@ func PluginTypeFromString(s string) PluginType {
 }
 
 // String returns the string representation of PluginType.
-func (p PluginType) String() string {
-	return string(p)
+func (my PluginType) String() string {
+	return string(my)
 }
 
 // IsValid returns true if the plugin type is valid.
-func (p PluginType) IsValid() bool {
-	switch p {
+func (my PluginType) IsValid() bool {
+	switch my {
 	case PluginTypeLLM, PluginTypeSearch, PluginTypeChannel, PluginTypeTool:
 		return true
 	default:
@@ -90,13 +90,13 @@ func PermissionTypeFromString(s string) PermissionType {
 }
 
 // String returns the string representation of PermissionType.
-func (p PermissionType) String() string {
-	return string(p)
+func (my PermissionType) String() string {
+	return string(my)
 }
 
 // IsValid returns true if the permission type is valid.
-func (p PermissionType) IsValid() bool {
-	switch p {
+func (my PermissionType) IsValid() bool {
+	switch my {
 	case PermissionNetwork, PermissionFilesystem, PermissionSystem:
 		return true
 	default:

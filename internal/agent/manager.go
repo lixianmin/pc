@@ -30,15 +30,15 @@ func NewManager(cfg *config.Config, configPath string) (*Manager, error) {
 	return &Manager{
 		config:     cfg,
 		configPath: configPath,
-		statePath: filepath.Join(filepath.Dir(configPath), "agent.state"),
+		statePath:  filepath.Join(filepath.Dir(configPath), "agent.state"),
 		mu:         sync.RWMutex{},
 	}, nil
 }
 
 // LoadConfig loads configuration and initializes agent.
-func (m *Manager) LoadConfig() error {
+func (my *Manager) LoadConfig() error {
 	// Load configuration
-	cfg, err := config.Load(m.configPath)
+	cfg, err := config.Load(my.configPath)
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
@@ -48,54 +48,54 @@ func (m *Manager) LoadConfig() error {
 		return fmt.Errorf("config validation failed: %w", err)
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	my.mu.Lock()
+	defer my.mu.Unlock()
 
-	m.config = cfg
+	my.config = cfg
 
 	return nil
 }
 
 // GetAgent returns the current agent.
-func (m *Manager) GetAgent() *types.Agent {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+func (my *Manager) GetAgent() *types.Agent {
+	my.mu.RLock()
+	defer my.mu.RUnlock()
 
-	if m.agent == nil {
+	if my.agent == nil {
 		// Initialize agent if not already initialized
-		m.agent = &types.Agent{
-			Name:       m.config.GetAgentName(),
-			Profession: m.config.GetAgentProfession(),
-			Personality: m.config.GetAgentPersonality(),
-			State:      types.AgentStateIdle,
+		my.agent = &types.Agent{
+			Name:        my.config.GetAgentName(),
+			Profession:  my.config.GetAgentProfession(),
+			Personality: my.config.GetAgentPersonality(),
+			State:       types.AgentStateIdle,
 		}
 	}
 
-	return m.agent
+	return my.agent
 }
 
 // SaveState saves the current agent state.
-func (m *Manager) SaveState() error {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+func (my *Manager) SaveState() error {
+	my.mu.RLock()
+	defer my.mu.RUnlock()
 
-	if m.agent == nil {
+	if my.agent == nil {
 		return nil
 	}
 
-	state, err := m.agentToState(m.agent)
+	state, err := my.agentToState(my.agent)
 	if err != nil {
 		return fmt.Errorf("failed to serialize agent state: %w", err)
 	}
 
 	// Create state directory if it doesn't exist
-	stateDir := filepath.Dir(m.statePath)
+	stateDir := filepath.Dir(my.statePath)
 	if err := os.MkdirAll(stateDir, 0755); err != nil {
 		return fmt.Errorf("failed to create state directory: %w", err)
 	}
 
 	// Write state to file
-	if err := os.WriteFile(m.statePath, state, 0644); err != nil {
+	if err := os.WriteFile(my.statePath, state, 0644); err != nil {
 		return fmt.Errorf("failed to write agent state: %w", err)
 	}
 
@@ -106,9 +106,9 @@ func (m *Manager) SaveState() error {
 }
 
 // LoadState restores the agent state from file.
-func (m *Manager) LoadState() error {
+func (my *Manager) LoadState() error {
 	// Read state file
-	data, err := os.ReadFile(m.statePath)
+	data, err := os.ReadFile(my.statePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			// State file doesn't exist, initialize default agent
@@ -120,16 +120,16 @@ func (m *Manager) LoadState() error {
 		return fmt.Errorf("failed to read agent state: %w", err)
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	my.mu.Lock()
+	defer my.mu.Unlock()
 
 	// Deserialize agent from state
-	agent, err := m.stateToAgent(data)
+	agent, err := my.stateToAgent(data)
 	if err != nil {
 		return fmt.Errorf("failed to deserialize agent state: %w", err)
 	}
 
-	m.agent = agent
+	my.agent = agent
 	if l := logger.Get(); l != nil {
 		l.Info("Agent state restored")
 	}
@@ -138,12 +138,12 @@ func (m *Manager) LoadState() error {
 }
 
 // agentToState converts agent to serializable state format.
-func (m *Manager) agentToState(agent *types.Agent) ([]byte, error) {
+func (my *Manager) agentToState(agent *types.Agent) ([]byte, error) {
 	// Use simple format: name, state
 	// For now, just serialize to JSON manually
 	state := map[string]any{
-		"name":     agent.Name,
-		"state":    string(agent.State),
+		"name":  agent.Name,
+		"state": string(agent.State),
 	}
 
 	data, err := json.Marshal(state)
@@ -155,7 +155,7 @@ func (m *Manager) agentToState(agent *types.Agent) ([]byte, error) {
 }
 
 // stateToAgent converts serialized state back to agent.
-func (m *Manager) stateToAgent(data []byte) (*types.Agent, error) {
+func (my *Manager) stateToAgent(data []byte) (*types.Agent, error) {
 	var state map[string]any
 	if err := json.Unmarshal(data, &state); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal agent state: %w", err)
@@ -170,21 +170,21 @@ func (m *Manager) stateToAgent(data []byte) (*types.Agent, error) {
 }
 
 // UpdateAgentName updates the agent name.
-func (m *Manager) UpdateAgentName(name string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+func (my *Manager) UpdateAgentName(name string) error {
+	my.mu.Lock()
+	defer my.mu.Unlock()
 
-	if m.agent == nil {
+	if my.agent == nil {
 		return fmt.Errorf("agent not initialized")
 	}
 
-	m.agent.Name = name
+	my.agent.Name = name
 	return nil
 }
 
 // Close saves the agent state and cleans up resources.
-func (m *Manager) Close() error {
-	if err := m.SaveState(); err != nil {
+func (my *Manager) Close() error {
+	if err := my.SaveState(); err != nil {
 		return err
 	}
 

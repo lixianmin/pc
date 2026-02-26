@@ -57,41 +57,41 @@ func NewStdioProtocolWithTimeout(cmd execCmd, timeout time.Duration) *StdioProto
 }
 
 // Connect establishes the connection to the plugin.
-func (p *StdioProtocol) Connect() error {
+func (my *StdioProtocol) Connect() error {
 	// Setup pipes
-	stdin, err := p.cmd.StdinPipe()
+	stdin, err := my.cmd.StdinPipe()
 	if err != nil {
 		return fmt.Errorf("failed to create stdin pipe: %w", err)
 	}
-	p.stdin = stdin
+	my.stdin = stdin
 
-	stdout, err := p.cmd.StdoutPipe()
+	stdout, err := my.cmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("failed to create stdout pipe: %w", err)
 	}
-	p.stdout = stdout
+	my.stdout = stdout
 
-	stderr, err := p.cmd.StderrPipe()
+	stderr, err := my.cmd.StderrPipe()
 	if err != nil {
 		return fmt.Errorf("failed to create stderr pipe: %w", err)
 	}
-	p.stderr = stderr
+	my.stderr = stderr
 
 	// Start the command
-	if err := p.cmd.Start(); err != nil {
+	if err := my.cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start command: %w", err)
 	}
 
 	// Start response reader
-	go p.readResponses()
-	go p.readErrors()
+	go my.readResponses()
+	go my.readErrors()
 
 	return nil
 }
 
 // Call invokes a method with parameters and returns the result.
-func (p *StdioProtocol) Call(method string, params any) (any, error) {
-	if p.closed {
+func (my *StdioProtocol) Call(method string, params any) (any, error) {
+	if my.closed {
 		return nil, fmt.Errorf("protocol is closed")
 	}
 
@@ -102,14 +102,14 @@ func (p *StdioProtocol) Call(method string, params any) (any, error) {
 	respChan := make(chan *Response, 1)
 
 	// Register pending request
-	p.mu.Lock()
-	p.pendingReqs[req.ID] = respChan
-	p.mu.Unlock()
+	my.mu.Lock()
+	my.pendingReqs[req.ID] = respChan
+	my.mu.Unlock()
 
 	defer func() {
-		p.mu.Lock()
-		delete(p.pendingReqs, req.ID)
-		p.mu.Unlock()
+		my.mu.Lock()
+		delete(my.pendingReqs, req.ID)
+		my.mu.Unlock()
 	}()
 
 	// Encode and send request
@@ -118,7 +118,7 @@ func (p *StdioProtocol) Call(method string, params any) (any, error) {
 		return nil, fmt.Errorf("failed to encode request: %w", err)
 	}
 
-	if _, err := p.stdin.Write(data); err != nil {
+	if _, err := my.stdin.Write(data); err != nil {
 		return nil, fmt.Errorf("failed to write request: %w", err)
 	}
 
@@ -129,41 +129,41 @@ func (p *StdioProtocol) Call(method string, params any) (any, error) {
 			return nil, fmt.Errorf("plugin error: %s", resp.Error.Message)
 		}
 		return resp.Result, nil
-	case <-time.After(p.timeout):
+	case <-time.After(my.timeout):
 		return nil, fmt.Errorf("timeout waiting for response")
 	}
 }
 
 // Close terminates the connection.
-func (p *StdioProtocol) Close() error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+func (my *StdioProtocol) Close() error {
+	my.mu.Lock()
+	defer my.mu.Unlock()
 
-	if p.closed {
+	if my.closed {
 		return nil
 	}
-	p.closed = true
+	my.closed = true
 
 	// Close pipes
-	if p.stdin != nil {
-		p.stdin.Close()
+	if my.stdin != nil {
+		my.stdin.Close()
 	}
-	if p.stdout != nil {
-		p.stdout.Close()
+	if my.stdout != nil {
+		my.stdout.Close()
 	}
-	if p.stderr != nil {
-		p.stderr.Close()
+	if my.stderr != nil {
+		my.stderr.Close()
 	}
 
 	// Close response channel
-	close(p.responseChan)
+	close(my.responseChan)
 
 	return nil
 }
 
 // readResponses reads responses from stdout.
-func (p *StdioProtocol) readResponses() {
-	scanner := bufio.NewScanner(p.stdout)
+func (my *StdioProtocol) readResponses() {
+	scanner := bufio.NewScanner(my.stdout)
 
 	for scanner.Scan() {
 		data := scanner.Bytes()
@@ -177,9 +177,9 @@ func (p *StdioProtocol) readResponses() {
 		}
 
 		// Route response to pending request
-		p.mu.RLock()
-		respChan, ok := p.pendingReqs[resp.ID]
-		p.mu.RUnlock()
+		my.mu.RLock()
+		respChan, ok := my.pendingReqs[resp.ID]
+		my.mu.RUnlock()
 
 		if ok {
 			respChan <- resp
@@ -195,8 +195,8 @@ func (p *StdioProtocol) readResponses() {
 }
 
 // readErrors reads errors from stderr.
-func (p *StdioProtocol) readErrors() {
-	scanner := bufio.NewScanner(p.stderr)
+func (my *StdioProtocol) readErrors() {
+	scanner := bufio.NewScanner(my.stderr)
 
 	for scanner.Scan() {
 		// Output stderr to our stderr
@@ -205,15 +205,15 @@ func (p *StdioProtocol) readErrors() {
 }
 
 // SetTimeout sets the timeout for calls.
-func (p *StdioProtocol) SetTimeout(timeout time.Duration) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.timeout = timeout
+func (my *StdioProtocol) SetTimeout(timeout time.Duration) {
+	my.mu.Lock()
+	defer my.mu.Unlock()
+	my.timeout = timeout
 }
 
 // GetTimeout returns the current timeout.
-func (p *StdioProtocol) GetTimeout() time.Duration {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.timeout
+func (my *StdioProtocol) GetTimeout() time.Duration {
+	my.mu.RLock()
+	defer my.mu.RUnlock()
+	return my.timeout
 }

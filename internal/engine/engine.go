@@ -38,7 +38,7 @@ func NewEngine() *Engine {
 }
 
 // ProcessMessage processes an incoming message.
-func (e *Engine) ProcessMessage(ctx context.Context, sessionId, message string) (string, error) {
+func (my *Engine) ProcessMessage(ctx context.Context, sessionId, message string) (string, error) {
 	// Validate inputs
 	if sessionId == "" {
 		return "", fmt.Errorf("session ID cannot be empty")
@@ -48,12 +48,12 @@ func (e *Engine) ProcessMessage(ctx context.Context, sessionId, message string) 
 	}
 
 	// Check if session exists
-	if !e.sessions[sessionId] {
+	if !my.sessions[sessionId] {
 		return "", fmt.Errorf("session not found: %s", sessionId)
 	}
 
 	// Save user message to memory
-	if err := e.memory.AddMessage(sessionId, "user", message); err != nil {
+	if err := my.memory.AddMessage(sessionId, "user", message); err != nil {
 		return "", fmt.Errorf("failed to save user message: %w", err)
 	}
 
@@ -62,7 +62,7 @@ func (e *Engine) ProcessMessage(ctx context.Context, sessionId, message string) 
 	response := fmt.Sprintf("Echo: %s", message)
 
 	// Save assistant response to memory
-	if err := e.memory.AddMessage(sessionId, "assistant", response); err != nil {
+	if err := my.memory.AddMessage(sessionId, "assistant", response); err != nil {
 		return "", fmt.Errorf("failed to save assistant response: %w", err)
 	}
 
@@ -70,24 +70,24 @@ func (e *Engine) ProcessMessage(ctx context.Context, sessionId, message string) 
 }
 
 // CreateSession creates a new session.
-func (e *Engine) CreateSession(sessionId string) error {
+func (my *Engine) CreateSession(sessionId string) error {
 	if sessionId == "" {
 		return fmt.Errorf("session ID cannot be empty")
 	}
-	e.sessions[sessionId] = true
+	my.sessions[sessionId] = true
 	return nil
 }
 
 // CloseSession closes a session.
-func (e *Engine) CloseSession(sessionId string) error {
-	delete(e.sessions, sessionId)
+func (my *Engine) CloseSession(sessionId string) error {
+	delete(my.sessions, sessionId)
 	return nil
 }
 
 // Close closes the engine.
-func (e *Engine) Close() error {
-	if e.memory != nil {
-		return e.memory.Close()
+func (my *Engine) Close() error {
+	if my.memory != nil {
+		return my.memory.Close()
 	}
 	return nil
 }

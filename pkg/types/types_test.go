@@ -91,7 +91,7 @@ func TestAgentJSON(t *testing.T) {
 				{
 					Role:    "user",
 					Content: "Hello",
-					Time:    1234567890,
+					Ts:      1234567890000,
 				},
 			},
 		},
@@ -153,9 +153,9 @@ func TestTaskJSON(t *testing.T) {
 		ID:           "task-001",
 		Title:        "Test Task",
 		State:        TaskStateInProgress,
-		CreateTime:   1234567890,
-		UpdateTime:   1234567891,
-		CompleteTime: 0,
+		CreateAt:   1234567890000,
+		UpdateAt:   1234567891000,
+		CompleteAt: 0,
 		Steps: []TaskStep{
 			{Description: "Step 1", Done: true},
 			{Description: "Step 2", Done: false},
@@ -285,19 +285,19 @@ func TestMemoryJSON(t *testing.T) {
 			{
 				Role:    "user",
 				Content: "Hello",
-				Time:    1234567890,
+				Ts:      1234567890000,
 			},
 			{
 				Role:    "assistant",
 				Content: "Hi there!",
-				Time:    1234567891,
+				Ts:      1234567891000,
 			},
 		},
 		LongTerm: []MemoryItem{
 			{
 				Key:       "user_name",
 				Value:     "Alice",
-				Timestamp: 1234567890,
+				UpdateAt: 1234567890000,
 				ExpiresAt: 0,
 			},
 		},
@@ -396,7 +396,7 @@ func TestMessageJSON(t *testing.T) {
 	msg := Message{
 		Role:    "user",
 		Content: "Hello",
-		Time:    1234567890,
+		Ts:      1234567890000,
 	}
 
 	data, err := json.Marshal(msg)
@@ -418,8 +418,8 @@ func TestMessageJSON(t *testing.T) {
 		t.Errorf("Decoded Content = %v, want %v", decoded.Content, msg.Content)
 	}
 
-	if decoded.Time != msg.Time {
-		t.Errorf("Decoded Time = %v, want %v", decoded.Time, msg.Time)
+	if decoded.Ts != msg.Ts {
+		t.Errorf("Decoded Ts = %v, want %v", decoded.Ts, msg.Ts)
 	}
 }
 
@@ -427,7 +427,7 @@ func TestMemoryItemJSON(t *testing.T) {
 	item := MemoryItem{
 		Key:       "test_key",
 		Value:     "test_value",
-		Timestamp: 1234567890,
+		UpdateAt: 1234567890000,
 		ExpiresAt: 12345678900,
 	}
 

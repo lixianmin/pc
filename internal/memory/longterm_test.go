@@ -1,10 +1,10 @@
 package memory
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 func TestNewLongTermService(t *testing.T) {
@@ -177,7 +177,7 @@ func TestDelete(t *testing.T) {
 		{
 			name: "delete non-existent memory",
 			setup: func(s *LongTermService) string {
-				return uuid.New().String()
+				return "01HABCDEFGHJKMNPQRSTVWXYZ0" // ULID format string
 			},
 			wantErr: false,
 		},
@@ -244,5 +244,159 @@ func TestCloseLongTerm(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPersistentLongTermMemory(t *testing.T) {
+	tmpDir := t.TempDir()
+	storagePath := filepath.Join(tmpDir, "memory.json")
+
+	t.Run("create and load persistent memory", func(t *testing.T) {
+		// Create service with storage
+		s1, err := NewPersistentLongTermService(storagePath)
+		if err != nil {
+			t.Fatalf("NewPersistentLongTermService() error = %v", err)
+		}
+
+		// Store some memories
+		id1, err := s1.Store("Memory 1", []string{"tag1"}, 5)
+		if err != nil {
+			t.Fatalf("Store() error = %v", err)
+		}
+
+		id2, err := s1.Store("Memory 2", []string{"tag2"}, 3)
+		if err != nil {
+			t.Fatalf("Store() error = %v", err)
+		}
+
+		// Save to disk
+		if err := s1.Save(); err != nil {
+			t.Fatalf("Save() error = %v", err)
+		}
+
+		if err := s1.Close(); err != nil {
+			t.Fatalf("Close() error = %v", err)
+		}
+
+		// Create new service instance and load
+		s2, err := NewPersistentLongTermService(storagePath)
+		if err != nil {
+			t.Fatalf("NewPersistentLongTermService() load error = %v", err)
+		}
+		defer s2.Close()
+
+		// Verify memories are loaded
+		results, err := s2.Retrieve("", 10)
+		if err != nil {
+			t.Fatalf("Retrieve() error = %v", err)
+		}
+
+		if len(results) != 2 {
+			t.Errorf("Expected 2 memories, got %d", len(results))
+		}
+
+		// Verify IDs match
+		foundIDs := make(map[string]bool)
+		for _, r := range results {
+			foundIDs[r.ID] = true
+		}
+		if !foundIDs[id1] {
+			t.Errorf("Memory %s not found", id1)
+		}
+		if !foundIDs[id2] {
+			t.Errorf("Memory %s not found", id2)
+		}
+	})
+
+	t.Run("auto save on close", func(t *testing.T) {
+		storagePath := filepath.Join(tmpDir, "memory_auto.json")
+
+		s1, err := NewPersistentLongTermService(storagePath)
+		if err != nil {
+			t.Fatalf("NewPersistentLongTermService() error = %v", err)
+		}
+
+		id, err := s1.Store("Auto save test", []string{"auto"}, 1)
+		if err != nil {
+			t.Fatalf("Store() error = %v", err)
+		}
+
+		// Close should auto-save
+		if err := s1.Close(); err != nil {
+			t.Fatalf("Close() error = %v", err)
+		}
+
+		// Verify file exists
+		if _, err := os.Stat(storagePath); os.IsNotExist(err) {
+			t.Error("Storage file not created after close")
+		}
+
+		// Load and verify
+		s2, err := NewPersistentLongTermService(storagePath)
+		if err != nil {
+			t.Fatalf("NewPersistentLongTermService() load error = %v", err)
+		}
+		defer s2.Close()
+
+		results, err := s2.Retrieve("", 10)
+		if err != nil {
+			t.Fatalf("Retrieve() error = %v", err)
+		}
+
+		found := false
+		for _, r := range results {
+			if r.ID == id {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Error("Memory not found after auto-save")
+		}
+	})
+
+	t.Run("persist with expiration", func(t *testing.T) {
+		storagePath := filepath.Join(tmpDir, "memory_expire.json")
+
+		s, err := NewPersistentLongTermService(storagePath)
+		if err != nil {
+			t.Fatalf("NewPersistentLongTermService() error = %v", err)
+		}
+		defer s.Close()
+
+		// Store with future expiration
+		futureTime := time.Now().Add(24 * time.Hour).UnixMilli()
+		id, err := s.StoreWithExpiration("Expires soon", []string{"temp"}, 1, futureTime)
+		if err != nil {
+			t.Fatalf("StoreWithExpiration() error = %v", err)
+		}
+
+		if err := s.Save(); err != nil {
+			t.Fatalf("Save() error = %v", err)
+		}
+
+		// Load and verify expiration is preserved
+		s2, err := NewPersistentLongTermService(storagePath)
+		if err != nil {
+			t.Fatalf("NewPersistentLongTermService() load error = %v", err)
+		}
+		defer s2.Close()
+
+		results, err := s2.Retrieve("", 10)
+		if err != nil {
+			t.Fatalf("Retrieve() error = %v", err)
+		}
+
+		if len(results) != 1 {
+			t.Fatalf("Expected 1 memory, got %d", len(results))
+		}
+
+		if results[0].ID != id {
+			t.Errorf("ID mismatch: got %s, want %s", results[0].ID, id)
+		}
+
+		if results[0].ExpiresAt != futureTime {
+			t.Errorf("ExpiresAt mismatch: got %d, want %d", results[0].ExpiresAt, futureTime)
+		}
+	})
 }
 

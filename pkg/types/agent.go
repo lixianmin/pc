@@ -34,15 +34,15 @@ type Memory struct {
 type Message struct {
 	Role    string `json:"role"`    // "user" or "assistant"
 	Content string `json:"content"` // Message content
-	Time    int64  `json:"time"`    // Timestamp (Unix seconds)
+	Ts      int64  `json:"ts"`      // Timestamp (Unix milliseconds)
 }
 
 // MemoryItem represents an item in long-term memory.
 type MemoryItem struct {
-	Key       string `json:"key"`        // Memory key
-	Value     any    `json:"value"`      // Memory value
-	Timestamp int64  `json:"timestamp"`  // Last update time
-	ExpiresAt int64  `json:"expires_at"` // Expiration time (0 means never expires)
+	Key      string `json:"key"`        // Memory key
+	Value    any    `json:"value"`      // Memory value
+	UpdateAt int64  `json:"update_at"`  // Last update time (Unix milliseconds)
+	ExpiresAt int64 `json:"expires_at"` // Expiration time (0 means never expires, Unix milliseconds)
 }
 
 // Skill represents an agent skill.
@@ -69,13 +69,13 @@ const (
 
 // Task represents a task in the agent's task list.
 type Task struct {
-	ID           string     `json:"id"`            // Task ID
-	Title        string     `json:"title"`         // Task title
-	State        TaskState  `json:"state"`         // Task state
-	Steps        []TaskStep `json:"steps"`         // Task steps
-	CreateTime   int64      `json:"create_time"`   // Creation time (Unix seconds)
-	UpdateTime   int64      `json:"update_time"`   // Last update time (Unix seconds)
-	CompleteTime int64      `json:"complete_time"` // Completion time (Unix seconds)
+	ID         string     `json:"id"`          // Task ID
+	Title      string     `json:"title"`       // Task title
+	State      TaskState  `json:"state"`       // Task state
+	Steps      []TaskStep `json:"steps"`       // Task steps
+	CreateAt   int64      `json:"create_at"`   // Creation time (Unix milliseconds)
+	UpdateAt   int64      `json:"update_at"`   // Last update time (Unix milliseconds)
+	CompleteAt int64      `json:"complete_at"` // Completion time (Unix milliseconds)
 }
 
 // TaskStep represents a step in a task.

@@ -41,7 +41,7 @@ func NewService() *Service {
 }
 
 // AddMessage adds a message to a session.
-func (s *Service) AddMessage(sessionId, role, content string) error {
+func (my *Service) AddMessage(sessionId, role, content string) error {
 	if sessionId == "" {
 		return fmt.Errorf("session ID cannot be empty")
 	}
@@ -55,25 +55,25 @@ func (s *Service) AddMessage(sessionId, role, content string) error {
 	}
 
 	// Check context limit and trim if needed
-	if limit, ok := s.limits[sessionId]; ok && limit > 0 {
-		sessions := s.sessions[sessionId]
+	if limit, ok := my.limits[sessionId]; ok && limit > 0 {
+		sessions := my.sessions[sessionId]
 		if len(sessions) >= limit {
 			// Keep only the last (limit-1) messages
 			start := len(sessions) - (limit - 1)
-			s.sessions[sessionId] = append(sessions[start:], msg)
+			my.sessions[sessionId] = append(sessions[start:], msg)
 		} else {
-			s.sessions[sessionId] = append(s.sessions[sessionId], msg)
+			my.sessions[sessionId] = append(my.sessions[sessionId], msg)
 		}
 	} else {
-		s.sessions[sessionId] = append(s.sessions[sessionId], msg)
+		my.sessions[sessionId] = append(my.sessions[sessionId], msg)
 	}
 
 	return nil
 }
 
 // GetMessages returns all messages for a session.
-func (s *Service) GetMessages(sessionId string) ([]Message, error) {
-	messages, ok := s.sessions[sessionId]
+func (my *Service) GetMessages(sessionId string) ([]Message, error) {
+	messages, ok := my.sessions[sessionId]
 	if !ok {
 		return []Message{}, nil
 	}
@@ -84,28 +84,28 @@ func (s *Service) GetMessages(sessionId string) ([]Message, error) {
 }
 
 // SetContextLimit sets the context window limit for a session.
-func (s *Service) SetContextLimit(sessionId string, limit int) error {
+func (my *Service) SetContextLimit(sessionId string, limit int) error {
 	if limit < 0 {
 		return fmt.Errorf("limit cannot be negative")
 	}
-	s.limits[sessionId] = limit
+	my.limits[sessionId] = limit
 	return nil
 }
 
 // ClearSession clears all messages for a session.
-func (s *Service) ClearSession(sessionId string) error {
-	s.sessions[sessionId] = []Message{}
+func (my *Service) ClearSession(sessionId string) error {
+	my.sessions[sessionId] = []Message{}
 	return nil
 }
 
 // Close closes the memory service.
-func (s *Service) Close() error {
+func (my *Service) Close() error {
 	// Clear all sessions
-	for key := range s.sessions {
-		delete(s.sessions, key)
+	for key := range my.sessions {
+		delete(my.sessions, key)
 	}
-	for key := range s.limits {
-		delete(s.limits, key)
+	for key := range my.limits {
+		delete(my.limits, key)
 	}
 	return nil
 }

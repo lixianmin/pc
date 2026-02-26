@@ -10,31 +10,31 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Manager manages plugin lifecycle and invocation.
-type Manager struct {
+// PluginManager manages plugin lifecycle and invocation.
+type PluginManager struct {
 	plugins    map[string]*types.Plugin
 	pluginsDir string
-	protocols  map[string]interface{} // Plugin protocol instances
+	protocols  map[string]any // Plugin protocol instances
 	mu         sync.RWMutex
 }
 
-// NewManager creates a new plugin manager.
-func NewManager(pluginsDir string) (*Manager, error) {
-	return &Manager{
+// NewPluginManager creates a new plugin manager.
+func NewPluginManager(pluginsDir string) (*PluginManager, error) {
+	return &PluginManager{
 		plugins:    make(map[string]*types.Plugin),
 		pluginsDir: pluginsDir,
-		protocols:  make(map[string]interface{}),
+		protocols:  make(map[string]any),
 		mu:         sync.RWMutex{},
 	}, nil
 }
 
 // Discover scans the plugins directory and loads all plugins.
-func (m *Manager) Discover() ([]*types.Plugin, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+func (my *PluginManager) Discover() ([]*types.Plugin, error) {
+	my.mu.Lock()
+	defer my.mu.Unlock()
 
 	// Check if plugins directory exists
-	if _, err := os.Stat(m.pluginsDir); os.IsNotExist(err) {
+	if _, err := os.Stat(my.pluginsDir); os.IsNotExist(err) {
 		return nil, nil
 	}
 
@@ -49,7 +49,7 @@ func (m *Manager) Discover() ([]*types.Plugin, error) {
 	}
 
 	for _, pType := range pluginTypes {
-		typeDir := filepath.Join(m.pluginsDir, pType)
+		typeDir := filepath.Join(my.pluginsDir, pType)
 		entries, err := os.ReadDir(typeDir)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -64,14 +64,14 @@ func (m *Manager) Discover() ([]*types.Plugin, error) {
 			}
 
 			pluginPath := filepath.Join(typeDir, entry.Name())
-			plugin, err := m.loadPlugin(pluginPath)
+			plugin, err := my.loadPlugin(pluginPath)
 			if err != nil {
 				// Log but continue loading other plugins
 				continue
 			}
 			if plugin != nil {
 				plugins = append(plugins, plugin)
-				m.plugins[plugin.Name] = plugin
+				my.plugins[plugin.Name] = plugin
 			}
 		}
 	}
@@ -80,12 +80,12 @@ func (m *Manager) Discover() ([]*types.Plugin, error) {
 }
 
 // LoadPlugin loads a plugin from the given path.
-func (m *Manager) LoadPlugin(path string) (*types.Plugin, error) {
-	return m.loadPlugin(path)
+func (my *PluginManager) LoadPlugin(path string) (*types.Plugin, error) {
+	return my.loadPlugin(path)
 }
 
 // loadPlugin loads plugin metadata from plugin.yml.
-func (m *Manager) loadPlugin(path string) (*types.Plugin, error) {
+func (my *PluginManager) loadPlugin(path string) (*types.Plugin, error) {
 	pluginYmlPath := filepath.Join(path, "plugin.yml")
 
 	data, err := os.ReadFile(pluginYmlPath)
@@ -130,7 +130,7 @@ func (m *Manager) loadPlugin(path string) (*types.Plugin, error) {
 }
 
 // CallPlugin invokes a method on a plugin.
-func (m *Manager) CallPlugin(plugin *types.Plugin, method string, params any) (any, error) {
+func (my *PluginManager) CallPlugin(plugin *types.Plugin, method string, params any) (any, error) {
 	if plugin == nil {
 		return nil, fmt.Errorf("plugin is nil")
 	}
@@ -141,11 +141,11 @@ func (m *Manager) CallPlugin(plugin *types.Plugin, method string, params any) (a
 }
 
 // GetPlugin returns a plugin by name.
-func (m *Manager) GetPlugin(name string) (*types.Plugin, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+func (my *PluginManager) GetPlugin(name string) (*types.Plugin, error) {
+	my.mu.RLock()
+	defer my.mu.RUnlock()
 
-	plugin, ok := m.plugins[name]
+	plugin, ok := my.plugins[name]
 	if !ok {
 		return nil, fmt.Errorf("plugin %s not found", name)
 	}
@@ -154,12 +154,12 @@ func (m *Manager) GetPlugin(name string) (*types.Plugin, error) {
 }
 
 // ListPlugins returns all loaded plugins.
-func (m *Manager) ListPlugins() []*types.Plugin {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+func (my *PluginManager) ListPlugins() []*types.Plugin {
+	my.mu.RLock()
+	defer my.mu.RUnlock()
 
-	plugins := make([]*types.Plugin, 0, len(m.plugins))
-	for _, plugin := range m.plugins {
+	plugins := make([]*types.Plugin, 0, len(my.plugins))
+	for _, plugin := range my.plugins {
 		plugins = append(plugins, plugin)
 	}
 
@@ -167,11 +167,11 @@ func (m *Manager) ListPlugins() []*types.Plugin {
 }
 
 // EnablePlugin enables a plugin.
-func (m *Manager) EnablePlugin(name string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+func (my *PluginManager) EnablePlugin(name string) error {
+	my.mu.Lock()
+	defer my.mu.Unlock()
 
-	plugin, ok := m.plugins[name]
+	plugin, ok := my.plugins[name]
 	if !ok {
 		return fmt.Errorf("plugin %s not found", name)
 	}
@@ -181,11 +181,11 @@ func (m *Manager) EnablePlugin(name string) error {
 }
 
 // DisablePlugin disables a plugin.
-func (m *Manager) DisablePlugin(name string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+func (my *PluginManager) DisablePlugin(name string) error {
+	my.mu.Lock()
+	defer my.mu.Unlock()
 
-	plugin, ok := m.plugins[name]
+	plugin, ok := my.plugins[name]
 	if !ok {
 		return fmt.Errorf("plugin %s not found", name)
 	}
@@ -195,17 +195,17 @@ func (m *Manager) DisablePlugin(name string) error {
 }
 
 // Close cleans up all plugin resources.
-func (m *Manager) Close() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+func (my *PluginManager) Close() error {
+	my.mu.Lock()
+	defer my.mu.Unlock()
 
 	// Close all plugin protocols
-	for name, proto := range m.protocols {
+	for name, proto := range my.protocols {
 		// TODO: Properly close plugin protocol connections
 		_ = name
 		_ = proto
 	}
 
-	m.protocols = make(map[string]interface{})
+	my.protocols = make(map[string]any)
 	return nil
 }
