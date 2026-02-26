@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/lixianmin/pc/internal/config"
+	"gopkg.in/yaml.v3"
 )
 
 // defaultPCDir is the default .pc directory.
@@ -160,6 +161,46 @@ func generateExamplePlugins(pluginDir string) error {
 	fmt.Println("Generating example plugins...")
 
 	// Generate glm-llm plugin
+	if err := generateLLMPlugin(pluginDir); err != nil {
+		return err
+	}
+
+	// Generate telegram-bot plugin
+	if err := generateTelegramPlugin(pluginDir); err != nil {
+		return err
+	}
+
+	fmt.Println("Example plugins generated:")
+	fmt.Printf("  - glm-llm (LLM plugin)\n")
+	fmt.Printf("  - telegram-bot (Channel plugin)\n")
+
+	return nil
+}
+
+// pluginMeta represents plugin metadata for YAML serialization
+type pluginMeta struct {
+	Name    string `yaml:"name"`
+	Type    string `yaml:"type"`
+	Enabled bool   `yaml:"enabled"`
+	Version string `yaml:"version"`
+	Entry   string `yaml:"entry"`
+}
+
+// llmConfig represents LLM plugin configuration
+type llmConfig struct {
+	APIKey  string `yaml:"api_key"`
+	Model   string `yaml:"model"`
+	BaseURL string `yaml:"base_url"`
+}
+
+// telegramConfig represents Telegram plugin configuration
+type telegramConfig struct {
+	BotToken string `yaml:"bot_token"`
+	ChatID   string `yaml:"chat_id"`
+}
+
+// generateLLMPlugin generates the GLM LLM example plugin
+func generateLLMPlugin(pluginDir string) error {
 	llmPluginDir := filepath.Join(pluginDir, "llm", "glm-llm")
 	if err := CreateDirectory(llmPluginDir); err != nil {
 		return err
@@ -170,26 +211,45 @@ func generateExamplePlugins(pluginDir string) error {
 		return err
 	}
 
-	llmPluginYml := `name: glm-llm
-type: llm
-enabled: true
-version: 1.0.0
-entry: ./bin/glm-llm
-`
-	if err := os.WriteFile(filepath.Join(llmPluginDir, "plugin.yml"), []byte(llmPluginYml), 0644); err != nil {
+	// Create and marshal plugin.yml
+	meta := pluginMeta{
+		Name:    "glm-llm",
+		Type:    "llm",
+		Enabled: true,
+		Version: "1.0.0",
+		Entry:   "./bin/glm-llm",
+	}
+
+	metaBytes, err := yaml.Marshal(meta)
+	if err != nil {
+		return fmt.Errorf("failed to marshal glm-llm plugin meta: %w", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(llmPluginDir, "plugin.yml"), metaBytes, 0644); err != nil {
 		return fmt.Errorf("failed to write glm-llm plugin.yml: %w", err)
 	}
 
-	llmConfigYml := `# GLM API Configuration
-api_key: your-glm-api-key-here
-model: glm-4.7
-base_url: https://open.bigmodel.cn/api/coding/paas/v4
-`
-	if err := os.WriteFile(filepath.Join(llmConfigDir, "config.yml"), []byte(llmConfigYml), 0644); err != nil {
+	// Create and marshal config.yml
+	cfg := llmConfig{
+		APIKey:  "your-glm-api-key-here",
+		Model:   "glm-4.7",
+		BaseURL: "https://open.bigmodel.cn/api/paas/v4",
+	}
+
+	configBytes, err := yaml.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal glm-llm config: %w", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(llmConfigDir, "config.yml"), configBytes, 0644); err != nil {
 		return fmt.Errorf("failed to write glm-llm config.yml: %w", err)
 	}
 
-	// Generate telegram-bot plugin
+	return nil
+}
+
+// generateTelegramPlugin generates the Telegram bot example plugin
+func generateTelegramPlugin(pluginDir string) error {
 	telegramPluginDir := filepath.Join(pluginDir, "channel", "telegram-bot")
 	if err := CreateDirectory(telegramPluginDir); err != nil {
 		return err
@@ -200,27 +260,38 @@ base_url: https://open.bigmodel.cn/api/coding/paas/v4
 		return err
 	}
 
-	telegramPluginYml := `name: telegram-bot
-type: channel
-enabled: true
-version: 1.0.0
-entry: ./bin/telegram-bot
-`
-	if err := os.WriteFile(filepath.Join(telegramPluginDir, "plugin.yml"), []byte(telegramPluginYml), 0644); err != nil {
+	// Create and marshal plugin.yml
+	meta := pluginMeta{
+		Name:    "telegram-bot",
+		Type:    "channel",
+		Enabled: true,
+		Version: "1.0.0",
+		Entry:   "./bin/telegram-bot",
+	}
+
+	metaBytes, err := yaml.Marshal(meta)
+	if err != nil {
+		return fmt.Errorf("failed to marshal telegram-bot plugin meta: %w", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(telegramPluginDir, "plugin.yml"), metaBytes, 0644); err != nil {
 		return fmt.Errorf("failed to write telegram-bot plugin.yml: %w", err)
 	}
 
-	telegramConfigYml := `# Telegram Bot Configuration
-bot_token: your-bot-token-here
-chat_id: your-chat-id-here
-`
-	if err := os.WriteFile(filepath.Join(telegramConfigDir, "config.yml"), []byte(telegramConfigYml), 0644); err != nil {
-		return fmt.Errorf("failed to write telegram-bot config.yml: %w", err)
+	// Create and marshal config.yml
+	cfg := telegramConfig{
+		BotToken: "your-bot-token-here",
+		ChatID:   "your-chat-id-here",
 	}
 
-	fmt.Println("Example plugins generated:")
-	fmt.Printf("  - glm-llm (LLM plugin)\n")
-	fmt.Printf("  - telegram-bot (Channel plugin)\n")
+	configBytes, err := yaml.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal telegram-bot config: %w", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(telegramConfigDir, "config.yml"), configBytes, 0644); err != nil {
+		return fmt.Errorf("failed to write telegram-bot config.yml: %w", err)
+	}
 
 	return nil
 }

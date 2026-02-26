@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/lixianmin/logo"
 	"github.com/lixianmin/pc/internal/logger"
 	"github.com/lixianmin/pc/internal/wizard"
 )
@@ -23,14 +24,14 @@ func main() {
 	configPath := wizard.GenerateConfigPath("")
 	if !wizard.ConfigExists(configPath) {
 		if err := wizard.RunWizard(); err != nil {
-			logger.Get().Error("Initialization failed:", err)
+			logo.Error("Initialization failed:", err)
 			os.Exit(1)
 		}
 		return
 	}
 
 	// Config exists, start normally
-	fmt.Println("PersonalClaw - AI Agent Operating System Kernel")
-	fmt.Printf("Version: %s\n", version)
-	fmt.Println("Configuration loaded from:", configPath)
+	logo.Info("PersonalClaw - AI Agent Operating System Kernel")
+	logo.Info("Version: %s\n", version)
+	logo.Info("Configuration loaded from:", configPath)
 }
