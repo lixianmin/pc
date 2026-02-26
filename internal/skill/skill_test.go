@@ -34,13 +34,15 @@ func TestLoadSkills(t *testing.T) {
 			name: "load skills from directory",
 			setup: func(t *testing.T) string {
 				tmpDir := t.TempDir()
-				// Create a simple skill file
+				// Create a simple skill file with multiple steps
 				skillContent := `# Test Skill
 A simple test skill.
 
 ## Steps
 1. Do step one
 2. Do step two
+3. Do step three
+4. Do step four
 `
 				skillPath := tmpDir + "/test_skill.md"
 				_ = os.WriteFile(skillPath, []byte(skillContent), 0644)

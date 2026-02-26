@@ -3,9 +3,11 @@ package plugin
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sync"
 
+	"github.com/lixianmin/pc/pkg/protocol"
 	"github.com/lixianmin/pc/pkg/types"
 	"gopkg.in/yaml.v3"
 )
@@ -14,7 +16,7 @@ import (
 type PluginManager struct {
 	plugins    map[string]*types.Plugin
 	pluginsDir string
-	protocols  map[string]any // Plugin protocol instances
+	protocols  map[string]*protocol.StdioProtocol // Plugin protocol instances
 	mu         sync.RWMutex
 }
 
@@ -23,7 +25,7 @@ func NewPluginManager(pluginsDir string) (*PluginManager, error) {
 	return &PluginManager{
 		plugins:    make(map[string]*types.Plugin),
 		pluginsDir: pluginsDir,
-		protocols:  make(map[string]any),
+		protocols:  make(map[string]*protocol.StdioProtocol),
 		mu:         sync.RWMutex{},
 	}, nil
 }
@@ -135,9 +137,39 @@ func (my *PluginManager) CallPlugin(plugin *types.Plugin, method string, params 
 		return nil, fmt.Errorf("plugin is nil")
 	}
 
-	// TODO: Implement actual plugin invocation via stdio protocol
-	// For now, return an error indicating not implemented
-	return nil, fmt.Errorf("plugin invocation not yet implemented")
+	my.mu.Lock()
+	defer my.mu.Unlock()
+
+	// Get or create protocol for this plugin
+	proto, ok := my.protocols[plugin.Name]
+	if !ok {
+		// Create new protocol connection
+		entryPath := filepath.Join(plugin.Path, plugin.Entry)
+		if _, err := os.Stat(entryPath); os.IsNotExist(err) {
+			// Try with just the entry path as-is
+			entryPath = plugin.Entry
+			if filepath.IsLocal(entryPath) {
+				entryPath = filepath.Join(plugin.Path, entryPath)
+			}
+		}
+
+		// Check if entry exists
+		if _, err := os.Stat(entryPath); os.IsNotExist(err) {
+			return nil, fmt.Errorf("plugin entry not found: %s", entryPath)
+		}
+
+		cmd := exec.Command(entryPath)
+		proto = protocol.NewStdioProtocol(cmd)
+
+		if err := proto.Connect(); err != nil {
+			return nil, fmt.Errorf("failed to connect to plugin: %w", err)
+		}
+
+		my.protocols[plugin.Name] = proto
+	}
+
+	// Call the method
+	return proto.Call(method, params)
 }
 
 // GetPlugin returns a plugin by name.
@@ -200,12 +232,12 @@ func (my *PluginManager) Close() error {
 	defer my.mu.Unlock()
 
 	// Close all plugin protocols
-	for name, proto := range my.protocols {
-		// TODO: Properly close plugin protocol connections
-		_ = name
-		_ = proto
+	for _, proto := range my.protocols {
+		if proto != nil {
+			proto.Close()
+		}
 	}
 
-	my.protocols = make(map[string]any)
+	my.protocols = make(map[string]*protocol.StdioProtocol)
 	return nil
 }

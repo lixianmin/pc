@@ -110,16 +110,13 @@ func parseSkillFile(filePath string) (Skill, error) {
 			inSteps = true
 			continue
 		}
-		if inSteps && strings.HasPrefix(line, "1.") {
-			step := strings.TrimSpace(line[2:])
-			if step != "" {
-				skill.Steps = append(skill.Steps, step)
-			}
-		}
-		if inSteps && strings.HasPrefix(line, "2.") {
-			step := strings.TrimSpace(line[2:])
-			if step != "" {
-				skill.Steps = append(skill.Steps, step)
+		if inSteps {
+			// Check for numbered list items (e.g., "1.", "2.", etc.)
+			if len(line) > 2 && line[0] >= '0' && line[0] <= '9' && line[1] == '.' {
+				step := strings.TrimSpace(line[2:])
+				if step != "" {
+					skill.Steps = append(skill.Steps, step)
+				}
 			}
 		}
 	}

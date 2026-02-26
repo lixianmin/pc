@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/lixianmin/pc/internal/memory"
+	"github.com/lixianmin/pc/internal/plugin"
+	"github.com/lixianmin/pc/pkg/types"
 )
 
 // CoreEngine is the interface for the core engine.
@@ -24,17 +26,24 @@ type CoreEngine interface {
 
 // Engine is the core engine implementation.
 type Engine struct {
-	// TODO: Add plugin manager
-	sessions map[string]bool
-	memory   memory.MemoryService
+	pluginManager *plugin.PluginManager
+	sessions      map[string]bool
+	memory        memory.MemoryService
+	llmPlugin     *types.Plugin
 }
 
 // NewEngine creates a new core engine.
-func NewEngine() *Engine {
+func NewEngine(pm *plugin.PluginManager) *Engine {
 	return &Engine{
-		sessions: make(map[string]bool),
-		memory:   memory.NewService(),
+		pluginManager: pm,
+		sessions:      make(map[string]bool),
+		memory:        memory.NewService(),
 	}
+}
+
+// SetLLMPlugin sets the LLM plugin to use for generating responses.
+func (my *Engine) SetLLMPlugin(p *types.Plugin) {
+	my.llmPlugin = p
 }
 
 // ProcessMessage processes an incoming message.
@@ -57,9 +66,17 @@ func (my *Engine) ProcessMessage(ctx context.Context, sessionId, message string)
 		return "", fmt.Errorf("failed to save user message: %w", err)
 	}
 
-	// TODO: Implement actual message processing with LLM plugin
-	// For now, return a mock response and save it to memory
-	response := fmt.Sprintf("Echo: %s", message)
+	// Generate response using LLM plugin if available, otherwise echo
+	var response string
+	if my.pluginManager != nil && my.llmPlugin != nil {
+		resp, err := my.callLLM(ctx, sessionId, message)
+		if err != nil {
+			return "", fmt.Errorf("failed to call LLM: %w", err)
+		}
+		response = resp
+	} else {
+		response = fmt.Sprintf("Echo: %s", message)
+	}
 
 	// Save assistant response to memory
 	if err := my.memory.AddMessage(sessionId, "assistant", response); err != nil {
@@ -67,6 +84,53 @@ func (my *Engine) ProcessMessage(ctx context.Context, sessionId, message string)
 	}
 
 	return response, nil
+}
+
+// callLLM calls the LLM plugin to generate a response.
+func (my *Engine) callLLM(ctx context.Context, sessionId, message string) (string, error) {
+	// Get conversation history
+	history, err := my.memory.GetMessages(sessionId)
+	if err != nil {
+		return "", fmt.Errorf("failed to get conversation history: %w", err)
+	}
+
+	// Build messages for LLM
+	messages := make([]map[string]string, 0, len(history)+1)
+	for _, msg := range history {
+		messages = append(messages, map[string]string{
+			"role":    msg.Role,
+			"content": msg.Content,
+		})
+	}
+	// Add current message
+	messages = append(messages, map[string]string{
+		"role":    "user",
+		"content": message,
+	})
+
+	// Call LLM plugin
+	params := map[string]any{
+		"messages": messages,
+		"model":    "gpt-4o-mini", // Default model
+	}
+
+	result, err := my.pluginManager.CallPlugin(my.llmPlugin, "complete", params)
+	if err != nil {
+		return "", err
+	}
+
+	// Extract response content from result
+	resultMap, ok := result.(map[string]any)
+	if !ok {
+		return "", fmt.Errorf("unexpected LLM response format")
+	}
+
+	content, ok := resultMap["content"].(string)
+	if !ok {
+		return "", fmt.Errorf("LLM response missing content")
+	}
+
+	return content, nil
 }
 
 // CreateSession creates a new session.

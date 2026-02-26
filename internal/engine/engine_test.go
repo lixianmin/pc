@@ -16,7 +16,7 @@ func TestNewEngine(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewEngine()
+			got := NewEngine(nil)
 			if got == nil {
 				t.Error("NewEngine() returned nil")
 			}
@@ -44,7 +44,7 @@ func TestCreateSession(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := NewEngine()
+			e := NewEngine(nil)
 			err := e.CreateSession(tt.sessionId)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateSession() error = %v, wantErr %v", err, tt.wantErr)
@@ -73,7 +73,7 @@ func TestCloseSession(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := NewEngine()
+			e := NewEngine(nil)
 			if !tt.wantErr && tt.sessionId != "non-existent" {
 				_ = e.CreateSession(tt.sessionId)
 			}
@@ -114,7 +114,7 @@ func TestProcessMessage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := NewEngine()
+			e := NewEngine(nil)
 			ctx := context.Background()
 
 			if tt.sessionId != "" {
@@ -160,7 +160,7 @@ func TestProcessMessageWithContext(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := NewEngine()
+			e := NewEngine(nil)
 			ctx := context.Background()
 			_ = e.CreateSession(tt.sessionId)
 
@@ -195,7 +195,7 @@ func TestClose(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := NewEngine()
+			e := NewEngine(nil)
 			err := e.Close()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Close() error = %v, wantErr %v", err, tt.wantErr)
