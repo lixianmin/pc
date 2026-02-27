@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/lixianmin/logo"
 	"github.com/lixianmin/pc/pkg/protocol"
 	"github.com/lixianmin/pc/pkg/types"
 	"gopkg.in/yaml.v3"
@@ -131,6 +132,41 @@ func (my *PluginManager) loadPlugin(path string) (*types.Plugin, error) {
 	return plugin, nil
 }
 
+// ensurePluginStarted ensures a plugin is started and connected.
+func (my *PluginManager) ensurePluginStarted(plugin *types.Plugin) (*protocol.StdioProtocol, error) {
+	// Check if already connected
+	if proto, ok := my.protocols[plugin.Name]; ok {
+		return proto, nil
+	}
+
+	// Create new protocol connection
+	entryPath := filepath.Join(plugin.Path, plugin.Entry)
+	if _, err := os.Stat(entryPath); os.IsNotExist(err) {
+		// Try with just the entry path as-is
+		entryPath = plugin.Entry
+		if filepath.IsLocal(entryPath) {
+			entryPath = filepath.Join(plugin.Path, entryPath)
+		}
+	}
+
+	// Check if entry exists
+	if _, err := os.Stat(entryPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("plugin entry not found: %s", entryPath)
+	}
+
+	logo.Info("Starting plugin:", plugin.Name, "path:", entryPath)
+	cmd := exec.Command(entryPath)
+	proto := protocol.NewStdioProtocol(cmd)
+
+	if err := proto.Connect(); err != nil {
+		return nil, fmt.Errorf("failed to connect to plugin: %w", err)
+	}
+
+	logo.Info("Plugin started successfully:", plugin.Name)
+	my.protocols[plugin.Name] = proto
+	return proto, nil
+}
+
 // CallPlugin invokes a method on a plugin.
 func (my *PluginManager) CallPlugin(plugin *types.Plugin, method string, params any) (any, error) {
 	if plugin == nil {
@@ -140,36 +176,28 @@ func (my *PluginManager) CallPlugin(plugin *types.Plugin, method string, params 
 	my.mu.Lock()
 	defer my.mu.Unlock()
 
-	// Get or create protocol for this plugin
-	proto, ok := my.protocols[plugin.Name]
-	if !ok {
-		// Create new protocol connection
-		entryPath := filepath.Join(plugin.Path, plugin.Entry)
-		if _, err := os.Stat(entryPath); os.IsNotExist(err) {
-			// Try with just the entry path as-is
-			entryPath = plugin.Entry
-			if filepath.IsLocal(entryPath) {
-				entryPath = filepath.Join(plugin.Path, entryPath)
-			}
-		}
-
-		// Check if entry exists
-		if _, err := os.Stat(entryPath); os.IsNotExist(err) {
-			return nil, fmt.Errorf("plugin entry not found: %s", entryPath)
-		}
-
-		cmd := exec.Command(entryPath)
-		proto = protocol.NewStdioProtocol(cmd)
-
-		if err := proto.Connect(); err != nil {
-			return nil, fmt.Errorf("failed to connect to plugin: %w", err)
-		}
-
-		my.protocols[plugin.Name] = proto
+	// Ensure plugin is started
+	proto, err := my.ensurePluginStarted(plugin)
+	if err != nil {
+		return nil, err
 	}
 
 	// Call the method
+	logo.Debug("Calling plugin:", plugin.Name, "method:", method)
 	return proto.Call(method, params)
+}
+
+// StartPlugin pre-starts a plugin without calling any method.
+func (my *PluginManager) StartPlugin(plugin *types.Plugin) error {
+	if plugin == nil {
+		return fmt.Errorf("plugin is nil")
+	}
+
+	my.mu.Lock()
+	defer my.mu.Unlock()
+
+	_, err := my.ensurePluginStarted(plugin)
+	return err
 }
 
 // GetPlugin returns a plugin by name.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/lixianmin/logo"
 	"github.com/lixianmin/pc/internal/plugin"
 	"github.com/lixianmin/pc/pkg/types"
 )
@@ -60,6 +61,9 @@ func (my *Engine) ProcessMessage(ctx context.Context, sessionId, message string)
 		return "", fmt.Errorf("session not found: %s", sessionId)
 	}
 
+	// Log user input
+	logo.Info("[Session:", sessionId, "] User:", message)
+
 	// Save user message to session
 	if err := session.AddMessage("user", message); err != nil {
 		return "", fmt.Errorf("failed to save user message: %w", err)
@@ -68,19 +72,30 @@ func (my *Engine) ProcessMessage(ctx context.Context, sessionId, message string)
 	// Generate response using LLM plugin if available, otherwise echo
 	var response string
 	if my.pluginManager != nil && my.llmPlugin != nil {
+		logo.Info("[Session:", sessionId, "] Calling LLM plugin:", my.llmPlugin.Name)
 		resp, err := my.callLLM(ctx, session, message)
 		if err != nil {
+			logo.Error("[Session:", sessionId, "] LLM call failed:", err)
 			return "", fmt.Errorf("failed to call LLM: %w", err)
 		}
 		response = resp
+		logo.Info("[Session:", sessionId, "] LLM response length:", len(response))
 	} else {
 		response = fmt.Sprintf("Echo: %s", message)
+		logo.Info("[Session:", sessionId, "] No LLM plugin, echoing")
 	}
 
 	// Save assistant response to session
 	if err := session.AddMessage("assistant", response); err != nil {
 		return "", fmt.Errorf("failed to save assistant response: %w", err)
 	}
+
+	// Log assistant output (truncated for long responses)
+	logResp := response
+	if len(logResp) > 100 {
+		logResp = logResp[:97] + "..."
+	}
+	logo.Info("[Session:", sessionId, "] Assistant:", logResp)
 
 	return response, nil
 }

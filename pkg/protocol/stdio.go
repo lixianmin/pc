@@ -118,18 +118,23 @@ func (my *StdioProtocol) Call(method string, params any) (any, error) {
 		return nil, fmt.Errorf("failed to encode request: %w", err)
 	}
 
+	fmt.Fprintf(os.Stderr, "[Protocol] Sending request ID=%s method=%s\n", req.ID, method)
+
 	if _, err := my.stdin.Write(data); err != nil {
 		return nil, fmt.Errorf("failed to write request: %w", err)
 	}
 
 	// Wait for response with timeout
+	fmt.Fprintf(os.Stderr, "[Protocol] Waiting for response (timeout=%v)...\n", my.timeout)
 	select {
 	case resp := <-respChan:
+		fmt.Fprintf(os.Stderr, "[Protocol] Received response ID=%s\n", resp.ID)
 		if resp.IsError() {
 			return nil, fmt.Errorf("plugin error: %s", resp.Error.Message)
 		}
 		return resp.Result, nil
 	case <-time.After(my.timeout):
+		fmt.Fprintf(os.Stderr, "[Protocol] Timeout waiting for response ID=%s\n", req.ID)
 		return nil, fmt.Errorf("timeout waiting for response")
 	}
 }
@@ -167,14 +172,17 @@ func (my *StdioProtocol) readResponses() {
 
 	for scanner.Scan() {
 		data := scanner.Bytes()
+		fmt.Fprintf(os.Stderr, "[Protocol] Raw response: %s\n", string(data))
 
 		// Decode response
 		resp, err := DecodeResponse(data)
 		if err != nil {
 			// Log error but continue
-			fmt.Fprintf(os.Stderr, "failed to decode response: %v\n", err)
+			fmt.Fprintf(os.Stderr, "[Protocol] Failed to decode response: %v\n", err)
 			continue
 		}
+
+		fmt.Fprintf(os.Stderr, "[Protocol] Decoded response ID=%s type=%s\n", resp.ID, resp.Type)
 
 		// Route response to pending request
 		my.mu.RLock()
@@ -182,16 +190,20 @@ func (my *StdioProtocol) readResponses() {
 		my.mu.RUnlock()
 
 		if ok {
+			fmt.Fprintf(os.Stderr, "[Protocol] Routing response to pending request ID=%s\n", resp.ID)
 			respChan <- resp
+		} else {
+			fmt.Fprintf(os.Stderr, "[Protocol] No pending request for response ID=%s\n", resp.ID)
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
 		// Ignore closed pipe errors (normal when protocol is closed)
 		if err.Error() != "io: read/write on closed pipe" {
-			fmt.Fprintf(os.Stderr, "error reading stdout: %v\n", err)
+			fmt.Fprintf(os.Stderr, "[Protocol] error reading stdout: %v\n", err)
 		}
 	}
+	fmt.Fprintf(os.Stderr, "[Protocol] Response reader stopped\n")
 }
 
 // readErrors reads errors from stderr.
