@@ -123,8 +123,7 @@ func (my *Engine) callLLM(ctx context.Context, session *Session, message string)
 	// Call LLM plugin
 	params := map[string]any{
 		"messages": messages,
-		// TODO: 如果call llm也是走plugin协议，那么llm应该在插件的代码里定义，而不是在这里硬编码
-		"model": "gpt-4o-mini", // Default model
+		// 不指定 model，让插件使用配置文件中的模型
 	}
 
 	result, err := my.pluginManager.CallPlugin(my.llmPlugin, "complete", params)

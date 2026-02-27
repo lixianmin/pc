@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/lixianmin/got/loom"
 	"github.com/lixianmin/logo"
 	"github.com/lixianmin/pc/internal/engine"
 	"github.com/lixianmin/pc/internal/plugin"
@@ -77,7 +78,9 @@ func (my *RPCServer) Start() error {
 	logo.Info("RPC server listening on:", my.socketPath)
 
 	// Accept connections
-	go my.acceptConnections()
+	loom.Go(func(later loom.Later) {
+		my.acceptConnections(later)
+	})
 
 	return nil
 }
@@ -91,7 +94,7 @@ func (my *RPCServer) Stop() error {
 }
 
 // acceptConnections accepts incoming connections.
-func (my *RPCServer) acceptConnections() {
+func (my *RPCServer) acceptConnections(later loom.Later) {
 	for {
 		conn, err := my.listener.Accept()
 		if err != nil {
@@ -105,7 +108,9 @@ func (my *RPCServer) acceptConnections() {
 			return
 		}
 
-		go my.handleConnection(conn)
+		loom.Go(func(later loom.Later) {
+			my.handleConnection(conn)
+		})
 	}
 }
 

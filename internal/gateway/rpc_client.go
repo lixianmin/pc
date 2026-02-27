@@ -132,7 +132,12 @@ func (my *RPCClient) ProcessMessage(sessionID, message string) (string, error) {
 	}
 
 	var result protocol.ProcessMessageResult
-	if err := json.Unmarshal(resp.Result.(json.RawMessage), &result); err != nil {
+	resultJSON, err := json.Marshal(resp.Result)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal result: %w", err)
+	}
+
+	if err := json.Unmarshal(resultJSON, &result); err != nil {
 		return "", fmt.Errorf("failed to unmarshal result: %w", err)
 	}
 

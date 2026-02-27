@@ -201,14 +201,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case responseMsg:
 		m.status = "Connected"
 		m.addMessage("agent", string(msg))
-		m.viewport.SetContent(m.renderMessages())
-		m.viewport.GotoBottom()
+		if m.ready {
+			m.viewport.SetContent(m.renderMessages())
+			m.viewport.GotoBottom()
+		}
 
 	case errorMsg:
 		m.status = fmt.Sprintf("Error: %v", msg)
 		m.addMessage("agent", fmt.Sprintf("Error: %v", msg))
-		m.viewport.SetContent(m.renderMessages())
-		m.viewport.GotoBottom()
+		if m.ready {
+			m.viewport.SetContent(m.renderMessages())
+			m.viewport.GotoBottom()
+		}
 
 	case statusMsg:
 		m.status = string(msg)

@@ -3,3 +3,4 @@ pc
 .DS_Store
 .VSCodeCounter/
 logs/
+bin/openai-llm
