@@ -2,6 +2,9 @@ package skill
 
 import (
 	"fmt"
+
+	"github.com/lixianmin/pc/internal/plugin"
+	"github.com/lixianmin/pc/pkg/types"
 )
 
 // ExecutionStep represents a step in skill execution.
@@ -34,12 +37,17 @@ type Executor interface {
 
 // Engine is the skill execution engine implementation.
 type Engine struct {
-	// TODO: Add plugin manager
+	pluginManager *plugin.PluginManager
 }
 
 // NewExecutor creates a new skill executor.
 func NewExecutor() *Engine {
 	return &Engine{}
+}
+
+// SetPluginManager sets the plugin manager for tool calling.
+func (my *Engine) SetPluginManager(pm *plugin.PluginManager) {
+	my.pluginManager = pm
 }
 
 // ExecuteSkill executes a skill.
@@ -143,18 +151,44 @@ func (my *Engine) executeLoop(loop LoopConfig, steps []ExecutionStep, context ma
 
 // CallTool calls a tool plugin.
 func (my *Engine) CallTool(toolName string, params map[string]any) (any, error) {
-	// TODO: Implement actual tool calling via plugin manager
-	// For now, return a mock result
 	if toolName == "" {
 		return nil, fmt.Errorf("tool name cannot be empty")
 	}
-	// Return error for non-existent tools (for testing)
-	if toolName == "non-existent" {
+
+	// If plugin manager is not set, use mock implementation
+	if my.pluginManager == nil {
+		// Return error for non-existent tools (for testing)
+		if toolName == "non-existent" {
+			return nil, fmt.Errorf("tool not found: %s", toolName)
+		}
+		return map[string]any{
+			"tool":   toolName,
+			"params": params,
+			"result": fmt.Sprintf("called tool: %s (mock)", toolName),
+		}, nil
+	}
+
+	// Get tool plugin by name
+	toolPlugin, err := my.pluginManager.GetPlugin(toolName)
+	if err != nil {
 		return nil, fmt.Errorf("tool not found: %s", toolName)
 	}
-	return map[string]any{
-		"tool":   toolName,
-		"params":  params,
-		"result": fmt.Sprintf("called tool: %s", toolName),
-	}, nil
+
+	// Verify plugin is a tool type
+	if toolPlugin.Type != types.PluginTypeTool {
+		return nil, fmt.Errorf("plugin %s is not a tool plugin (type: %s)", toolName, toolPlugin.Type)
+	}
+
+	// Check if plugin is enabled
+	if !toolPlugin.Enabled {
+		return nil, fmt.Errorf("tool plugin %s is disabled", toolName)
+	}
+
+	// Call the tool plugin
+	result, err := my.pluginManager.CallPlugin(toolPlugin, "call", params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call tool %s: %w", toolName, err)
+	}
+
+	return result, nil
 }

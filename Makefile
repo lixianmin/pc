@@ -2,7 +2,6 @@
 
 # Build variables
 BINARY_NAME=pc
-BUILD_DIR=bin
 VERSION?=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS=-ldflags "-X main.version=$(VERSION)"
 
@@ -10,8 +9,7 @@ all: fmt vet test build
 
 build:
 	@echo "Building $(BINARY_NAME)..."
-	@mkdir -p $(BUILD_DIR)
-	go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/pc
+	go build $(LDFLAGS) -o $(BINARY_NAME) ./cmd/pc
 
 test:
 	@echo "Running tests..."
@@ -24,12 +22,12 @@ test-coverage: test
 
 clean:
 	@echo "Cleaning..."
-	@rm -rf $(BUILD_DIR)
+	@rm -f $(BINARY_NAME)
 	@rm -f coverage.out coverage.html
 
 run: build
 	@echo "Running $(BINARY_NAME)..."
-	./$(BUILD_DIR)/$(BINARY_NAME)
+	./$(BINARY_NAME)
 
 fmt:
 	@echo "Formatting code..."

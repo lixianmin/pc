@@ -2,3 +2,4 @@ pc
 *.out
 .DS_Store
 .VSCodeCounter/
+logs/
