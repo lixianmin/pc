@@ -120,6 +120,8 @@ func (my *StdioProtocol) Call(method string, params any) (any, error) {
 
 	fmt.Fprintf(os.Stderr, "[Protocol] Sending request ID=%s method=%s\n", req.ID, method)
 
+	// Write request with newline delimiter (required for line-based protocol)
+	data = append(data, '\n')
 	if _, err := my.stdin.Write(data); err != nil {
 		return nil, fmt.Errorf("failed to write request: %w", err)
 	}
