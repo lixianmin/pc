@@ -162,9 +162,50 @@ func (my *PluginManager) ensurePluginStarted(plugin *types.Plugin) (*protocol.St
 		return nil, fmt.Errorf("failed to connect to plugin: %w", err)
 	}
 
-	logo.Info("Plugin started successfully:", plugin.Name)
 	my.protocols[plugin.Name] = proto
+
+	// Initialize plugin with config
+	if err := my.initializePlugin(plugin, proto); err != nil {
+		proto.Close()
+		delete(my.protocols, plugin.Name)
+		return nil, fmt.Errorf("failed to initialize plugin: %w", err)
+	}
+
+	logo.Info("Plugin started and initialized successfully:", plugin.Name)
 	return proto, nil
+}
+
+// initializePlugin sends initialize request with config to plugin
+func (my *PluginManager) initializePlugin(plugin *types.Plugin, proto *protocol.StdioProtocol) error {
+	// Read plugin config
+	configPath := filepath.Join(plugin.Path, "config.yml")
+	configData, err := os.ReadFile(configPath)
+	if err != nil {
+		// Config is optional
+		logo.Info("No config file found for plugin:", plugin.Name)
+		return nil
+	}
+
+	// Parse config as generic map
+	var config map[string]any
+	if err := yaml.Unmarshal(configData, &config); err != nil {
+		return fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	if len(config) == 0 {
+		return nil
+	}
+
+	logo.Info("Initializing plugin:", plugin.Name, "with config")
+
+	// Send initialize request
+	result, err := proto.Call("initialize", config)
+	if err != nil {
+		return fmt.Errorf("initialize request failed: %w", err)
+	}
+
+	logo.Info("Plugin initialized:", plugin.Name, "result:", result)
+	return nil
 }
 
 // CallPlugin invokes a method on a plugin.
