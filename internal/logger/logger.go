@@ -16,7 +16,9 @@ func Init(level string) {
 	filterLevel := getFilterLevel(level)
 	theLogger.SetFilterLevel(filterLevel)
 
-	var consoleHook = logo.NewConsoleHook(logo.ConsoleHookArgs{Flag: logo.FlagDate | logo.FlagTime | logo.FlagLevel})
+	// var consoleHook = logo.NewConsoleHook(logo.ConsoleHookArgs{Flag: logo.FlagDate | logo.FlagTime | logo.FlagLevel})
+	// theLogger.AddHook(consoleHook)
+
 	var fileHook = logo.NewRollingFileHook(logo.RollingFileHookArgs{
 		Flag:           logo.FlagDate | logo.FlagTime | logo.FlagLevel,
 		DirName:        "logs",
@@ -24,7 +26,6 @@ func Init(level string) {
 		MaxFileSize:    10 * 1024 * 1024, // 10MB
 	})
 
-	theLogger.AddHook(consoleHook)
 	theLogger.AddHook(fileHook)
 }
 

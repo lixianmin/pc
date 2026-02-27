@@ -1,15 +1,26 @@
-.PHONY: all build test clean run fmt vet lint help
+.PHONY: all build build-plugins test clean run fmt vet lint help
 
 # Build variables
 BINARY_NAME=pc
 VERSION?=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS=-ldflags "-X main.version=$(VERSION)"
 
-all: fmt vet test build
+all: fmt vet test build build-plugins
 
 build:
 	@echo "Building $(BINARY_NAME)..."
 	go build $(LDFLAGS) -o $(BINARY_NAME) ./cmd/pc
+
+build-plugins:
+	@echo "Building plugins..."
+	@cd examples/plugins/llm/openai/cmd/openai-llm && \
+		if ! grep -q "github.com/lixianmin/pc" go.mod 2>/dev/null; then \
+			echo "require github.com/lixianmin/pc v0.0.0" >> go.mod && \
+			echo "replace github.com/lixianmin/pc => ../../../../../../" >> go.mod; \
+		fi && \
+		go mod tidy && \
+		go build -o ../../../../../../bin/openai-llm .
+	@echo "Plugins built successfully"
 
 test:
 	@echo "Running tests..."
@@ -48,12 +59,13 @@ deps:
 
 help:
 	@echo "Usage:"
-	@echo "  make build       - Build the binary"
-	@echo "  make test        - Run tests"
-	@echo "  make clean       - Clean build artifacts"
-	@echo "  make run         - Build and run"
-	@echo "  make fmt         - Format code"
-	@echo "  make vet         - Vet code"
-	@echo "  make lint        - Run linter"
-	@echo "  make deps        - Download and tidy dependencies"
-	@echo "  make all         - fmt, vet, test, build"
+	@echo "  make build        - Build the binary"
+	@echo "  make build-plugins- Build all plugins"
+	@echo "  make test         - Run tests"
+	@echo "  make clean        - Clean build artifacts"
+	@echo "  make run          - Build and run"
+	@echo "  make fmt          - Format code"
+	@echo "  make vet          - Vet code"
+	@echo "  make lint         - Run linter"
+	@echo "  make deps         - Download and tidy dependencies"
+	@echo "  make all          - fmt, vet, test, build, build-plugins"

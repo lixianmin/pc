@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"time"
 
 	"github.com/lixianmin/logo"
 	"github.com/lixianmin/pc/internal/engine"
@@ -125,12 +126,17 @@ func (my *RPCServer) handleConnection(conn net.Conn) {
 		// Parse request
 		var req protocol.RPCRequest
 		if err := json.Unmarshal(reqData, &req); err != nil {
+			logo.Error("Failed to parse request:", err)
 			my.sendError(conn, "", protocol.RPCErrorCodeParseError, "parse error")
 			continue
 		}
 
+		// Create timeout context for request handling
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+
 		// Handle request
-		resp := my.handleRequest(context.Background(), &req)
+		resp := my.handleRequest(ctx, &req)
+		cancel()
 
 		// Send response
 		respData, err := json.Marshal(resp)
@@ -151,22 +157,26 @@ func (my *RPCServer) handleConnection(conn net.Conn) {
 func (my *RPCServer) handleRequest(ctx context.Context, req *protocol.RPCRequest) *protocol.RPCResponse {
 	// Validate request
 	if req.ID == "" {
+		logo.Error("RPC request missing ID")
 		return protocol.NewRPCErrorResponse("", protocol.RPCErrorCodeInvalidRequest, "missing request id")
 	}
 
 	if req.Method == "" {
+		logo.Error("RPC request missing method, ID:", req.ID)
 		return protocol.NewRPCErrorResponse(req.ID, protocol.RPCErrorCodeInvalidRequest, "missing method")
 	}
 
 	// Find handler
 	handler, ok := my.handlers[req.Method]
 	if !ok {
+		logo.Error("RPC method not found:", req.Method, "ID:", req.ID)
 		return protocol.NewRPCErrorResponse(req.ID, protocol.RPCErrorCodeMethodNotFound, "method not found: "+req.Method)
 	}
 
 	// Call handler
 	result, err := handler(ctx, req.Params)
 	if err != nil {
+		logo.Error("RPC handler error for method:", req.Method, ", error:", err)
 		return protocol.NewRPCErrorResponse(req.ID, protocol.RPCErrorCodeInternalError, err.Error())
 	}
 
