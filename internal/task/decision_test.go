@@ -1,8 +1,23 @@
 package task
 
 import (
+	"context"
+	"errors"
 	"testing"
 )
+
+// mockLLMClient is a mock implementation of LLMClient for testing
+type mockLLMClient struct {
+	response string
+	err      error
+}
+
+func (m *mockLLMClient) Complete(ctx context.Context, prompt string) (string, error) {
+	if m.err != nil {
+		return "", m.err
+	}
+	return m.response, nil
+}
 
 func TestNewDecisionEngine(t *testing.T) {
 	tests := []struct {
@@ -224,6 +239,175 @@ func TestDecisionEngine_CalculateConfidence(t *testing.T) {
 			confidence := d.CalculateConfidence(tt.context, tt.decision)
 			if confidence < 0 || confidence > 1 {
 				t.Errorf("CalculateConfidence() = %v, want value between 0 and 1", confidence)
+			}
+		})
+	}
+}
+
+func TestDecisionEngine_SetLLMClient(t *testing.T) {
+	tests := []struct {
+		name       string
+		client     LLMCompletionClient
+		wantUseLLM bool
+	}{
+		{
+			name:       "set valid LLM client",
+			client:     &mockLLMClient{response: `{"action": "respond"}`},
+			wantUseLLM: true,
+		},
+		{
+			name:       "set nil LLM client",
+			client:     nil,
+			wantUseLLM: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := NewDecisionEngine()
+			d.SetLLMClient(tt.client)
+			if d.useLLM != tt.wantUseLLM {
+				t.Errorf("useLLM = %v, want %v", d.useLLM, tt.wantUseLLM)
+			}
+			if d.llmClient != tt.client {
+				t.Errorf("llmClient not set correctly")
+			}
+		})
+	}
+}
+
+func TestDecisionEngine_DecideWithLLM(t *testing.T) {
+	tests := []struct {
+		name       string
+		llmResp    string
+		llmErr     error
+		context    Context
+		wantAction ActionType
+	}{
+		{
+			name:    "LLM decides to respond",
+			llmResp: `{"action": "respond", "reason": "General greeting", "confidence": 0.9}`,
+			llmErr:  nil,
+			context: Context{
+				UserMessage: "Hello",
+			},
+			wantAction: ActionRespond,
+		},
+		{
+			name:    "LLM decides to use tool",
+			llmResp: `{"action": "use_tool", "tool": "weather", "reason": "User asked about weather", "confidence": 0.85}`,
+			llmErr:  nil,
+			context: Context{
+				UserMessage: "What's the weather like?",
+			},
+			wantAction: ActionUseTool,
+		},
+		{
+			name:    "LLM decides to use skill",
+			llmResp: `{"action": "use_skill", "skill": "deploy", "reason": "User wants to deploy", "confidence": 0.8}`,
+			llmErr:  nil,
+			context: Context{
+				UserMessage: "Deploy my app",
+			},
+			wantAction: ActionUseSkill,
+		},
+		{
+			name:       "LLM fails, fallback to keywords",
+			llmResp:    "",
+			llmErr:     errors.New("LLM error"),
+			context:    Context{UserMessage: "Search for something"},
+			wantAction: ActionUseTool, // Fallback to keyword matching
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := NewDecisionEngine()
+			mockClient := &mockLLMClient{response: tt.llmResp, err: tt.llmErr}
+			d.SetLLMClient(mockClient)
+
+			decision, err := d.Decide(tt.context)
+			if err != nil {
+				t.Errorf("Decide() unexpected error = %v", err)
+				return
+			}
+			if decision.Action != tt.wantAction {
+				t.Errorf("Decide() Action = %v, want %v", decision.Action, tt.wantAction)
+			}
+		})
+	}
+}
+
+func TestExtractJSON(t *testing.T) {
+	tests := []struct {
+		name string
+		input string
+		want string
+	}{
+		{
+			name: "JSON in markdown code block",
+			input: "```json\n{\"action\": \"respond\"}\n```",
+			want:  `{"action": "respond"}`,
+		},
+		{
+			name:  "Plain JSON",
+			input: `{"action": "respond"}`,
+			want:  `{"action": "respond"}`,
+		},
+		{
+			name:  "JSON with surrounding text",
+			input: `Some text before {"action": "respond"} some text after`,
+			want:  `{"action": "respond"}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractJSON(tt.input)
+			if got != tt.want {
+				t.Errorf("extractJSON() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDecisionEngine_ParseLLMResponse(t *testing.T) {
+	tests := []struct {
+		name       string
+		response   string
+		wantAction ActionType
+		wantTool   string
+		wantSkill  string
+	}{
+		{
+			name:       "Valid JSON response",
+			response:   `{"action": "use_tool", "tool": "search", "reason": "Need to search", "confidence": 0.8}`,
+			wantAction: ActionUseTool,
+			wantTool:   "search",
+		},
+		{
+			name:       "JSON in markdown block",
+			response:   "```json\n{\"action\": \"respond\", \"reason\": \"General question\"}\n```",
+			wantAction: ActionRespond,
+		},
+		{
+			name:       "Invalid JSON, falls back to keyword",
+			response:   "xyz abc",
+			wantAction: ActionRespond, // Falls back to keyword matching
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := NewDecisionEngine()
+			ctx := Context{UserMessage: "hello"} // Use greeting that results in ActionRespond
+			decision, err := d.parseLLMResponse(tt.response, ctx)
+			if err != nil {
+				t.Errorf("parseLLMResponse() unexpected error = %v", err)
+				return
+			}
+			if decision.Action != tt.wantAction {
+				t.Errorf("parseLLMResponse() Action = %v, want %v", decision.Action, tt.wantAction)
 			}
 		})
 	}

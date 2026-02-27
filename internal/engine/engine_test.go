@@ -165,16 +165,17 @@ func TestProcessMessageWithContext(t *testing.T) {
 			_ = e.CreateSession(tt.sessionId)
 
 			// Add historical messages
+			session := e.sessions[tt.sessionId]
 			for _, msg := range tt.messages {
 				if msg.role == "user" {
-					e.memory.AddMessage(tt.sessionId, msg.role, msg.content)
+					session.AddMessage(msg.role, msg.content)
 				}
 			}
 
 			_, _ = e.ProcessMessage(ctx, tt.sessionId, tt.finalMessage)
 
 			// Verify context is maintained
-			msgs, _ := e.memory.GetMessages(tt.sessionId)
+			msgs := session.GetMessages()
 			if len(msgs) != tt.wantContextLen {
 				t.Errorf("context length = %v, want %v", len(msgs), tt.wantContextLen)
 			}

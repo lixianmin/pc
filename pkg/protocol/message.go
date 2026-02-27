@@ -25,11 +25,11 @@ const (
 
 // Request represents a protocol request message.
 type Request struct {
-	Version string      `json:"version"` // Protocol version
-	ID      string      `json:"id"`      // Request ID
-	Type    MessageType `json:"type"`    // Message type
-	Method  string      `json:"method"`  // Method name
-	Params  any         `json:"params"`  // Method parameters
+	Version string          `json:"version"`          // Protocol version
+	ID      string          `json:"id"`               // Request ID
+	Type    MessageType     `json:"type"`             // Message type
+	Method  string          `json:"method"`           // Method name
+	Params  json.RawMessage `json:"params,omitempty"` // Method parameters
 }
 
 // Response represents a protocol response message.
@@ -50,12 +50,23 @@ type Error struct {
 
 // NewRequest creates a new request with auto-generated ID.
 func NewRequest(method string, params any) *Request {
+	var paramsJSON json.RawMessage
+	if params != nil {
+		var err error
+		paramsJSON, err = json.Marshal(params)
+		if err != nil {
+			paramsJSON = nil
+		} else if string(paramsJSON) == "null" {
+			// Treat JSON null as nil
+			paramsJSON = nil
+		}
+	}
 	return &Request{
 		Version: Version,
 		ID:      ulid.Make().String(),
 		Type:    MessageTypeCall,
 		Method:  method,
-		Params:  params,
+		Params:  paramsJSON,
 	}
 }
 

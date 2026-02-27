@@ -10,35 +10,13 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/lixianmin/pc/pkg/protocol"
 )
 
 const (
 	version = "1.0.0"
 )
-
-// Request represents a stdio protocol request
-type Request struct {
-	Version string          `json:"version"`
-	ID      string          `json:"id"`
-	Type    string          `json:"type"`
-	Method  string          `json:"method"`
-	Params  json.RawMessage `json:"params"`
-}
-
-// Response represents a stdio protocol response
-type Response struct {
-	Version string          `json:"version"`
-	ID      string          `json:"id"`
-	Type    string          `json:"type"`
-	Result  any             `json:"result,omitempty"`
-	Error   *ErrorDetail    `json:"error,omitempty"`
-}
-
-// ErrorDetail represents error information
-type ErrorDetail struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-}
 
 // Config holds the plugin configuration
 type Config struct {
@@ -120,41 +98,37 @@ func (p *Plugin) Initialize(config Config) error {
 }
 
 // Handle processes a request and returns a response
-func (p *Plugin) Handle(req Request) Response {
-	resp := Response{
-		Version: version,
-		ID:      req.ID,
-		Type:    "response",
-	}
+func (p *Plugin) Handle(req *protocol.Request) *protocol.Response {
+	resp := protocol.NewResponse(req.ID, nil)
 
 	switch req.Method {
 	case "complete":
 		result, err := p.complete(req.Params)
 		if err != nil {
-			resp.Error = &ErrorDetail{Code: "COMPLETION_ERROR", Message: err.Error()}
+			resp = protocol.NewErrorResponse(req.ID, -32603, err.Error())
 		} else {
 			resp.Result = result
 		}
 	case "stream":
 		// For streaming, we would need to send multiple responses
 		// For now, return error as streaming is not fully implemented
-		resp.Error = &ErrorDetail{Code: "NOT_IMPLEMENTED", Message: "streaming not yet implemented"}
+		resp = protocol.NewErrorResponse(req.ID, -32601, "streaming not yet implemented")
 	case "models":
 		result, err := p.models()
 		if err != nil {
-			resp.Error = &ErrorDetail{Code: "MODELS_ERROR", Message: err.Error()}
+			resp = protocol.NewErrorResponse(req.ID, -32603, err.Error())
 		} else {
 			resp.Result = result
 		}
 	default:
-		resp.Error = &ErrorDetail{Code: "UNKNOWN_METHOD", Message: fmt.Sprintf("unknown method: %s", req.Method)}
+		resp = protocol.NewErrorResponse(req.ID, -32601, fmt.Sprintf("unknown method: %s", req.Method))
 	}
 
 	return resp
 }
 
 // complete performs text completion
-func (p *Plugin) complete(params json.RawMessage) (any, error) {
+func (p *Plugin) complete(params []byte) (any, error) {
 	var req struct {
 		Messages []Message `json:"messages"`
 		Model    string    `json:"model,omitempty"`
@@ -267,22 +241,18 @@ func main() {
 	// For stdio protocol, config is passed via the first request or environment
 	// In production, the plugin manager will send initialize request
 
-	reader := bufio.NewReader(os.Stdin)
-	decoder := json.NewDecoder(reader)
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
 
-	for {
-		var req Request
-		if err := decoder.Decode(&req); err != nil {
-			// EOF or error, exit gracefully
-			if err.Error() == "EOF" {
-				break
-			}
-			resp := Response{
-				Version: version,
-				Type:    "response",
-				Error:   &ErrorDetail{Code: "PARSE_ERROR", Message: err.Error()},
-			}
-			json.NewEncoder(os.Stdout).Encode(resp)
+		req, err := protocol.DecodeRequest([]byte(line))
+		if err != nil {
+			resp := protocol.NewErrorResponse("", -32700, "Parse error")
+			data, _ := resp.Encode()
+			fmt.Println(string(data))
 			continue
 		}
 
@@ -291,33 +261,32 @@ func main() {
 			var initConfig Config
 			if err := json.Unmarshal(req.Params, &initConfig); err == nil {
 				if err := plugin.Initialize(initConfig); err != nil {
-					resp := Response{
-						Version: version,
-						ID:      req.ID,
-						Type:    "response",
-						Error:   &ErrorDetail{Code: "INIT_ERROR", Message: err.Error()},
-					}
-					json.NewEncoder(os.Stdout).Encode(resp)
+					resp := protocol.NewErrorResponse(req.ID, -32603, err.Error())
+					data, _ := resp.Encode()
+					fmt.Println(string(data))
 					continue
 				}
 			}
-			resp := Response{
-				Version: version,
-				ID:      req.ID,
-				Type:    "response",
-				Result: map[string]any{
-					"status":  "initialized",
-					"version": version,
-				},
-			}
-			json.NewEncoder(os.Stdout).Encode(resp)
+			resp := protocol.NewResponse(req.ID, map[string]any{
+				"status":  "initialized",
+				"version": version,
+			})
+			data, _ := resp.Encode()
+			fmt.Println(string(data))
 			continue
 		}
 
 		resp := plugin.Handle(req)
-		if err := json.NewEncoder(os.Stdout).Encode(resp); err != nil {
+		data, err := resp.Encode()
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to encode response: %v\n", err)
+			continue
 		}
-		os.Stdout.Sync()
+		fmt.Println(string(data))
+	}
+
+	if err := scanner.Err(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error reading stdin: %v\n", err)
+		os.Exit(1)
 	}
 }
