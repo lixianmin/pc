@@ -391,6 +391,203 @@ func TestAgentManager_LoadState(t *testing.T) {
 	}
 }
 
+func TestAgentManager_LoadAgentsMd(t *testing.T) {
+	tests := []struct {
+		name         string
+		agentsMdContent string
+		createFile   bool
+		wantErr      bool
+		validate     func(*testing.T, *Manager)
+	}{
+		{
+			name: "load valid agents.md",
+			agentsMdContent: `# TestAgent
+
+## Personality
+- 友好
+- 专业
+
+## Profession
+测试专家
+
+## Instructions
+帮助用户完成测试
+`,
+			createFile: true,
+			wantErr:    false,
+			validate: func(t *testing.T, mgr *Manager) {
+				cfg := mgr.GetAgentsMdConfig()
+				if cfg == nil {
+					t.Error("GetAgentsMdConfig() should return non-nil config")
+					return
+				}
+				if cfg.Name != "TestAgent" {
+					t.Errorf("config.Name = %v, want TestAgent", cfg.Name)
+				}
+				if len(cfg.Personality) != 2 {
+					t.Errorf("len(config.Personality) = %v, want 2", len(cfg.Personality))
+				}
+			},
+		},
+		{
+			name:         "load non-existent agents.md",
+			agentsMdContent: "",
+			createFile:   false,
+			wantErr:      false, // Should not error, just skip
+			validate: func(t *testing.T, mgr *Manager) {
+				cfg := mgr.GetAgentsMdConfig()
+				if cfg != nil {
+					t.Error("GetAgentsMdConfig() should return nil for non-existent file")
+				}
+			},
+		},
+		{
+			name: "load invalid agents.md",
+			agentsMdContent: `## No Name Here
+- Just some content
+`,
+			createFile: true,
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			agentsMdPath := filepath.Join(tmpDir, "agents.md")
+
+			if tt.createFile {
+				err := os.WriteFile(agentsMdPath, []byte(tt.agentsMdContent), 0644)
+				if err != nil {
+					t.Fatalf("failed to write agents.md: %v", err)
+				}
+			}
+
+			cfg := &config.Config{
+				Agent: config.AgentConfig{
+					Name: "DefaultAgent",
+				},
+				Workspace:  filepath.Join(tmpDir, "workspace"),
+				SkillsDir:  filepath.Join(tmpDir, "skills"),
+				PluginsDir: filepath.Join(tmpDir, "plugins"),
+				Log: config.LogConfig{
+					Level:  config.InfoLevel,
+					Output: "stdout",
+				},
+			}
+			mgr, err := NewManager(cfg, filepath.Join(tmpDir, "config.yml"))
+			if err != nil {
+				t.Fatalf("NewManager() error = %v", err)
+			}
+
+			err = mgr.LoadAgentsMd(agentsMdPath)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("LoadAgentsMd() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if tt.validate != nil {
+				tt.validate(t, mgr)
+			}
+		})
+	}
+}
+
+func TestAgentManager_GetSystemPromptBase(t *testing.T) {
+	tests := []struct {
+		name         string
+		agentsMdContent string
+		createAgentsMd bool
+		configName   string
+		wantContains []string
+	}{
+		{
+			name: "with agents.md loaded",
+			agentsMdContent: `# CustomAgent
+
+## Personality
+- 智能
+- 高效
+
+## Profession
+代码助手
+
+## Instructions
+帮助用户编写代码
+`,
+			createAgentsMd: true,
+			configName:     "DefaultAgent",
+			wantContains:   []string{"CustomAgent", "代码助手", "智能", "帮助用户编写代码"},
+		},
+		{
+			name:           "without agents.md",
+			agentsMdContent: "",
+			createAgentsMd: false,
+			configName:     "ConfigAgent",
+			wantContains:   []string{"ConfigAgent"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			agentsMdPath := filepath.Join(tmpDir, "agents.md")
+
+			if tt.createAgentsMd {
+				err := os.WriteFile(agentsMdPath, []byte(tt.agentsMdContent), 0644)
+				if err != nil {
+					t.Fatalf("failed to write agents.md: %v", err)
+				}
+			}
+
+			cfg := &config.Config{
+				Agent: config.AgentConfig{
+					Name: tt.configName,
+				},
+				Workspace:  filepath.Join(tmpDir, "workspace"),
+				SkillsDir:  filepath.Join(tmpDir, "skills"),
+				PluginsDir: filepath.Join(tmpDir, "plugins"),
+				Log: config.LogConfig{
+					Level:  config.InfoLevel,
+					Output: "stdout",
+				},
+			}
+			mgr, err := NewManager(cfg, filepath.Join(tmpDir, "config.yml"))
+			if err != nil {
+				t.Fatalf("NewManager() error = %v", err)
+			}
+
+			if tt.createAgentsMd {
+				if err := mgr.LoadAgentsMd(agentsMdPath); err != nil {
+					t.Fatalf("LoadAgentsMd() error = %v", err)
+				}
+			}
+
+			prompt := mgr.GetSystemPromptBase()
+
+			for _, want := range tt.wantContains {
+				if !contains(prompt, want) {
+					t.Errorf("GetSystemPromptBase() = %q, should contain %q", prompt, want)
+				}
+			}
+		})
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
+		(len(s) > len(substr) && (s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
+			findInString(s, substr))))
+}
+
+func findInString(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
 func TestAgentManager_Close(t *testing.T) {
 	tests := []struct {
 		name      string

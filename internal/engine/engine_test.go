@@ -183,6 +183,41 @@ func TestProcessMessageWithContext(t *testing.T) {
 	}
 }
 
+func TestEngine_SetSystemPrompt(t *testing.T) {
+	tests := []struct {
+		name         string
+		systemPrompt string
+		wantPrompt   string
+	}{
+		{
+			name:         "set system prompt",
+			systemPrompt: "你是一个有用的助手。",
+			wantPrompt:   "你是一个有用的助手。",
+		},
+		{
+			name:         "set empty system prompt",
+			systemPrompt: "",
+			wantPrompt:   "",
+		},
+		{
+			name:         "set multi-line system prompt",
+			systemPrompt: "你是 Agent。\n\n## 技能\n- 编程\n- 写作",
+			wantPrompt:   "你是 Agent。\n\n## 技能\n- 编程\n- 写作",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := NewEngine(nil)
+			e.SetSystemPrompt(tt.systemPrompt)
+
+			if e.systemPrompt != tt.wantPrompt {
+				t.Errorf("SetSystemPrompt() = %v, want %v", e.systemPrompt, tt.wantPrompt)
+			}
+		})
+	}
+}
+
 func TestClose(t *testing.T) {
 	tests := []struct {
 		name    string

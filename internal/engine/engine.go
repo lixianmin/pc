@@ -29,6 +29,7 @@ type Engine struct {
 	pluginManager *plugin.PluginManager
 	sessions      map[string]*Session
 	llmPlugin     *types.Plugin
+	systemPrompt  string // Complete system prompt for LLM
 }
 
 // NewEngine creates a new core engine.
@@ -42,6 +43,11 @@ func NewEngine(pm *plugin.PluginManager) *Engine {
 // SetLLMPlugin sets the LLM plugin to use for generating responses.
 func (my *Engine) SetLLMPlugin(p *types.Plugin) {
 	my.llmPlugin = p
+}
+
+// SetSystemPrompt sets the complete system prompt for LLM calls.
+func (my *Engine) SetSystemPrompt(prompt string) {
+	my.systemPrompt = prompt
 }
 
 // ProcessMessage processes an incoming message.
@@ -106,8 +112,22 @@ func (my *Engine) callLLM(ctx context.Context, session *Session, message string)
 	var history = session.GetMessages()
 
 	// Build messages for LLM
-	// todo: 每次callLLM的时候都把copy一遍全部的历史消息到map中，感觉非常低效，似乎没有必要做格式转换
-	messages := make([]map[string]string, 0, len(history)+1)
+	// Pre-allocate capacity: system prompt (optional) + history + current message
+	capacity := len(history) + 1
+	if my.systemPrompt != "" {
+		capacity++
+	}
+	messages := make([]map[string]string, 0, capacity)
+
+	// Add system prompt if available
+	if my.systemPrompt != "" {
+		messages = append(messages, map[string]string{
+			"role":    "system",
+			"content": my.systemPrompt,
+		})
+	}
+
+	// Add conversation history
 	for _, msg := range history {
 		messages = append(messages, map[string]string{
 			"role":    msg.Role,

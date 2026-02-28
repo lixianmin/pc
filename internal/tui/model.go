@@ -28,15 +28,16 @@ type Model struct {
 	textarea textarea.Model
 
 	// State
-	messages   []Message
-	history    *History
-	rpcClient  *gateway.RPCClient
-	sessionID  string
-	status     string
-	width      int
-	height     int
-	quitting   bool
-	ready      bool
+	messages     []Message
+	history      *History
+	rpcClient    *gateway.RPCClient
+	sessionID    string
+	status       string
+	width        int
+	height       int
+	quitting     bool
+	ready        bool
+	skillCache   []SkillInfo // Cache of available skills for completion
 
 	// Styles
 	styles *Styles
@@ -188,13 +189,31 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyTab:
 			// Tab completion
 			input := m.textarea.Value()
-			if strings.HasPrefix(input, "/") {
+			cursorPos := len(input) // Use end of input as cursor position for simplicity
+
+			// Find the word at cursor position
+			wordStart := cursorPos
+			for wordStart > 0 && input[wordStart-1] != ' ' {
+				wordStart--
+			}
+			currentWord := input[wordStart:cursorPos]
+
+			var completed string
+			if strings.HasPrefix(currentWord, "@") {
+				// Skill or file completion
+				completed = m.completeReference(currentWord)
+			} else if strings.HasPrefix(currentWord, "/") {
 				// Command completion
-				completed := m.completeCommand(input)
-				if completed != input {
-					m.textarea.SetValue(completed + " ")
-					m.textarea.CursorEnd()
+				completed = m.completeCommand(currentWord)
+			}
+
+			if completed != currentWord {
+				// Replace the word at cursor
+				newInput := input[:wordStart] + completed
+				if cursorPos < len(input) {
+					newInput += input[cursorPos:]
 				}
+				m.textarea.SetValue(newInput + " ")
 			}
 		}
 
@@ -268,13 +287,28 @@ func (m *Model) handleInput(input string) tea.Cmd {
 		return m.handleCommand(input)
 	}
 
-	// Regular message
+	// Parse input for @ references
+	parsed, err := ParseInput(input, m)
+	if err != nil {
+		m.addMessage("agent", fmt.Sprintf("Error parsing input: %v", err))
+		m.viewport.SetContent(m.renderMessages())
+		m.viewport.GotoBottom()
+		return nil
+	}
+
+	// Build full message with context
+	fullMessage := parsed.CleanText
+	if context := parsed.BuildContext(); context != "" {
+		fullMessage += context
+	}
+
+	// Display original input to user
 	m.addMessage("user", input)
 	m.viewport.SetContent(m.renderMessages())
 	m.viewport.GotoBottom()
 
-	// Send to agent
-	return m.sendToAgent(input)
+	// Send full message (with context) to agent
+	return m.sendToAgent(fullMessage)
 }
 
 // handleCommand handles slash commands.
@@ -339,6 +373,131 @@ func (m *Model) completeCommand(input string) string {
 	}
 
 	return input
+}
+
+// completeReference provides tab completion for @ references (skills and files).
+func (m *Model) completeReference(input string) string {
+	if !strings.HasPrefix(input, "@") {
+		return input
+	}
+
+	prefix := input[1:] // Remove @
+
+	// Try skill completion first
+	if skills := m.getMatchingSkills(prefix); len(skills) > 0 {
+		return "@" + skills[0]
+	}
+
+	// Try file path completion
+	if files := m.getMatchingFiles(prefix); len(files) > 0 {
+		return "@" + files[0]
+	}
+
+	return input
+}
+
+// getMatchingSkills returns skills that match the given prefix.
+func (m *Model) getMatchingSkills(prefix string) []string {
+	var matches []string
+
+	// Load skills from cache or RPC
+	skills := m.loadSkillsCache()
+
+	for _, skill := range skills {
+		if strings.HasPrefix(skill.Name, prefix) {
+			matches = append(matches, skill.Name)
+		}
+	}
+
+	return matches
+}
+
+// getMatchingFiles returns files that match the given prefix.
+func (m *Model) getMatchingFiles(prefix string) []string {
+	var matches []string
+
+	// Expand ~ to home directory
+	if strings.HasPrefix(prefix, "~") {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			prefix = filepath.Join(home, prefix[1:])
+		}
+	}
+
+	// Get directory and file prefix
+	dir := filepath.Dir(prefix)
+	filePrefix := filepath.Base(prefix)
+
+	if dir == "" || dir == "." {
+		dir = "."
+	}
+
+	// Read directory entries
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return matches
+	}
+
+	for _, entry := range entries {
+		name := entry.Name()
+		if strings.HasPrefix(name, filePrefix) {
+			fullPath := filepath.Join(dir, name)
+			// If it's a directory, add trailing slash
+			if entry.IsDir() {
+				fullPath += "/"
+			}
+			// Convert back to ~ if it was expanded
+			if home, err := os.UserHomeDir(); err == nil && strings.HasPrefix(fullPath, home) {
+				fullPath = "~" + fullPath[len(home):]
+			}
+			matches = append(matches, fullPath)
+		}
+	}
+
+	return matches
+}
+
+// loadSkillsCache loads skills into cache for completion.
+func (m *Model) loadSkillsCache() []SkillInfo {
+	if m.skillCache != nil {
+		return m.skillCache
+	}
+
+	// Try to load from RPC if available
+	if m.rpcClient != nil {
+		skills, err := m.rpcClient.ListSkills()
+		if err == nil {
+			var cache []SkillInfo
+			for _, s := range skills {
+				cache = append(cache, SkillInfo{
+					Name:        s.Name,
+					Description: s.Description,
+				})
+			}
+			m.skillCache = cache
+			return cache
+		}
+	}
+
+	// Return empty cache
+	m.skillCache = []SkillInfo{}
+	return m.skillCache
+}
+
+// GetSkill implements SkillProvider interface.
+func (m *Model) GetSkill(name string) (SkillInfo, error) {
+	skills := m.loadSkillsCache()
+	for _, skill := range skills {
+		if skill.Name == name {
+			return skill, nil
+		}
+	}
+	return SkillInfo{}, os.ErrNotExist
+}
+
+// ListSkills implements SkillProvider interface.
+func (m *Model) ListSkills() []SkillInfo {
+	return m.loadSkillsCache()
 }
 
 // addMessage adds a message to the chat.

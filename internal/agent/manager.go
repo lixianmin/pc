@@ -14,11 +14,12 @@ import (
 
 // Manager manages agent lifecycle and state.
 type Manager struct {
-	config     *config.Config
-	agent      *types.Agent
-	configPath string
-	statePath  string
-	mu         sync.RWMutex
+	config         *config.Config
+	agent          *types.Agent
+	configPath     string
+	statePath      string
+	agentsMdConfig *AgentsMdConfig
+	mu             sync.RWMutex
 }
 
 // NewManager creates a new agent manager.
@@ -180,6 +181,61 @@ func (my *Manager) UpdateAgentName(name string) error {
 
 	my.agent.Name = name
 	return nil
+}
+
+// LoadAgentsMd loads the agents.md file from the given path.
+// If the file doesn't exist, it returns nil without error.
+func (my *Manager) LoadAgentsMd(path string) error {
+	// Check if file exists
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		if l := logger.Get(); l != nil {
+			l.Info("No agents.md file found at:", path)
+		}
+		return nil
+	}
+
+	cfg, err := LoadAgentsMd(path)
+	if err != nil {
+		return fmt.Errorf("failed to load agents.md: %w", err)
+	}
+
+	my.mu.Lock()
+	defer my.mu.Unlock()
+
+	my.agentsMdConfig = cfg
+
+	if l := logger.Get(); l != nil {
+		l.Info("Loaded agents.md:", cfg.Name)
+	}
+
+	return nil
+}
+
+// GetAgentsMdConfig returns the loaded agents.md config.
+// Returns nil if agents.md was not loaded.
+func (my *Manager) GetAgentsMdConfig() *AgentsMdConfig {
+	my.mu.RLock()
+	defer my.mu.RUnlock()
+
+	return my.agentsMdConfig
+}
+
+// GetSystemPromptBase returns the base system prompt from agents.md.
+// If agents.md was not loaded, returns a default system prompt.
+func (my *Manager) GetSystemPromptBase() string {
+	my.mu.RLock()
+	defer my.mu.RUnlock()
+
+	if my.agentsMdConfig != nil {
+		return my.agentsMdConfig.ToSystemPrompt()
+	}
+
+	// Return default system prompt based on config
+	if my.config != nil {
+		return fmt.Sprintf("你是 %s。", my.config.GetAgentName())
+	}
+
+	return "你是一个 AI 助手。"
 }
 
 // Close saves the agent state and cleans up resources.
