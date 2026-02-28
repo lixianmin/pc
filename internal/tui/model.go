@@ -342,11 +342,17 @@ func (m *Model) handleCommand(cmd string) tea.Cmd {
   /clear, /c    - Clear the screen
   /skills, /s   - List available skills
   /status       - Show gateway status
+  /task list    - List tasks
+  /task add <title>  - Add a new task
+  /task complete <id> - Complete a task
   /help, /h     - Show this help message`
 		m.addMessage("agent", help)
 		m.viewport.SetContent(m.renderMessages())
 		m.viewport.GotoBottom()
 		return nil
+
+	case "/task":
+		return m.handleTaskCommand(parts)
 
 	default:
 		m.addMessage("agent", fmt.Sprintf("Unknown command: %s. Type /help for available commands.", command))
@@ -358,11 +364,24 @@ func (m *Model) handleCommand(cmd string) tea.Cmd {
 
 // completeCommand provides tab completion for commands.
 func (m *Model) completeCommand(input string) string {
+	// Handle task subcommands
+	if strings.HasPrefix(input, "/task ") {
+		taskCommands := []string{"list", "add", "complete", "delete"}
+		for _, cmd := range taskCommands {
+			fullCmd := "/task " + cmd
+			if strings.HasPrefix(fullCmd, input) {
+				return fullCmd
+			}
+		}
+		return input
+	}
+
 	commands := []string{
 		"/quit", "/q",
 		"/clear", "/c",
 		"/skills", "/s",
 		"/status",
+		"/task",
 		"/help", "/h",
 	}
 
@@ -607,4 +626,136 @@ type statusMsg string
 // generateSessionID generates a unique session ID.
 func generateSessionID() string {
 	return fmt.Sprintf("session-%d", time.Now().UnixNano())
+}
+
+// handleTaskCommand handles /task subcommands
+func (m *Model) handleTaskCommand(parts []string) tea.Cmd {
+	if len(parts) < 2 {
+		return func() tea.Msg {
+			return responseMsg("Usage: /task <command> [args]\nCommands: list, add, complete, delete")
+		}
+	}
+
+	subcommand := parts[1]
+
+	switch subcommand {
+	case "list":
+		return m.listTasks()
+	case "add":
+		if len(parts) < 3 {
+			return func() tea.Msg {
+				return responseMsg("Usage: /task add <title> [--description <desc>]")
+			}
+		}
+		// Join remaining parts as title (until --description if present)
+		var title string
+		var description string
+		for i := 2; i < len(parts); i++ {
+			if parts[i] == "--description" && i+1 < len(parts) {
+				description = parts[i+1]
+				break
+			}
+			if title != "" {
+				title += " "
+			}
+			title += parts[i]
+		}
+		return m.addTask(title, description)
+	case "complete":
+		if len(parts) < 3 {
+			return func() tea.Msg {
+				return responseMsg("Usage: /task complete <task-id>")
+			}
+		}
+		return m.completeTask(parts[2])
+	case "delete":
+		if len(parts) < 3 {
+			return func() tea.Msg {
+				return responseMsg("Usage: /task delete <task-id>")
+			}
+		}
+		return m.deleteTask(parts[2])
+	default:
+		return func() tea.Msg {
+			return responseMsg(fmt.Sprintf("Unknown task command: %s. Available: list, add, complete, delete", subcommand))
+		}
+	}
+}
+
+// listTasks lists all tasks
+func (m *Model) listTasks() tea.Cmd {
+	return func() tea.Msg {
+		if m.rpcClient == nil {
+			return errorMsg("not connected to gateway")
+		}
+
+		tasks, err := m.rpcClient.ListTasks("")
+		if err != nil {
+			return errorMsg(err.Error())
+		}
+
+		if len(tasks) == 0 {
+			return responseMsg("No tasks found.")
+		}
+
+		var b strings.Builder
+		b.WriteString("Tasks:\n")
+		for _, task := range tasks {
+			status := "⏳"
+			if task.Status == "completed" {
+				status = "✅"
+			}
+			b.WriteString(fmt.Sprintf("  %s %s: %s\n", status, task.ID, task.Title))
+		}
+
+		return responseMsg(b.String())
+	}
+}
+
+// addTask adds a new task
+func (m *Model) addTask(title, description string) tea.Cmd {
+	return func() tea.Msg {
+		if m.rpcClient == nil {
+			return errorMsg("not connected to gateway")
+		}
+
+		taskID, err := m.rpcClient.AddTask(title, description)
+		if err != nil {
+			return errorMsg(err.Error())
+		}
+
+		return responseMsg(fmt.Sprintf("Task created: %s", taskID))
+	}
+}
+
+// completeTask marks a task as completed
+func (m *Model) completeTask(taskID string) tea.Cmd {
+	return func() tea.Msg {
+		if m.rpcClient == nil {
+			return errorMsg("not connected to gateway")
+		}
+
+		err := m.rpcClient.CompleteTask(taskID)
+		if err != nil {
+			return errorMsg(err.Error())
+		}
+
+		return responseMsg(fmt.Sprintf("Task %s completed.", taskID))
+	}
+}
+
+// deleteTask deletes a task
+func (m *Model) deleteTask(taskID string) tea.Cmd {
+	return func() tea.Msg {
+		if m.rpcClient == nil {
+			return errorMsg("not connected to gateway")
+		}
+
+		err := m.rpcClient.DeleteTask(taskID)
+		if err != nil {
+			return errorMsg(err.Error())
+		}
+
+		return responseMsg(fmt.Sprintf("Task %s deleted.", taskID))
+	}
 }

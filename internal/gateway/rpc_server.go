@@ -52,6 +52,7 @@ func (my *RPCServer) registerHandlers() {
 	my.handlers[string(protocol.RPCMethodListTasks)] = my.handleListTasks
 	my.handlers[string(protocol.RPCMethodAddTask)] = my.handleAddTask
 	my.handlers[string(protocol.RPCMethodCompleteTask)] = my.handleCompleteTask
+	my.handlers[string(protocol.RPCMethodDeleteTask)] = my.handleDeleteTask
 }
 
 // Start starts the RPC server.
@@ -301,6 +302,23 @@ func (my *RPCServer) handleCompleteTask(ctx context.Context, params json.RawMess
 
 	// TODO: Implement task completion
 	return &protocol.CompleteTaskResult{
+		Success: true,
+	}, nil
+}
+
+// handleDeleteTask handles DeleteTask requests.
+func (my *RPCServer) handleDeleteTask(ctx context.Context, params json.RawMessage) (interface{}, error) {
+	var req protocol.DeleteTaskParams
+	if err := json.Unmarshal(params, &req); err != nil {
+		return nil, fmt.Errorf("invalid params: %w", err)
+	}
+
+	if req.ID == "" {
+		return nil, fmt.Errorf("id is required")
+	}
+
+	// TODO: Implement task deletion
+	return &protocol.DeleteTaskResult{
 		Success: true,
 	}, nil
 }

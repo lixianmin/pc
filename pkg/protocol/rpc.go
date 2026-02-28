@@ -23,6 +23,8 @@ const (
 	RPCMethodAddTask RPCMethod = "AddTask"
 	// RPCMethodCompleteTask completes a task.
 	RPCMethodCompleteTask RPCMethod = "CompleteTask"
+	// RPCMethodDeleteTask deletes a task.
+	RPCMethodDeleteTask RPCMethod = "DeleteTask"
 )
 
 // RPCRequest represents an RPC request.
@@ -198,5 +200,15 @@ type CompleteTaskParams struct {
 
 // CompleteTaskResult represents the result of CompleteTask.
 type CompleteTaskResult struct {
+	Success bool `json:"success"`
+}
+
+// DeleteTaskParams represents parameters for DeleteTask.
+type DeleteTaskParams struct {
+	ID string `json:"id"`
+}
+
+// DeleteTaskResult represents the result of DeleteTask.
+type DeleteTaskResult struct {
 	Success bool `json:"success"`
 }

@@ -296,3 +296,21 @@ func (my *RPCClient) CompleteTask(id string) error {
 
 	return nil
 }
+
+// DeleteTask deletes a task.
+func (my *RPCClient) DeleteTask(id string) error {
+	params := &protocol.DeleteTaskParams{
+		ID: id,
+	}
+
+	resp, err := my.Call(string(protocol.RPCMethodDeleteTask), params)
+	if err != nil {
+		return err
+	}
+
+	if resp.IsError() {
+		return resp.Error
+	}
+
+	return nil
+}
