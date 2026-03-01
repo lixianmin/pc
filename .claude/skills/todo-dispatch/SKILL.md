@@ -14,7 +14,7 @@ description: 将 `notes/05.todo.md` 中的待定需求整理到 spec.md/arch.md�
 2. `notes/05.todo.md` - 获取待整理的临时需求
 3. `notes/01.spec.md` - 需求文档（真理之源）
 4. `notes/02.arch.md` - 架构设计
-5. `notes/03.task.md` - 现有任务清单
+5. `notes/03.tasks.md` - 现有任务清单
 
 ### 2. 分析阶段
 
@@ -40,7 +40,7 @@ description: 将 `notes/05.todo.md` 中的待定需求整理到 spec.md/arch.md�
 
 ### 4. 编译阶段
 
-更新 03.task.md：
+更新 03.tasks.md：
 - 新增任务条目（格式：M{里程碑}-{序号}）
 - 填写：优先级、需求编号、架构映射
 - 编写详细实现步骤（宪法 1.3 要求）
@@ -56,7 +56,7 @@ description: 将 `notes/05.todo.md` 中的待定需求整理到 spec.md/arch.md�
 
 ## 注意事项
 
-- **不要修改 03.task.md 中已完成的任务状态**
+- **不要修改 03.tasks.md 中已完成的任务状态**
 - **必须基于 01.spec.md（真理之源）进行整理**
 - **新任务必须包含详细实现步骤和验收标准**
 - **必须更新所有文件的变更记录**

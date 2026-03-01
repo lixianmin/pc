@@ -6,8 +6,12 @@
 
 ## 核心纪律（不可违反）
 
-1. **测试先行** - 编写任何功能代码之前，必须先写测试
-2. **少即是多** - 绝不进行非必要的抽象
+与 [00.constitution.md](./notes/00.constitution.md) 保持一致：
+
+1. **规范是真理之源** - 一切架构和代码服务于规范，需求先行（spec.md → arch.md → tasks.md）
+2. **测试先行铁律** - 所有功能从编写失败的单元测试开始（Red-Green-Refactor）
+3. **少即是多** - 不进行非必要的抽象，不引入非必要的依赖（Library-First）
+4. **代码可读性优先** - 代码的首要目的是让人类易于理解（无全局可变状态）
 
 ---
 
@@ -18,19 +22,28 @@
 | [00.constitution.md](./notes/00.constitution.md) | 项目宪法，定义不可动摇的核心原则 | **每次任务第一步** |
 | [01.spec.md](./notes/01.spec.md) | 需求文档，唯一真理来源 | 需求讨论、功能开发前 |
 | [02.arch.md](./notes/02.arch.md) | 架构设计，技术选型与规范 | 架构调整、新技术引入前 |
-| [03.task.md](./notes/03.task.md) | 任务清单，含详细实现步骤 | 开发跟踪、进度更新时 |
+| [03.tasks.md](./notes/03.tasks.md) | 任务清单**索引**（里程碑概览） | 开发跟踪、进度更新时 |
 | [04.lesson.md](./notes/04.lesson.md) | 经验教训，历史错误记录 | **每次任务第二步** |
 | [05.todo.md](./notes/05.todo.md) | 待定任务，临时记录 | 需要整理到其它文件时 |
+
+### tasks/ 目录结构
+
+| 文件 | 职责 | 加载时机 |
+|------|------|----------|
+| [tasks/_template.md](./notes/tasks/_template.md) | 任务文件模板（YAML frontmatter） | 创建新任务时 |
+| [tasks/m*.md](./notes/tasks/) | 活跃/近期里程碑详细任务 | 开发对应功能时 |
+| [tasks/completed/*.md](./notes/tasks/completed/) | 已完成里程碑归档 | 查阅历史实现时 |
 
 ---
 
 ## 任务执行顺序
 
 1. ⏸ 阅读 `00.constitution.md` 相关条款
-2. ⏸ 阅读 `04.lesson.md` 相关错误教训
-3. ⏸ 按需阅读 `01.spec.md`, `02.arch.md`
-4. ⏸ 审视任务是否符合原则
-5. ⏸ 执行
+2. ⏸ 阅读 `01.spec.md`（需求先行）
+3. ⏸ 按需阅读 `02.arch.md`（架构设计）
+4. ⏸ 阅读 `04.lesson.md` 相关错误教训
+5. ⏸ 审视任务是否符合原则
+6. ⏸ 执行
 
 ---
 
