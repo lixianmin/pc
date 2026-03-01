@@ -114,6 +114,17 @@ func parsePersonality(lines []string) []string {
 	return traits
 }
 
+// ReadAgentsMdContent reads agents.md file and returns its content directly.
+// This is a simplified version that doesn't parse the file structure.
+// The content is used as-is for the system prompt prefix.
+func ReadAgentsMdContent(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to read agents.md: %w", err)
+	}
+	return string(data), nil
+}
+
 // ToSystemPrompt converts the agents.md config to a system prompt string.
 func (c *AgentsMdConfig) ToSystemPrompt() string {
 	var parts []string

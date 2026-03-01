@@ -9,6 +9,8 @@ import (
 
 	"github.com/lixianmin/pc/internal/config"
 	"github.com/lixianmin/pc/internal/logger"
+	"github.com/lixianmin/pc/internal/plugin"
+	"github.com/lixianmin/pc/internal/skill"
 	"github.com/lixianmin/pc/pkg/types"
 )
 
@@ -19,6 +21,8 @@ type Manager struct {
 	configPath     string
 	statePath      string
 	agentsMdConfig *AgentsMdConfig
+	skillManager   skill.ISkillManager
+	pluginManager  *plugin.PluginManager
 	mu             sync.RWMutex
 }
 
@@ -247,4 +251,79 @@ func (my *Manager) Close() error {
 	// Note: we don't close config or logger here as they are managed externally
 
 	return nil
+}
+
+// SetSkillManager sets the skill manager for system prompt building.
+func (my *Manager) SetSkillManager(sm skill.ISkillManager) {
+	my.mu.Lock()
+	defer my.mu.Unlock()
+	my.skillManager = sm
+}
+
+// SetPluginManager sets the plugin manager for system prompt building.
+func (my *Manager) SetPluginManager(pm *plugin.PluginManager) {
+	my.mu.Lock()
+	defer my.mu.Unlock()
+	my.pluginManager = pm
+}
+
+// GetSystemPromptBuilder creates and returns a SystemPromptBuilder with current state.
+func (my *Manager) GetSystemPromptBuilder() *SystemPromptBuilder {
+	my.mu.RLock()
+	defer my.mu.RUnlock()
+
+	builder := NewSystemPromptBuilder()
+
+	// Set base prompt from agents.md or default
+	basePrompt := my.getSystemPromptBaseLocked()
+	builder.SetBasePrompt(basePrompt)
+
+	// Set skills if skill manager is available
+	if my.skillManager != nil {
+		skills := my.skillManager.ListSkills()
+		builder.SetSkills(skills)
+	}
+
+	// Set tools if plugin manager is available
+	if my.pluginManager != nil {
+		plugins := my.pluginManager.ListPlugins()
+		tools := make([]ToolInfo, 0, len(plugins))
+		for _, p := range plugins {
+			if p.Enabled {
+				tools = append(tools, ToolInfoFromPlugin(p))
+			}
+		}
+		builder.SetTools(tools)
+	}
+
+	return builder
+}
+
+// BuildSystemPrompt builds and returns the complete system prompt.
+func (my *Manager) BuildSystemPrompt() string {
+	return my.GetSystemPromptBuilder().Build()
+}
+
+// getSystemPromptBaseLocked returns the base system prompt (must be called with lock held).
+func (my *Manager) getSystemPromptBaseLocked() string {
+	// Try to read from agents.md file first (using simplified method)
+	if my.config != nil {
+		agentsMdPath := my.config.GetSystemPromptFile()
+		content, err := ReadAgentsMdContent(agentsMdPath)
+		if err == nil && content != "" {
+			return content
+		}
+	}
+
+	// Fall back to parsed agents.md config
+	if my.agentsMdConfig != nil {
+		return my.agentsMdConfig.ToSystemPrompt()
+	}
+
+	// Return default system prompt based on config
+	if my.config != nil {
+		return fmt.Sprintf("你是 %s。", my.config.GetAgentName())
+	}
+
+	return "你是一个 AI 助手。"
 }

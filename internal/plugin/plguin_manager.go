@@ -67,7 +67,7 @@ func (my *PluginManager) Discover() ([]*types.Plugin, error) {
 			}
 
 			pluginPath := filepath.Join(typeDir, entry.Name())
-			plugin, err := my.loadPlugin(pluginPath)
+			plugin, err := my.LoadPlugin(pluginPath)
 			if err != nil {
 				// Log but continue loading other plugins
 				continue
@@ -84,11 +84,6 @@ func (my *PluginManager) Discover() ([]*types.Plugin, error) {
 
 // LoadPlugin loads a plugin from the given path.
 func (my *PluginManager) LoadPlugin(path string) (*types.Plugin, error) {
-	return my.loadPlugin(path)
-}
-
-// loadPlugin loads plugin metadata from plugin.yml.
-func (my *PluginManager) loadPlugin(path string) (*types.Plugin, error) {
 	pluginYmlPath := filepath.Join(path, "plugin.yml")
 
 	data, err := os.ReadFile(pluginYmlPath)

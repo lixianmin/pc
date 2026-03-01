@@ -9,21 +9,6 @@ import (
 	"github.com/lixianmin/pc/pkg/types"
 )
 
-// IEngine is the interface for the core engine.
-type IEngine interface {
-	// ProcessMessage processes an incoming message and returns the response.
-	ProcessMessage(ctx context.Context, sessionId, message string) (string, error)
-
-	// CreateSession creates a new session.
-	CreateSession(sessionId string) error
-
-	// CloseSession closes a session.
-	CloseSession(sessionId string) error
-
-	// Close closes the engine.
-	Close() error
-}
-
 // Engine is the core engine implementation.
 type Engine struct {
 	pluginManager *plugin.PluginManager

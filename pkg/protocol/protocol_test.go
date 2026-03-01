@@ -92,7 +92,7 @@ func TestNewRequest(t *testing.T) {
 				t.Errorf("Version = %v, want %v", req.Version, Version)
 			}
 
-			if req.ID == "" {
+			if req.Id == "" {
 				t.Error("ID should not be empty")
 			}
 		})
@@ -105,8 +105,8 @@ func TestNewResponse(t *testing.T) {
 
 	resp := NewResponse(id, result)
 
-	if resp.ID != id {
-		t.Errorf("ID = %v, want %v", resp.ID, id)
+	if resp.Id != id {
+		t.Errorf("ID = %v, want %v", resp.Id, id)
 	}
 
 	if resp.Type != MessageTypeResponse {
@@ -129,8 +129,8 @@ func TestNewErrorResponse(t *testing.T) {
 
 	resp := NewErrorResponse(id, code, message)
 
-	if resp.ID != id {
-		t.Errorf("ID = %v, want %v", resp.ID, id)
+	if resp.Id != id {
+		t.Errorf("ID = %v, want %v", resp.Id, id)
 	}
 
 	if resp.Type != MessageTypeError {
@@ -171,8 +171,8 @@ func TestRequestEncodeDecode(t *testing.T) {
 		t.Fatalf("DecodeRequest() error = %v", err)
 	}
 
-	if decoded.ID != req.ID {
-		t.Errorf("Decoded ID = %v, want %v", decoded.ID, req.ID)
+	if decoded.Id != req.Id {
+		t.Errorf("Decoded ID = %v, want %v", decoded.Id, req.Id)
 	}
 
 	if decoded.Method != req.Method {
@@ -197,8 +197,8 @@ func TestResponseEncodeDecode(t *testing.T) {
 		t.Fatalf("DecodeResponse() error = %v", err)
 	}
 
-	if decoded.ID != resp.ID {
-		t.Errorf("Decoded ID = %v, want %v", decoded.ID, resp.ID)
+	if decoded.Id != resp.Id {
+		t.Errorf("Decoded ID = %v, want %v", decoded.Id, resp.Id)
 	}
 
 	if decoded.Type != resp.Type {
@@ -506,8 +506,8 @@ func TestJSONRoundtrip(t *testing.T) {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}
 
-	if decodedReq.ID != originalReq.ID {
-		t.Errorf("ID mismatch: %v != %v", decodedReq.ID, originalReq.ID)
+	if decodedReq.Id != originalReq.Id {
+		t.Errorf("ID mismatch: %v != %v", decodedReq.Id, originalReq.Id)
 	}
 
 	if decodedReq.Method != originalReq.Method {

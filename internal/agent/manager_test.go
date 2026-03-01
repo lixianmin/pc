@@ -3,9 +3,12 @@ package agent
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/lixianmin/pc/internal/config"
+	"github.com/lixianmin/pc/internal/plugin"
+	"github.com/lixianmin/pc/internal/skill"
 )
 
 func TestAgentManager_NewManager(t *testing.T) {
@@ -655,5 +658,124 @@ func TestAgentManager_Close(t *testing.T) {
 				t.Errorf("Close() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+// TestManager_BuildSystemPrompt tests the BuildSystemPrompt method (M9-002)
+func TestManager_BuildSystemPrompt(t *testing.T) {
+	tests := []struct {
+		name            string
+		agentsMdContent string
+		expectContains  []string
+	}{
+		{
+			name:            "with agents.md",
+			agentsMdContent: "# TestAgent\n\n你是 TestAgent，一个专业的助手。",
+			expectContains: []string{
+				"你是 TestAgent，一个专业的助手",
+				// Skills and tools sections only appear when there are actual skills/tools
+			},
+		},
+		{
+			name:            "without agents.md (default)",
+			agentsMdContent: "",
+			expectContains: []string{
+				"你是 ",
+				// Skills and tools sections only appear when there are actual skills/tools
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			configPath := filepath.Join(tmpDir, "config.yml")
+			agentsMdPath := filepath.Join(tmpDir, "agents.md")
+
+			// Create config
+			cfg := &config.Config{
+				Agent: config.AgentConfig{
+					Name: "TestAgent",
+				},
+				Workspace:  tmpDir,
+				SkillsDir:  tmpDir,
+				PluginsDir: tmpDir,
+				SystemPrompt: config.SystemPromptConfig{
+					File: agentsMdPath,
+				},
+				Log: config.LogConfig{
+					Level:  config.InfoLevel,
+					Output: "stdout",
+				},
+			}
+
+			// Write agents.md if content provided
+			if tt.agentsMdContent != "" {
+				err := os.WriteFile(agentsMdPath, []byte(tt.agentsMdContent), 0644)
+				if err != nil {
+					t.Fatalf("failed to write agents.md: %v", err)
+				}
+			}
+
+			mgr, err := NewManager(cfg, configPath)
+			if err != nil {
+				t.Fatalf("NewManager() error = %v", err)
+			}
+			defer mgr.Close()
+
+			// Set up skill manager and plugin manager for testing
+			skillMgr := skill.NewSkillManager()
+			mgr.SetSkillManager(skillMgr)
+
+			pluginMgr, _ := plugin.NewPluginManager(tmpDir)
+			mgr.SetPluginManager(pluginMgr)
+
+			// Build system prompt
+			prompt := mgr.BuildSystemPrompt()
+
+			// Verify expected content
+			for _, expected := range tt.expectContains {
+				if !strings.Contains(prompt, expected) {
+					t.Errorf("BuildSystemPrompt() missing expected content: %q\nGot:\n%s", expected, prompt)
+				}
+			}
+		})
+	}
+}
+
+// TestManager_GetSystemPromptBuilder tests the GetSystemPromptBuilder method
+func TestManager_GetSystemPromptBuilder(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+
+	cfg := &config.Config{
+		Agent: config.AgentConfig{
+			Name: "TestAgent",
+		},
+		Workspace:  tmpDir,
+		SkillsDir:  tmpDir,
+		PluginsDir: tmpDir,
+		Log: config.LogConfig{
+			Level:  config.InfoLevel,
+			Output: "stdout",
+		},
+	}
+
+	mgr, err := NewManager(cfg, configPath)
+	if err != nil {
+		t.Fatalf("NewManager() error = %v", err)
+	}
+	defer mgr.Close()
+
+	builder := mgr.GetSystemPromptBuilder()
+	if builder == nil {
+		t.Error("GetSystemPromptBuilder() returned nil")
+		return
+	}
+
+	// Build should return a non-empty string
+	prompt := builder.Build()
+	if prompt == "" {
+		t.Error("SystemPromptBuilder.Build() returned empty string")
 	}
 }

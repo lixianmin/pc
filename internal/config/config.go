@@ -9,6 +9,19 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// SystemPromptConfig holds system prompt configuration.
+type SystemPromptConfig struct {
+	File string `yaml:"file"` // Path to agents.md file
+}
+
+// GetFile returns the system prompt file path, or default if empty.
+func (s SystemPromptConfig) GetFile() string {
+	if s.File != "" {
+		return s.File
+	}
+	return "~/.pc/agents.md"
+}
+
 // LogLevel represents the logging level.
 type LogLevel string
 
@@ -38,11 +51,12 @@ type AgentConfig struct {
 
 // Config holds the complete configuration.
 type Config struct {
-	Agent      AgentConfig `yaml:"agent"`       // Agent configuration
-	Workspace  string      `yaml:"workspace"`   // Workspace directory
-	Log        LogConfig   `yaml:"log"`         // Logging configuration
-	SkillsDir  string      `yaml:"skills_dir"`  // Skills directory
-	PluginsDir string      `yaml:"plugins_dir"` // Plugins directory
+	Agent        AgentConfig        `yaml:"agent"`         // Agent configuration
+	Workspace    string             `yaml:"workspace"`     // Workspace directory
+	Log          LogConfig          `yaml:"log"`           // Logging configuration
+	SkillsDir    string             `yaml:"skills_dir"`    // Skills directory
+	PluginsDir   string             `yaml:"plugins_dir"`   // Plugins directory
+	SystemPrompt SystemPromptConfig `yaml:"system_prompt"` // System prompt configuration
 }
 
 // DefaultConfig returns a default configuration.
@@ -56,6 +70,9 @@ func DefaultConfig() *Config {
 		Workspace:  "~/workspace",
 		SkillsDir:  "~/.pc/skills",
 		PluginsDir: "~/.pc/plugins",
+		SystemPrompt: SystemPromptConfig{
+			File: "~/.pc/agents.md",
+		},
 		Log: LogConfig{
 			Level:  InfoLevel,
 			Output: "stdout",
@@ -75,6 +92,7 @@ func Load(path string) (*Config, error) {
 		cfg.Workspace = expandPath(cfg.Workspace)
 		cfg.SkillsDir = expandPath(cfg.SkillsDir)
 		cfg.PluginsDir = expandPath(cfg.PluginsDir)
+		cfg.SystemPrompt.File = expandPath(cfg.SystemPrompt.File)
 		return cfg, nil
 	}
 
@@ -96,6 +114,7 @@ func Load(path string) (*Config, error) {
 	cfg.Workspace = expandPath(cfg.Workspace)
 	cfg.SkillsDir = expandPath(cfg.SkillsDir)
 	cfg.PluginsDir = expandPath(cfg.PluginsDir)
+	cfg.SystemPrompt.File = expandPath(cfg.SystemPrompt.File)
 
 	return cfg, nil
 }
@@ -189,6 +208,11 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("PC_PLUGINS_DIR"); v != "" {
 		cfg.PluginsDir = v
 	}
+
+	// System prompt file
+	if v := os.Getenv("PC_SYSTEM_PROMPT_FILE"); v != "" {
+		cfg.SystemPrompt.File = v
+	}
 }
 
 // expandPath expands a path with ~ to the user's home directory.
@@ -251,4 +275,9 @@ func (my *Config) GetLogLevel() LogLevel {
 // GetLogOutput returns the log output destination.
 func (my *Config) GetLogOutput() string {
 	return my.Log.Output
+}
+
+// GetSystemPromptFile returns the system prompt file path.
+func (my *Config) GetSystemPromptFile() string {
+	return my.SystemPrompt.GetFile()
 }

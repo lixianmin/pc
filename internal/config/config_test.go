@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -601,5 +602,144 @@ func TestConfigStructTags(t *testing.T) {
 	// Verify output is not empty
 	if len(data) == 0 {
 		t.Error("Marshal produced empty output")
+	}
+}
+
+// TestSystemPromptFile tests the system_prompt.file configuration (M9-003)
+func TestSystemPromptFile(t *testing.T) {
+	tests := []struct {
+		name         string
+		configFile   string
+		wantDefault  string
+		wantCustom   string
+		envValue     string
+		wantEnvValue string
+	}{
+		{
+			name:        "default value",
+			configFile:  "",
+			wantDefault: "~/.pc/agents.md",
+		},
+		{
+			name:       "custom path in config",
+			configFile: "system_prompt:\n  file: /custom/path/agents.md\n",
+			wantCustom: "/custom/path/agents.md",
+		},
+		{
+			name:         "env override",
+			configFile:   "",
+			envValue:     "/env/path/agents.md",
+			wantEnvValue: "/env/path/agents.md",
+		},
+		{
+			name:       "relative path",
+			configFile: "system_prompt:\n  file: ./agents.md\n",
+			wantCustom: "./agents.md",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			configPath := filepath.Join(tmpDir, "config.yml")
+
+			// Set env if needed
+			if tt.envValue != "" {
+				t.Setenv("PC_SYSTEM_PROMPT_FILE", tt.envValue)
+			}
+
+			// Write config file if content provided
+			if tt.configFile != "" {
+				err := os.WriteFile(configPath, []byte(tt.configFile), 0644)
+				if err != nil {
+					t.Fatalf("failed to write config: %v", err)
+				}
+			}
+
+			// Load config
+			cfg, err := Load(configPath)
+			if err != nil {
+				t.Fatalf("Load() error = %v", err)
+			}
+
+			// Check expected value
+			var want string
+			switch {
+			case tt.wantEnvValue != "":
+				want = tt.wantEnvValue
+			case tt.wantCustom != "":
+				want = tt.wantCustom
+			default:
+				want = tt.wantDefault
+			}
+
+			// Path should be expanded (if starts with ~)
+			if strings.HasPrefix(want, "~") {
+				home, _ := os.UserHomeDir()
+				want = expandPath(want)
+				_ = home
+			}
+
+			got := cfg.GetSystemPromptFile()
+			if got != want {
+				t.Errorf("GetSystemPromptFile() = %v, want %v", got, want)
+			}
+		})
+	}
+}
+
+// TestSystemPromptFileSaveLoad tests saving and loading system_prompt.file
+func TestSystemPromptFileSaveLoad(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+
+	// Create config with custom system_prompt.file
+	cfg := &Config{
+		Agent: AgentConfig{
+			Name: "TestAgent",
+		},
+		Workspace:  "~/workspace",
+		SkillsDir:  "~/.pc/skills",
+		PluginsDir: "~/.pc/plugins",
+		SystemPrompt: SystemPromptConfig{
+			File: "/custom/agents.md",
+		},
+		Log: LogConfig{
+			Level:  InfoLevel,
+			Output: "stdout",
+		},
+	}
+
+	// Save
+	err := cfg.Save(configPath)
+	if err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	// Load
+	loaded, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	// Verify
+	if loaded.SystemPrompt.File != cfg.SystemPrompt.File {
+		t.Errorf("SystemPrompt.File = %v, want %v", loaded.SystemPrompt.File, cfg.SystemPrompt.File)
+	}
+}
+
+// TestSystemPromptFileGetter tests the getter method
+func TestSystemPromptFileGetter(t *testing.T) {
+	cfg := &Config{SystemPrompt: SystemPromptConfig{File: "/test/agents.md"}}
+	if got := cfg.GetSystemPromptFile(); got != "/test/agents.md" {
+		t.Errorf("GetSystemPromptFile() = %v, want /test/agents.md", got)
+	}
+}
+
+// TestDefaultSystemPromptFile tests that default config has correct default
+func TestDefaultSystemPromptFile(t *testing.T) {
+	cfg := DefaultConfig()
+	if cfg.SystemPrompt.File != "~/.pc/agents.md" {
+		t.Errorf("Default SystemPrompt.File = %v, want ~/.pc/agents.md", cfg.SystemPrompt.File)
 	}
 }

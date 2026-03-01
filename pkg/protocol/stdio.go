@@ -7,6 +7,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/lixianmin/got/loom"
 )
 
 const (
@@ -83,8 +85,8 @@ func (my *StdioProtocol) Connect() error {
 	}
 
 	// Start response reader
-	go my.readResponses()
-	go my.readErrors()
+	loom.Go(my.readResponses)
+	loom.Go(my.readErrors)
 
 	return nil
 }
@@ -96,29 +98,29 @@ func (my *StdioProtocol) Call(method string, params any) (any, error) {
 	}
 
 	// Create request
-	req := NewRequest(method, params)
+	var request = NewRequest(method, params)
 
 	// Create response channel
 	respChan := make(chan *Response, 1)
 
 	// Register pending request
 	my.mu.Lock()
-	my.pendingReqs[req.ID] = respChan
+	my.pendingReqs[request.Id] = respChan
 	my.mu.Unlock()
 
 	defer func() {
 		my.mu.Lock()
-		delete(my.pendingReqs, req.ID)
+		delete(my.pendingReqs, request.Id)
 		my.mu.Unlock()
 	}()
 
 	// Encode and send request
-	data, err := req.Encode()
+	data, err := request.Encode()
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode request: %w", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "[Protocol] Sending request ID=%s method=%s\n", req.ID, method)
+	fmt.Fprintf(os.Stderr, "[Protocol] Sending request ID=%s method=%s\n", request.Id, method)
 
 	// Write request with newline delimiter (required for line-based protocol)
 	data = append(data, '\n')
@@ -130,13 +132,13 @@ func (my *StdioProtocol) Call(method string, params any) (any, error) {
 	fmt.Fprintf(os.Stderr, "[Protocol] Waiting for response (timeout=%v)...\n", my.timeout)
 	select {
 	case resp := <-respChan:
-		fmt.Fprintf(os.Stderr, "[Protocol] Received response ID=%s\n", resp.ID)
+		fmt.Fprintf(os.Stderr, "[Protocol] Received response ID=%s\n", resp.Id)
 		if resp.IsError() {
 			return nil, fmt.Errorf("plugin error: %s", resp.Error.Message)
 		}
 		return resp.Result, nil
 	case <-time.After(my.timeout):
-		fmt.Fprintf(os.Stderr, "[Protocol] Timeout waiting for response ID=%s\n", req.ID)
+		fmt.Fprintf(os.Stderr, "[Protocol] Timeout waiting for response ID=%s\n", request.Id)
 		return nil, fmt.Errorf("timeout waiting for response")
 	}
 }
@@ -169,11 +171,11 @@ func (my *StdioProtocol) Close() error {
 }
 
 // readResponses reads responses from stdout.
-func (my *StdioProtocol) readResponses() {
+func (my *StdioProtocol) readResponses(later loom.Later) {
 	scanner := bufio.NewScanner(my.stdout)
 
 	for scanner.Scan() {
-		data := scanner.Bytes()
+		var data = scanner.Bytes()
 		fmt.Fprintf(os.Stderr, "[Protocol] Raw response: %s\n", string(data))
 
 		// Decode response
@@ -184,18 +186,18 @@ func (my *StdioProtocol) readResponses() {
 			continue
 		}
 
-		fmt.Fprintf(os.Stderr, "[Protocol] Decoded response ID=%s type=%s\n", resp.ID, resp.Type)
+		fmt.Fprintf(os.Stderr, "[Protocol] Decoded response ID=%s type=%s\n", resp.Id, resp.Type)
 
 		// Route response to pending request
 		my.mu.RLock()
-		respChan, ok := my.pendingReqs[resp.ID]
+		respChan, ok := my.pendingReqs[resp.Id]
 		my.mu.RUnlock()
 
 		if ok {
-			fmt.Fprintf(os.Stderr, "[Protocol] Routing response to pending request ID=%s\n", resp.ID)
+			fmt.Fprintf(os.Stderr, "[Protocol] Routing response to pending request ID=%s\n", resp.Id)
 			respChan <- resp
 		} else {
-			fmt.Fprintf(os.Stderr, "[Protocol] No pending request for response ID=%s\n", resp.ID)
+			fmt.Fprintf(os.Stderr, "[Protocol] No pending request for response ID=%s\n", resp.Id)
 		}
 	}
 
@@ -209,7 +211,7 @@ func (my *StdioProtocol) readResponses() {
 }
 
 // readErrors reads errors from stderr.
-func (my *StdioProtocol) readErrors() {
+func (my *StdioProtocol) readErrors(later loom.Later) {
 	scanner := bufio.NewScanner(my.stderr)
 
 	for scanner.Scan() {

@@ -26,7 +26,7 @@ const (
 // Request represents a protocol request message.
 type Request struct {
 	Version string          `json:"version"`          // Protocol version
-	ID      string          `json:"id"`               // Request ID
+	Id      string          `json:"id"`               // Request ID
 	Type    MessageType     `json:"type"`             // Message type
 	Method  string          `json:"method"`           // Method name
 	Params  json.RawMessage `json:"params,omitempty"` // Method parameters
@@ -35,7 +35,7 @@ type Request struct {
 // Response represents a protocol response message.
 type Response struct {
 	Version string      `json:"version"` // Protocol version
-	ID      string      `json:"id"`      // Request ID (correlated)
+	Id      string      `json:"id"`      // Request ID (correlated)
 	Type    MessageType `json:"type"`    // Message type
 	Result  any         `json:"result"`  // Result value (success)
 	Error   *Error      `json:"error"`   // Error value (failure)
@@ -63,7 +63,7 @@ func NewRequest(method string, params any) *Request {
 	}
 	return &Request{
 		Version: Version,
-		ID:      ulid.Make().String(),
+		Id:      ulid.Make().String(),
 		Type:    MessageTypeCall,
 		Method:  method,
 		Params:  paramsJSON,
@@ -74,7 +74,7 @@ func NewRequest(method string, params any) *Request {
 func NewResponse(id string, result any) *Response {
 	return &Response{
 		Version: Version,
-		ID:      id,
+		Id:      id,
 		Type:    MessageTypeResponse,
 		Result:  result,
 	}
@@ -84,7 +84,7 @@ func NewResponse(id string, result any) *Response {
 func NewErrorResponse(id string, code int, message string) *Response {
 	return &Response{
 		Version: Version,
-		ID:      id,
+		Id:      id,
 		Type:    MessageTypeError,
 		Error: &Error{
 			Code:    code,
@@ -97,7 +97,7 @@ func NewErrorResponse(id string, code int, message string) *Response {
 func NewErrorWithData(id string, code int, message string, data any) *Response {
 	return &Response{
 		Version: Version,
-		ID:      id,
+		Id:      id,
 		Type:    MessageTypeError,
 		Error: &Error{
 			Code:    code,

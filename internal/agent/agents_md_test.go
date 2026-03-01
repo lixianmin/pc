@@ -219,3 +219,100 @@ func TestAgentsMdConfig_ToSystemPrompt(t *testing.T) {
 		})
 	}
 }
+
+// TestReadAgentsMdContent tests the simplified agents.md loading (M9-003)
+func TestReadAgentsMdContent(t *testing.T) {
+	tests := []struct {
+		name        string
+		content     string
+		expectError bool
+		expected    string
+	}{
+		{
+			name:        "完整 agents.md",
+			content:     "# PersonalClaw\n\n你是 PersonalClaw，一个 AI 助手。\n\n## 可用工具\n\n你可以使用以下工具...",
+			expectError: false,
+			expected:    "# PersonalClaw\n\n你是 PersonalClaw，一个 AI 助手。\n\n## 可用工具\n\n你可以使用以下工具...",
+		},
+		{
+			name:        "空文件",
+			content:     "",
+			expectError: false,
+			expected:    "",
+		},
+		{
+			name:        "简单内容",
+			content:     "你是一个有用的 AI 助手。",
+			expectError: false,
+			expected:    "你是一个有用的 AI 助手。",
+		},
+		{
+			name: "复杂格式 markdown",
+			content: `# CodeReviewAgent
+
+## 职责
+
+审查代码并提供改进建议。
+
+### 审查重点
+1. 代码安全性
+2. 性能优化
+3. 可读性
+`,
+			expectError: false,
+			expected: `# CodeReviewAgent
+
+## 职责
+
+审查代码并提供改进建议。
+
+### 审查重点
+1. 代码安全性
+2. 性能优化
+3. 可读性
+`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create temp directory and file
+			tmpDir := t.TempDir()
+			agentsPath := filepath.Join(tmpDir, "agents.md")
+
+			err := os.WriteFile(agentsPath, []byte(tt.content), 0644)
+			if err != nil {
+				t.Fatalf("failed to write test file: %v", err)
+			}
+
+			// Test reading content directly
+			result, err := ReadAgentsMdContent(agentsPath)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if result != tt.expected {
+				t.Errorf("content mismatch:\ngot:\n%q\n\nwant:\n%q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestReadAgentsMdContent_FileNotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+	nonExistentPath := filepath.Join(tmpDir, "non_existent.md")
+
+	_, err := ReadAgentsMdContent(nonExistentPath)
+	if err == nil {
+		t.Error("expected error for non-existent file")
+	}
+}
