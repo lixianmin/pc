@@ -11,6 +11,33 @@ completed: 2026-02-28
 
 ---
 
+## 实现差距分析（归档）
+
+以下内容记录 M7 开发前后的实现差距对比，供后续里程碑参考。
+
+### CLI 命令行差距（开发前）
+
+| 需求 | 预期行为 | 开发前状态 | 当前状态 |
+|------|---------|-----------|---------|
+| `pc gateway start` | 后台启动 daemon，保持运行 | ❌ 未实现 | ✅ 已实现：支持 pidfile、日志文件、信号处理 |
+| `pc gateway stop` | 停止 daemon 进程 | ❌ 未实现 | ✅ 已实现：通过 pidfile 找到进程并发送 SIGTERM |
+| `pc gateway status` | 查看 daemon 状态 | ❌ 未实现 | ✅ 已实现：读取 pidfile 检查进程存活 |
+| `pc tui` | 启动交互式 shell | ❌ 未实现 | ✅ 已实现：Bubble Tea TUI，支持 REPL 和命令历史 |
+| `pc version` | 显示版本 | ⚠️ 部分实现 | ✅ 已实现：支持 `version` 命令和 `--version` 标志 |
+
+### 架构组件状态
+
+| 组件 | 开发前状态 | 当前状态 |
+|------|-----------|---------|
+| Engine | ✅ 已实现 | ✅ 已实现：ProcessMessage, Session 管理已就绪 |
+| PluginManager | ✅ 已实现 | ✅ 已实现：插件加载、调用、stdio 协议就绪 |
+| CLI Parser | ❌ 未实现 | ✅ 已实现：cobra 框架，gateway/tui/task 子命令 |
+| Daemon 模式 | ❌ 未实现 | ✅ 已实现：后台运行、pidfile、信号处理 |
+| TUI 界面 | ❌ 未实现 | ✅ 已实现：Bubble Tea REPL、历史记录、命令补全 |
+| Gateway RPC | ❌ 未实现 | ✅ 已实现：Unix Socket，JSON 协议 |
+
+---
+
 ## M7-001: CLI 框架与子命令体系
 
 **优先级**: P0 | **需求**: CLI-008, CLI-001 ~ CLI-003
