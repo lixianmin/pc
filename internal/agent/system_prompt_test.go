@@ -34,10 +34,18 @@ func TestSystemPromptBuilder_Build(t *testing.T) {
 				"code_review",
 				"代码审查技能",
 				"test",
-				"## 可用工具",
+				"## 工具使用指南",
 				"git",
 				"Git 操作",
 				"openai",
+				"<tool_call>",
+				"<name>",
+				"<params>",
+				"ReAct",
+				"思考 (Think)",
+				"行动 (Act)",
+				"观察 (Observe)",
+				"回复 (Respond)",
 			},
 		},
 		{
@@ -50,7 +58,7 @@ func TestSystemPromptBuilder_Build(t *testing.T) {
 			},
 			wantNotContains: []string{
 				"## 可用技能",
-				"## 可用工具",
+				"## 工具使用指南",
 			},
 		},
 		{
@@ -67,7 +75,7 @@ func TestSystemPromptBuilder_Build(t *testing.T) {
 				"构建项目",
 			},
 			wantNotContains: []string{
-				"## 可用工具",
+				"## 工具使用指南",
 			},
 		},
 		{
@@ -79,9 +87,11 @@ func TestSystemPromptBuilder_Build(t *testing.T) {
 			},
 			wantContains: []string{
 				"你是 Agent。",
-				"## 可用工具",
+				"## 工具使用指南",
 				"telegram",
 				"发送消息",
+				"<tool_call>",
+				"ReAct",
 			},
 			wantNotContains: []string{
 				"## 可用技能",
@@ -234,4 +244,135 @@ func TestToolInfo_FromPlugin(t *testing.T) {
 
 func containsString(s, substr string) bool {
 	return strings.Contains(s, substr)
+}
+
+func TestSystemPromptBuilder_ToolUsageGuide(t *testing.T) {
+	tests := []struct {
+		name         string
+		tools        []ToolInfo
+		wantContains []string
+	}{
+		{
+			name: "工具使用指南包含 ReAct 说明",
+			tools: []ToolInfo{
+				{Name: "shell", Description: "执行 shell 命令", Type: "tool"},
+			},
+			wantContains: []string{
+				"## 工具使用指南",
+				"当你需要获取外部信息或执行操作时",
+				"不要告诉用户'你无法'或'你没有权限'",
+				"### 可用工具",
+				"**shell**",
+				"### 工具调用格式",
+				"<tool_call>",
+				"<name>工具名</name>",
+				"<params>{\"参数名\": \"参数值\"}</params>",
+				"</tool_call>",
+				"### 示例",
+				"### 工作流程 (ReAct)",
+				"思考 (Think)",
+				"行动 (Act)",
+				"观察 (Observe)",
+				"回复 (Respond)",
+			},
+		},
+		{
+			name: "带参数 schema 的工具描述",
+			tools: []ToolInfo{
+				{
+					Name:        "shell",
+					Description: "执行 shell 命令",
+					Type:        "tool",
+					ParamsSchema: map[string]string{
+						"command":     "要执行的命令",
+						"description": "命令描述",
+					},
+				},
+			},
+			wantContains: []string{
+				"**shell**",
+				"执行 shell 命令",
+				"`command`",
+				"要执行的命令",
+				"`description`",
+				"命令描述",
+			},
+		},
+		{
+			name:  "空工具列表不生成工具指南",
+			tools: []ToolInfo{},
+			wantContains: []string{
+				"你是 Agent。",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			builder := NewSystemPromptBuilder()
+			builder.SetBasePrompt("你是 Agent。")
+			builder.SetTools(tt.tools)
+
+			result := builder.Build()
+
+			for _, want := range tt.wantContains {
+				if !containsString(result, want) {
+					t.Errorf("Build() should contain %q, got:\n%s", want, result)
+				}
+			}
+		})
+	}
+}
+
+func TestSystemPromptBuilder_ToolExamples(t *testing.T) {
+	tests := []struct {
+		name         string
+		tools        []ToolInfo
+		wantContains []string
+	}{
+		{
+			name: "有 tool 类型时显示 shell 示例",
+			tools: []ToolInfo{
+				{Name: "shell", Description: "执行命令", Type: "tool"},
+			},
+			wantContains: []string{
+				"**示例 1: 执行 shell 命令**",
+				"用户: 列出主目录的文件",
+				"<thinking>",
+				"用户想要查看主目录的文件",
+				"<tool_call>",
+				"<name>shell</name>",
+				"\"command\": \"ls ~\"",
+				"</tool_call>",
+			},
+		},
+		{
+			name: "通用示例始终显示",
+			tools: []ToolInfo{
+				{Name: "search", Description: "搜索", Type: "search"},
+			},
+			wantContains: []string{
+				"**示例 2: 通用格式**",
+				"<tool_call>",
+				"<name>工具名称</name>",
+				"<params>{\"key\": \"value\", \"key2\": \"value2\"}</params>",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			builder := NewSystemPromptBuilder()
+			builder.SetBasePrompt("你是 Agent。")
+			builder.SetTools(tt.tools)
+
+			result := builder.Build()
+
+			for _, want := range tt.wantContains {
+				if !containsString(result, want) {
+					t.Errorf("Build() should contain %q, got:\n%s", want, result)
+				}
+			}
+		})
+	}
 }

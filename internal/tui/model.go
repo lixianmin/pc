@@ -38,6 +38,7 @@ type Model struct {
 	quitting     bool
 	ready        bool
 	skillCache   []SkillInfo // Cache of available skills for completion
+	userScrolled bool        // Whether user has manually scrolled
 
 	// Styles
 	styles *Styles
@@ -45,12 +46,14 @@ type Model struct {
 
 // Styles holds the UI styles.
 type Styles struct {
-	Header       lipgloss.Style
-	UserMessage  lipgloss.Style
-	AgentMessage lipgloss.Style
-	StatusBar    lipgloss.Style
-	InputPrompt  lipgloss.Style
-	Error        lipgloss.Style
+	Header          lipgloss.Style
+	UserMessage     lipgloss.Style
+	AgentMessage    lipgloss.Style
+	StatusBar       lipgloss.Style
+	InputPrompt     lipgloss.Style
+	Error           lipgloss.Style
+	ScrollbarTrack  lipgloss.Style
+	ScrollbarThumb  lipgloss.Style
 }
 
 // DefaultStyles returns the default styles.
@@ -79,6 +82,12 @@ func DefaultStyles() *Styles {
 
 		Error: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF0000")),
+
+		ScrollbarTrack: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#333333")),
+
+		ScrollbarThumb: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#7D56F4")),
 	}
 }
 
@@ -173,6 +182,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.textarea.SetValue(item)
 					m.textarea.CursorEnd()
 				}
+			} else if msg.Alt {
+				// Alt+Up: scroll viewport up
+				m.viewport.LineUp(1)
+				m.userScrolled = true
 			}
 
 		case tea.KeyDown:
@@ -184,7 +197,35 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.textarea.SetValue("")
 				}
+			} else if msg.Alt {
+				// Alt+Down: scroll viewport down
+				m.viewport.LineDown(1)
+				if m.viewport.AtBottom() {
+					m.userScrolled = false
+				} else {
+					m.userScrolled = true
+				}
 			}
+
+		case tea.KeyPgUp:
+			m.viewport.ViewUp()
+			m.userScrolled = true
+
+		case tea.KeyPgDown:
+			m.viewport.ViewDown()
+			if m.viewport.AtBottom() {
+				m.userScrolled = false
+			} else {
+				m.userScrolled = true
+			}
+
+		case tea.KeyHome:
+			m.viewport.GotoTop()
+			m.userScrolled = true
+
+		case tea.KeyEnd:
+			m.viewport.GotoBottom()
+			m.userScrolled = false
 
 		case tea.KeyTab:
 			// Tab completion
@@ -222,7 +263,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.addMessage("agent", string(msg))
 		if m.ready {
 			m.viewport.SetContent(m.renderMessages())
-			m.viewport.GotoBottom()
+			// Only auto-scroll if user hasn't manually scrolled
+			if !m.userScrolled {
+				m.viewport.GotoBottom()
+			}
 		}
 
 	case errorMsg:
@@ -230,7 +274,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.addMessage("agent", fmt.Sprintf("Error: %v", msg))
 		if m.ready {
 			m.viewport.SetContent(m.renderMessages())
-			m.viewport.GotoBottom()
+			// Only auto-scroll if user hasn't manually scrolled
+			if !m.userScrolled {
+				m.viewport.GotoBottom()
+			}
 		}
 
 	case statusMsg:
@@ -265,19 +312,79 @@ func (m *Model) View() string {
 	prompt := m.styles.InputPrompt.Render("> ")
 	input := m.textarea.View()
 
+	// Render content area with scrollbar
+	content := m.renderContentWithScrollbar()
+
 	// Combine all parts
 	return fmt.Sprintf(
 		"%s\n%s\n%s\n%s%s",
 		header,
-		m.viewport.View(),
+		content,
 		status,
 		prompt,
 		input,
 	)
 }
 
+// renderContentWithScrollbar renders the viewport content with a scrollbar.
+func (m *Model) renderContentWithScrollbar() string {
+	viewportContent := m.viewport.View()
+	scrollbar := m.renderScrollbar()
+
+	// Join viewport and scrollbar horizontally
+	return lipgloss.JoinHorizontal(lipgloss.Top, viewportContent, scrollbar)
+}
+
+// renderScrollbar renders the scrollbar based on current scroll position.
+func (m *Model) renderScrollbar() string {
+	// Only show scrollbar if content exceeds viewport height
+	totalLines := m.viewport.TotalLineCount()
+	visibleLines := m.viewport.Height
+
+	if totalLines <= visibleLines {
+		return ""
+	}
+
+	// Calculate scrollbar thumb position and size
+	scrollPercent := float64(m.viewport.YOffset) / float64(totalLines-visibleLines)
+	thumbHeight := max(1, visibleLines*visibleLines/totalLines)
+	if thumbHeight < 1 {
+		thumbHeight = 1
+	}
+
+	// Calculate thumb position
+	trackHeight := visibleLines
+	thumbPos := int(scrollPercent * float64(trackHeight-thumbHeight))
+
+	// Build scrollbar string
+	var sb strings.Builder
+	for i := 0; i < trackHeight; i++ {
+		if i >= thumbPos && i < thumbPos+thumbHeight {
+			sb.WriteString(m.styles.ScrollbarThumb.Render("█"))
+		} else {
+			sb.WriteString(m.styles.ScrollbarTrack.Render("░"))
+		}
+		if i < trackHeight-1 {
+			sb.WriteString("\n")
+		}
+	}
+
+	return sb.String()
+}
+
+// max returns the maximum of two integers.
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 // handleInput processes user input.
 func (m *Model) handleInput(input string) tea.Cmd {
+	// Reset user scrolled state when user sends a new message
+	m.userScrolled = false
+
 	// Add to history
 	m.history.Add(input)
 	m.history.Save()
@@ -528,16 +635,27 @@ func (m *Model) addMessage(role, content string) {
 	})
 }
 
-// renderMessages renders all messages as a string.
+// renderMessages renders all messages as a string with proper wrapping.
 func (m *Model) renderMessages() string {
 	var b strings.Builder
+
+	// Calculate available width for message content
+	// Subtract padding (2 for left padding) and some margin
+	availableWidth := m.viewport.Width - 4
+	if availableWidth < 20 {
+		availableWidth = 20 // Minimum width
+	}
+
+	// Create wrapping styles based on available width
+	userStyle := m.styles.UserMessage.Width(availableWidth)
+	agentStyle := m.styles.AgentMessage.Width(availableWidth)
 
 	for _, msg := range m.messages {
 		switch msg.Role {
 		case "user":
-			b.WriteString(m.styles.UserMessage.Render("You: " + msg.Content))
+			b.WriteString(userStyle.Render("You: " + msg.Content))
 		case "agent":
-			b.WriteString(m.styles.AgentMessage.Render("Agent: " + msg.Content))
+			b.WriteString(agentStyle.Render("Agent: " + msg.Content))
 		}
 		b.WriteString("\n\n")
 	}
