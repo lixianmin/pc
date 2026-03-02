@@ -3,8 +3,11 @@ package gateway
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 )
+
+var sessionCounter uint64
 
 // TUIInputSource implements InputSource for TUI clients via RPC
 type TUIInputSource struct {
@@ -175,5 +178,6 @@ func (t *TUIInputSource) IsRunning() bool {
 
 // generateSessionID generates a unique session ID
 func generateSessionID() string {
-	return fmt.Sprintf("tui-%d", time.Now().UnixNano())
+	counter := atomic.AddUint64(&sessionCounter, 1)
+	return fmt.Sprintf("tui-%d-%d", time.Now().UnixNano(), counter)
 }

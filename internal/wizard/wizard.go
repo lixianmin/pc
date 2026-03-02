@@ -96,21 +96,30 @@ func RunWizard() error {
 
 	fmt.Println("Welcome to PersonalClaw!")
 	fmt.Println("Let's set up your AI assistant.")
+	fmt.Println()
 
-	// Ask for agent name
+	// Ask for user's name (how agent should address user)
+	userName := promptUserName()
+	fmt.Println()
+
+	// Ask for agent name (how user should address agent)
 	agentName, err := promptAgentName()
 	if err != nil {
 		return fmt.Errorf("failed to get agent name: %w", err)
 	}
+	fmt.Println()
 
-	// Ask for profession (optional)
+	// Ask for profession
 	profession := promptProfession()
+	fmt.Println()
 
-	// Ask for personality (optional)
+	// Ask for personality
 	personality := promptPersonality()
+	fmt.Println()
 
 	// Ask for workspace
 	workspace := promptWorkspace()
+	fmt.Println()
 
 	// Create directories
 	pluginDir := GeneratePluginDir("")
@@ -139,7 +148,7 @@ func RunWizard() error {
 
 	// Generate agent.md file
 	agentMdPath := filepath.Join(pcDir, "agent.md")
-	if err := generateAgentMd(pcDir, agentName, profession, personality); err != nil {
+	if err := generateAgentMd(pcDir, agentName, userName, profession, personality); err != nil {
 		return fmt.Errorf("failed to generate agent.md: %w", err)
 	}
 
@@ -301,7 +310,7 @@ func generateTelegramPlugin(pluginDir string) error {
 }
 
 // generateAgentMd generates the agent.md file with agent configuration.
-func generateAgentMd(pcDir string, name, profession string, personality []string) error {
+func generateAgentMd(pcDir string, agentName, userName, profession string, personality []string) error {
 	agentMdPath := filepath.Join(pcDir, "agent.md")
 
 	// Build the markdown content
@@ -309,8 +318,14 @@ func generateAgentMd(pcDir string, name, profession string, personality []string
 
 	// Title (Agent Name)
 	content.WriteString("# ")
-	content.WriteString(name)
+	content.WriteString(agentName)
 	content.WriteString("\n\n")
+
+	// User section (who the agent is talking to)
+	content.WriteString("## User\n")
+	content.WriteString("你的用户是 **")
+	content.WriteString(userName)
+	content.WriteString("**。请用这个名字称呼用户。\n\n")
 
 	// Profession section
 	content.WriteString("## Profession\n")
@@ -326,9 +341,20 @@ func generateAgentMd(pcDir string, name, profession string, personality []string
 	}
 	content.WriteString("\n")
 
-	// Instructions section (default empty with placeholder)
+	// Instructions section with personalized greeting
 	content.WriteString("## Instructions\n")
-	content.WriteString("你是一个AI助手，帮助用户完成各种任务。\n")
+	content.WriteString("你是 **")
+	content.WriteString(agentName)
+	content.WriteString("**，一位")
+	content.WriteString(profession)
+	content.WriteString("。你的用户是 **")
+	content.WriteString(userName)
+	content.WriteString("**。\n\n")
+	content.WriteString("在与用户交流时，请：\n")
+	content.WriteString("1. 用友好、专业的语气回应\n")
+	content.WriteString("2. 适时使用用户的名字来建立亲切感\n")
+	content.WriteString("3. 根据你的性格特点调整回应风格\n")
+	content.WriteString("4. 主动提供帮助，预判用户需求\n")
 
 	// Write to file
 	if err := os.WriteFile(agentMdPath, []byte(content.String()), 0644); err != nil {
@@ -338,10 +364,23 @@ func generateAgentMd(pcDir string, name, profession string, personality []string
 	return nil
 }
 
+func promptUserName() string {
+	defaultName := "主人"
+	fmt.Printf("您的名字 [%s] (Agent将用这个名字称呼您): ", defaultName)
+	var input string
+	fmt.Scanln(&input)
+	input = strings.TrimSpace(input)
+
+	if input == "" {
+		input = defaultName
+	}
+	return input
+}
+
 func promptAgentName() (string, error) {
 	defaultName := "PersonalClaw"
 	for {
-		fmt.Printf("Agent name [%s]: ", defaultName)
+		fmt.Printf("Agent的名字 [%s] (您将用这个名字称呼Agent): ", defaultName)
 		var input string
 		fmt.Scanln(&input)
 		input = strings.TrimSpace(input)
@@ -360,7 +399,7 @@ func promptAgentName() (string, error) {
 
 func promptProfession() string {
 	defaultProfession := "通用助手"
-	fmt.Printf("Profession [%s] (optional, press Enter to skip): ", defaultProfession)
+	fmt.Printf("Agent的职业/人设 [%s] (如：编程助手、生活管家、学习伙伴): ", defaultProfession)
 	var input string
 	fmt.Scanln(&input)
 	input = strings.TrimSpace(input)
@@ -372,8 +411,8 @@ func promptProfession() string {
 }
 
 func promptPersonality() []string {
-	fmt.Println("Personality traits (optional, press Enter to skip):")
-	fmt.Println("  Example: 友好, 专业, 幽默")
+	fmt.Println("Agent的性格特点 (可选，用逗号分隔，直接回车使用默认值):")
+	fmt.Println("  示例: 友好, 专业, 幽默, 严谨, 活泼")
 
 	var input string
 	fmt.Scanln(&input)

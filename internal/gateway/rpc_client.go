@@ -7,6 +7,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/lixianmin/logo"
 	"github.com/lixianmin/pc/pkg/protocol"
 	"github.com/oklog/ulid/v2"
 )
@@ -23,7 +24,7 @@ type RPCClient struct {
 func NewRPCClient(socketPath string) *RPCClient {
 	return &RPCClient{
 		socketPath: socketPath,
-		timeout:    30 * time.Second,
+		timeout:    60 * time.Second,
 	}
 }
 
@@ -109,6 +110,9 @@ func (my *RPCClient) Call(method string, params interface{}) (*protocol.RPCRespo
 	// Unmarshal response
 	var resp protocol.RPCResponse
 	if err := json.Unmarshal(respData, &resp); err != nil {
+		// Log the raw response data for debugging
+		logo.Error("Failed to unmarshal response:", err)
+		logo.Error("Raw response data:", string(respData))
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
