@@ -522,11 +522,11 @@ func TestAgentManager_GetSystemPromptBase(t *testing.T) {
 			wantContains:   []string{"CustomAgent", "代码助手", "智能", "帮助用户编写代码"},
 		},
 		{
-			name:           "without agents.md",
+			name:            "without agents.md",
 			agentsMdContent: "",
-			createAgentsMd: false,
-			configName:     "ConfigAgent",
-			wantContains:   []string{"ConfigAgent"},
+			createAgentsMd:  false,
+			configName:      "ConfigAgent",
+			wantContains:    []string{"你是一个 AI 助手"}, // Default prompt when no agent.md
 		},
 	}
 
@@ -680,7 +680,7 @@ func TestManager_BuildSystemPrompt(t *testing.T) {
 			name:            "without agents.md (default)",
 			agentsMdContent: "",
 			expectContains: []string{
-				"你是 ",
+				"你是一个 AI 助手", // Default prompt when no agent.md exists
 				// Skills and tools sections only appear when there are actual skills/tools
 			},
 		},

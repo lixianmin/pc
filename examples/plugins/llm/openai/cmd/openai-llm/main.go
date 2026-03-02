@@ -99,29 +99,29 @@ func (p *Plugin) Initialize(config Config) error {
 
 // Handle processes a request and returns a response
 func (p *Plugin) Handle(req *protocol.Request) *protocol.Response {
-	resp := protocol.NewResponse(req.ID, nil)
+	resp := protocol.NewResponse(req.Id, nil)
 
 	switch req.Method {
 	case "complete":
 		result, err := p.complete(req.Params)
 		if err != nil {
-			resp = protocol.NewErrorResponse(req.ID, -32603, err.Error())
+			resp = protocol.NewErrorResponse(req.Id, -32603, err.Error())
 		} else {
 			resp.Result = result
 		}
 	case "stream":
 		// For streaming, we would need to send multiple responses
 		// For now, return error as streaming is not fully implemented
-		resp = protocol.NewErrorResponse(req.ID, -32601, "streaming not yet implemented")
+		resp = protocol.NewErrorResponse(req.Id, -32601, "streaming not yet implemented")
 	case "models":
 		result, err := p.models()
 		if err != nil {
-			resp = protocol.NewErrorResponse(req.ID, -32603, err.Error())
+			resp = protocol.NewErrorResponse(req.Id, -32603, err.Error())
 		} else {
 			resp.Result = result
 		}
 	default:
-		resp = protocol.NewErrorResponse(req.ID, -32601, fmt.Sprintf("unknown method: %s", req.Method))
+		resp = protocol.NewErrorResponse(req.Id, -32601, fmt.Sprintf("unknown method: %s", req.Method))
 	}
 
 	return resp
@@ -261,13 +261,13 @@ func main() {
 			var initConfig Config
 			if err := json.Unmarshal(req.Params, &initConfig); err == nil {
 				if err := plugin.Initialize(initConfig); err != nil {
-					resp := protocol.NewErrorResponse(req.ID, -32603, err.Error())
+					resp := protocol.NewErrorResponse(req.Id, -32603, err.Error())
 					data, _ := resp.Encode()
 					fmt.Println(string(data))
 					continue
 				}
 			}
-			resp := protocol.NewResponse(req.ID, map[string]any{
+			resp := protocol.NewResponse(req.Id, map[string]any{
 				"status":  "initialized",
 				"version": version,
 			})

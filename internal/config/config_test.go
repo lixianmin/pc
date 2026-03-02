@@ -13,31 +13,22 @@ func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
 
 	tests := []struct {
-		name    string
-		want    string
-		got     string
-		notZero bool
+		name string
+		want string
+		got  string
 	}{
-		{"agent name", "PersonalClaw", cfg.Agent.Name, true},
-		{"agent profession", "通用助手", cfg.Agent.Profession, true},
-		{"workspace", "~/workspace", cfg.Workspace, true},
-		{"skills dir", "~/.pc/skills", cfg.SkillsDir, true},
-		{"plugins dir", "~/.pc/plugins", cfg.PluginsDir, true},
-		{"log level", string(InfoLevel), string(cfg.Log.Level), true},
-		{"log output", "stdout", cfg.Log.Output, true},
-		{"personality", "", "", false}, // Check not empty
+		{"agent_path", "~/.pc/agent.md", cfg.AgentPath},
+		{"workspace", "~/workspace", cfg.Workspace},
+		{"skills dir", "~/.pc/skills", cfg.SkillsDir},
+		{"plugins dir", "~/.pc/plugins", cfg.PluginsDir},
+		{"log level", string(InfoLevel), string(cfg.Log.Level)},
+		{"log output", "stdout", cfg.Log.Output},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.notZero {
-				if tt.want != tt.got {
-					t.Errorf("%s = %v, want %v", tt.name, tt.got, tt.want)
-				}
-			} else {
-				if len(cfg.Agent.Personality) == 0 {
-					t.Errorf("%s should not be empty", tt.name)
-				}
+			if tt.want != tt.got {
+				t.Errorf("%s = %v, want %v", tt.name, tt.got, tt.want)
 			}
 		})
 	}
@@ -49,11 +40,7 @@ func TestLoadAndSave(t *testing.T) {
 
 	// Create a config
 	cfg := &Config{
-		Agent: AgentConfig{
-			Name:        "TestAgent",
-			Profession:  "Test Profession",
-			Personality: []string{"Friendly", "Helpful"},
-		},
+		AgentPath:  "~/.pc/test/agent.md",
 		Workspace:  "~/test/workspace",
 		SkillsDir:  "~/.pc/test/skills",
 		PluginsDir: "~/.pc/test/plugins",
@@ -76,11 +63,12 @@ func TestLoadAndSave(t *testing.T) {
 	}
 
 	// Verify loaded config matches saved config
-	if loaded.Agent.Name != cfg.Agent.Name {
-		t.Errorf("Agent.Name = %v, want %v", loaded.Agent.Name, cfg.Agent.Name)
+	// Note: paths are expanded during Load, so compare the expanded versions
+	if loaded.AgentPath != expandPath(cfg.AgentPath) {
+		t.Errorf("AgentPath = %v, want %v", loaded.AgentPath, expandPath(cfg.AgentPath))
 	}
-	if loaded.Agent.Profession != cfg.Agent.Profession {
-		t.Errorf("Agent.Profession = %v, want %v", loaded.Agent.Profession, cfg.Agent.Profession)
+	if loaded.Workspace != expandPath(cfg.Workspace) {
+		t.Errorf("Workspace = %v, want %v", loaded.Workspace, expandPath(cfg.Workspace))
 	}
 	if loaded.Log.Level != cfg.Log.Level {
 		t.Errorf("Log.Level = %v, want %v", loaded.Log.Level, cfg.Log.Level)
@@ -97,9 +85,11 @@ func TestLoadNonExistentFile(t *testing.T) {
 		t.Fatalf("Load() error = %v", err)
 	}
 
-	// Verify it's a default config
-	if cfg.Agent.Name != "PersonalClaw" {
-		t.Errorf("Agent.Name = %v, want PersonalClaw", cfg.Agent.Name)
+	// Verify it's a default config (path is expanded)
+	home, _ := os.UserHomeDir()
+	expectedPath := filepath.Join(home, ".pc/agent.md")
+	if cfg.AgentPath != expectedPath {
+		t.Errorf("AgentPath = %v, want %v", cfg.AgentPath, expectedPath)
 	}
 }
 
@@ -129,9 +119,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "valid config",
 			cfg: &Config{
-				Agent: AgentConfig{
-					Name: "TestAgent",
-				},
+				AgentPath:  "~/.pc/agent.md",
 				Workspace:  "~/workspace",
 				SkillsDir:  "~/.pc/skills",
 				PluginsDir: "~/.pc/plugins",
@@ -143,27 +131,9 @@ func TestValidate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "missing agent name",
-			cfg: &Config{
-				Agent: AgentConfig{
-					Name: "",
-				},
-				Workspace:  "~/workspace",
-				SkillsDir:  "~/.pc/skills",
-				PluginsDir: "~/.pc/plugins",
-				Log: LogConfig{
-					Level:  InfoLevel,
-					Output: "stdout",
-				},
-			},
-			wantErr: true,
-		},
-		{
 			name: "missing workspace",
 			cfg: &Config{
-				Agent: AgentConfig{
-					Name: "TestAgent",
-				},
+				AgentPath:  "~/.pc/agent.md",
 				Workspace:  "",
 				SkillsDir:  "~/.pc/skills",
 				PluginsDir: "~/.pc/plugins",
@@ -177,9 +147,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "invalid log level",
 			cfg: &Config{
-				Agent: AgentConfig{
-					Name: "TestAgent",
-				},
+				AgentPath:  "~/.pc/agent.md",
 				Workspace:  "~/workspace",
 				SkillsDir:  "~/.pc/skills",
 				PluginsDir: "~/.pc/plugins",
@@ -193,9 +161,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "valid debug level",
 			cfg: &Config{
-				Agent: AgentConfig{
-					Name: "TestAgent",
-				},
+				AgentPath:  "~/.pc/agent.md",
 				Workspace:  "~/workspace",
 				SkillsDir:  "~/.pc/skills",
 				PluginsDir: "~/.pc/plugins",
@@ -209,9 +175,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "valid warn level",
 			cfg: &Config{
-				Agent: AgentConfig{
-					Name: "TestAgent",
-				},
+				AgentPath:  "~/.pc/agent.md",
 				Workspace:  "~/workspace",
 				SkillsDir:  "~/.pc/skills",
 				PluginsDir: "~/.pc/plugins",
@@ -225,9 +189,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "valid error level",
 			cfg: &Config{
-				Agent: AgentConfig{
-					Name: "TestAgent",
-				},
+				AgentPath:  "~/.pc/agent.md",
 				Workspace:  "~/workspace",
 				SkillsDir:  "~/.pc/skills",
 				PluginsDir: "~/.pc/plugins",
@@ -258,22 +220,12 @@ func TestEnvOverrides(t *testing.T) {
 		checkFn  func(*Config, string)
 	}{
 		{
-			name:     "PC_AGENT_NAME",
-			envKey:   "PC_AGENT_NAME",
-			envValue: "EnvAgent",
+			name:     "PC_AGENT_PATH",
+			envKey:   "PC_AGENT_PATH",
+			envValue: "/env/agent.md",
 			checkFn: func(cfg *Config, v string) {
-				if cfg.Agent.Name != v {
-					t.Errorf("Agent.Name = %v, want %v", cfg.Agent.Name, v)
-				}
-			},
-		},
-		{
-			name:     "PC_AGENT_PROFESSION",
-			envKey:   "PC_AGENT_PROFESSION",
-			envValue: "EnvProfession",
-			checkFn: func(cfg *Config, v string) {
-				if cfg.Agent.Profession != v {
-					t.Errorf("Agent.Profession = %v, want %v", cfg.Agent.Profession, v)
+				if cfg.AgentPath != v {
+					t.Errorf("AgentPath = %v, want %v", cfg.AgentPath, v)
 				}
 			},
 		},
@@ -401,11 +353,7 @@ func TestExpandPath(t *testing.T) {
 
 func TestGetters(t *testing.T) {
 	cfg := &Config{
-		Agent: AgentConfig{
-			Name:        "TestAgent",
-			Profession:  "TestProfession",
-			Personality: []string{"Friendly"},
-		},
+		AgentPath:  "/agent.md",
 		Workspace:  "/workspace",
 		SkillsDir:  "/skills",
 		PluginsDir: "/plugins",
@@ -420,10 +368,7 @@ func TestGetters(t *testing.T) {
 		got  any
 		want any
 	}{
-		{"GetAgentName", cfg.GetAgentName(), "TestAgent"},
-		{"GetAgentProfession", cfg.GetAgentProfession(), "TestProfession"},
-		// Handle slice separately
-		{"GetAgentPersonality", nil, nil},
+		{"GetAgentPath", cfg.GetAgentPath(), "/agent.md"},
 		{"GetWorkspace", cfg.GetWorkspace(), "/workspace"},
 		{"GetSkillsDir", cfg.GetSkillsDir(), "/skills"},
 		{"GetPluginsDir", cfg.GetPluginsDir(), "/plugins"},
@@ -433,21 +378,30 @@ func TestGetters(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.name == "GetAgentPersonality" {
-				// Handle slice comparison separately
-				got := cfg.GetAgentPersonality()
-				want := []string{"Friendly"}
-				if len(got) != len(want) {
-					t.Errorf("%s() length = %v, want %v", tt.name, len(got), len(want))
-				} else if len(got) > 0 && got[0] != want[0] {
-					t.Errorf("%s() = %v, want %v", tt.name, got, want)
-				}
-			} else {
-				if tt.got != tt.want {
-					t.Errorf("%s() = %v, want %v", tt.name, tt.got, tt.want)
-				}
+			if tt.got != tt.want {
+				t.Errorf("%s() = %v, want %v", tt.name, tt.got, tt.want)
 			}
 		})
+	}
+}
+
+func TestGetAgentPathBackwardCompatibility(t *testing.T) {
+	// Test that GetAgentPath falls back to SystemPrompt.File when AgentPath is empty
+	cfg := &Config{
+		AgentPath:    "",
+		SystemPrompt: SystemPromptConfig{File: "/fallback/agents.md"},
+	}
+	if got := cfg.GetAgentPath(); got != "/fallback/agents.md" {
+		t.Errorf("GetAgentPath() = %v, want /fallback/agents.md", got)
+	}
+
+	// Test that GetAgentPath returns default when both are empty
+	cfg2 := &Config{
+		AgentPath:    "",
+		SystemPrompt: SystemPromptConfig{File: ""},
+	}
+	if got := cfg2.GetAgentPath(); got != "~/.pc/agent.md" {
+		t.Errorf("GetAgentPath() = %v, want ~/.pc/agent.md", got)
 	}
 }
 
@@ -473,10 +427,9 @@ func TestPartialConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "partial.yml")
 
-	// Write partial config (only agent name)
+	// Write partial config (only agent_path)
 	yamlContent := `
-agent:
-  name: PartialAgent
+agent_path: /custom/agent.md
 `
 	err := os.WriteFile(configPath, []byte(yamlContent), 0644)
 	if err != nil {
@@ -490,62 +443,15 @@ agent:
 	}
 
 	// Verify partial values are loaded
-	if cfg.Agent.Name != "PartialAgent" {
-		t.Errorf("Agent.Name = %v, want PartialAgent", cfg.Agent.Name)
+	if cfg.AgentPath != "/custom/agent.md" {
+		t.Errorf("AgentPath = %v, want /custom/agent.md", cfg.AgentPath)
 	}
 
-	// Verify other values use defaults
-	if cfg.Agent.Profession != "通用助手" {
-		t.Errorf("Agent.Profession = %v, want 通用助手", cfg.Agent.Profession)
-	}
-}
-
-func TestAgentPersonality(t *testing.T) {
-	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, "personality.yml")
-
-	tests := []struct {
-		name        string
-		personality []string
-	}{
-		{"single trait", []string{"Friendly"}},
-		{"multiple traits", []string{"Friendly", "Professional", "Helpful"}},
-		{"empty traits", []string{}},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create config with personality
-			cfg := &Config{
-				Agent: AgentConfig{
-					Name:        "TestAgent",
-					Personality: tt.personality,
-				},
-				Workspace:  "~/workspace",
-				SkillsDir:  "~/.pc/skills",
-				PluginsDir: "~/.pc/plugins",
-				Log: LogConfig{
-					Level:  InfoLevel,
-					Output: "stdout",
-				},
-			}
-
-			// Save and load
-			err := cfg.Save(configPath)
-			if err != nil {
-				t.Fatalf("Save() error = %v", err)
-			}
-
-			loaded, err := Load(configPath)
-			if err != nil {
-				t.Fatalf("Load() error = %v", err)
-			}
-
-			// Verify personality
-			if len(loaded.Agent.Personality) != len(tt.personality) {
-				t.Errorf("Personality length = %v, want %v", len(loaded.Agent.Personality), len(tt.personality))
-			}
-		})
+	// Verify other values use defaults (path is expanded)
+	home, _ := os.UserHomeDir()
+	expectedWorkspace := filepath.Join(home, "workspace")
+	if cfg.Workspace != expectedWorkspace {
+		t.Errorf("Workspace = %v, want %v", cfg.Workspace, expectedWorkspace)
 	}
 }
 
@@ -568,7 +474,7 @@ func TestYAMLContent(t *testing.T) {
 
 	// Verify it's valid YAML (should contain expected fields)
 	content := string(data)
-	expectedFields := []string{"agent:", "name:", "workspace:", "log:", "level:"}
+	expectedFields := []string{"agent_path:", "workspace:", "log:", "level:"}
 	for _, field := range expectedFields {
 		if !contains(content, field) {
 			t.Errorf("YAML does not contain expected field: %s\nContent:\n%s", field, content)
@@ -605,8 +511,8 @@ func TestConfigStructTags(t *testing.T) {
 	}
 }
 
-// TestSystemPromptFile tests the system_prompt.file configuration (M9-003)
-func TestSystemPromptFile(t *testing.T) {
+// TestAgentPath tests the agent_path configuration
+func TestAgentPath(t *testing.T) {
 	tests := []struct {
 		name         string
 		configFile   string
@@ -618,23 +524,23 @@ func TestSystemPromptFile(t *testing.T) {
 		{
 			name:        "default value",
 			configFile:  "",
-			wantDefault: "~/.pc/agents.md",
+			wantDefault: "~/.pc/agent.md",
 		},
 		{
 			name:       "custom path in config",
-			configFile: "system_prompt:\n  file: /custom/path/agents.md\n",
-			wantCustom: "/custom/path/agents.md",
+			configFile: "agent_path: /custom/path/agent.md\n",
+			wantCustom: "/custom/path/agent.md",
 		},
 		{
 			name:         "env override",
 			configFile:   "",
-			envValue:     "/env/path/agents.md",
-			wantEnvValue: "/env/path/agents.md",
+			envValue:     "/env/path/agent.md",
+			wantEnvValue: "/env/path/agent.md",
 		},
 		{
 			name:       "relative path",
-			configFile: "system_prompt:\n  file: ./agents.md\n",
-			wantCustom: "./agents.md",
+			configFile: "agent_path: ./agent.md\n",
+			wantCustom: "./agent.md",
 		},
 	}
 
@@ -645,7 +551,7 @@ func TestSystemPromptFile(t *testing.T) {
 
 			// Set env if needed
 			if tt.envValue != "" {
-				t.Setenv("PC_SYSTEM_PROMPT_FILE", tt.envValue)
+				t.Setenv("PC_AGENT_PATH", tt.envValue)
 			}
 
 			// Write config file if content provided
@@ -680,30 +586,25 @@ func TestSystemPromptFile(t *testing.T) {
 				_ = home
 			}
 
-			got := cfg.GetSystemPromptFile()
+			got := cfg.GetAgentPath()
 			if got != want {
-				t.Errorf("GetSystemPromptFile() = %v, want %v", got, want)
+				t.Errorf("GetAgentPath() = %v, want %v", got, want)
 			}
 		})
 	}
 }
 
-// TestSystemPromptFileSaveLoad tests saving and loading system_prompt.file
-func TestSystemPromptFileSaveLoad(t *testing.T) {
+// TestAgentPathSaveLoad tests saving and loading agent_path
+func TestAgentPathSaveLoad(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yml")
 
-	// Create config with custom system_prompt.file
+	// Create config with custom agent_path
 	cfg := &Config{
-		Agent: AgentConfig{
-			Name: "TestAgent",
-		},
+		AgentPath:  "/custom/agent.md",
 		Workspace:  "~/workspace",
 		SkillsDir:  "~/.pc/skills",
 		PluginsDir: "~/.pc/plugins",
-		SystemPrompt: SystemPromptConfig{
-			File: "/custom/agents.md",
-		},
 		Log: LogConfig{
 			Level:  InfoLevel,
 			Output: "stdout",
@@ -723,23 +624,23 @@ func TestSystemPromptFileSaveLoad(t *testing.T) {
 	}
 
 	// Verify
-	if loaded.SystemPrompt.File != cfg.SystemPrompt.File {
-		t.Errorf("SystemPrompt.File = %v, want %v", loaded.SystemPrompt.File, cfg.SystemPrompt.File)
+	if loaded.AgentPath != cfg.AgentPath {
+		t.Errorf("AgentPath = %v, want %v", loaded.AgentPath, cfg.AgentPath)
 	}
 }
 
-// TestSystemPromptFileGetter tests the getter method
-func TestSystemPromptFileGetter(t *testing.T) {
-	cfg := &Config{SystemPrompt: SystemPromptConfig{File: "/test/agents.md"}}
-	if got := cfg.GetSystemPromptFile(); got != "/test/agents.md" {
-		t.Errorf("GetSystemPromptFile() = %v, want /test/agents.md", got)
+// TestAgentPathGetter tests the getter method
+func TestAgentPathGetter(t *testing.T) {
+	cfg := &Config{AgentPath: "/test/agent.md"}
+	if got := cfg.GetAgentPath(); got != "/test/agent.md" {
+		t.Errorf("GetAgentPath() = %v, want /test/agent.md", got)
 	}
 }
 
-// TestDefaultSystemPromptFile tests that default config has correct default
-func TestDefaultSystemPromptFile(t *testing.T) {
+// TestDefaultAgentPath tests that default config has correct default
+func TestDefaultAgentPath(t *testing.T) {
 	cfg := DefaultConfig()
-	if cfg.SystemPrompt.File != "~/.pc/agents.md" {
-		t.Errorf("Default SystemPrompt.File = %v, want ~/.pc/agents.md", cfg.SystemPrompt.File)
+	if cfg.AgentPath != "~/.pc/agent.md" {
+		t.Errorf("Default AgentPath = %v, want ~/.pc/agent.md", cfg.AgentPath)
 	}
 }

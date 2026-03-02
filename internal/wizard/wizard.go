@@ -134,15 +134,18 @@ func RunWizard() error {
 		return fmt.Errorf("failed to generate example plugins: %w", err)
 	}
 
-	// Create config
+	// Get PC directory for saving agent.md
+	pcDir := filepath.Dir(configPath)
+
+	// Generate agent.md file
+	agentMdPath := filepath.Join(pcDir, "agent.md")
+	if err := generateAgentMd(pcDir, agentName, profession, personality); err != nil {
+		return fmt.Errorf("failed to generate agent.md: %w", err)
+	}
+
+	// Create config with agent_path
 	cfg := config.DefaultConfig()
-	cfg.Agent.Name = agentName
-	if profession != "" {
-		cfg.Agent.Profession = profession
-	}
-	if len(personality) > 0 {
-		cfg.Agent.Personality = personality
-	}
+	cfg.AgentPath = agentMdPath
 	cfg.Workspace = workspace
 
 	// Save config
@@ -151,6 +154,7 @@ func RunWizard() error {
 	}
 
 	fmt.Println("Configuration saved to:", configPath)
+	fmt.Println("Agent definition saved to:", agentMdPath)
 	fmt.Println("You can now run 'pc' to start your assistant.")
 
 	return nil
@@ -291,6 +295,44 @@ func generateTelegramPlugin(pluginDir string) error {
 
 	if err := os.WriteFile(filepath.Join(telegramConfigDir, "config.yml"), configBytes, 0644); err != nil {
 		return fmt.Errorf("failed to write telegram-bot config.yml: %w", err)
+	}
+
+	return nil
+}
+
+// generateAgentMd generates the agent.md file with agent configuration.
+func generateAgentMd(pcDir string, name, profession string, personality []string) error {
+	agentMdPath := filepath.Join(pcDir, "agent.md")
+
+	// Build the markdown content
+	var content strings.Builder
+
+	// Title (Agent Name)
+	content.WriteString("# ")
+	content.WriteString(name)
+	content.WriteString("\n\n")
+
+	// Profession section
+	content.WriteString("## Profession\n")
+	content.WriteString(profession)
+	content.WriteString("\n\n")
+
+	// Personality section
+	content.WriteString("## Personality\n")
+	for _, trait := range personality {
+		content.WriteString("- ")
+		content.WriteString(trait)
+		content.WriteString("\n")
+	}
+	content.WriteString("\n")
+
+	// Instructions section (default empty with placeholder)
+	content.WriteString("## Instructions\n")
+	content.WriteString("你是一个AI助手，帮助用户完成各种任务。\n")
+
+	// Write to file
+	if err := os.WriteFile(agentMdPath, []byte(content.String()), 0644); err != nil {
+		return fmt.Errorf("failed to write agent.md: %w", err)
 	}
 
 	return nil

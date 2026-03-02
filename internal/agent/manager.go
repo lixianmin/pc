@@ -62,16 +62,32 @@ func (my *Manager) LoadConfig() error {
 }
 
 // GetAgent returns the current agent.
+// Agent properties are loaded from agent.md file (agentsMdConfig).
 func (my *Manager) GetAgent() *types.Agent {
 	my.mu.RLock()
 	defer my.mu.RUnlock()
 
 	if my.agent == nil {
 		// Initialize agent if not already initialized
+		// Load properties from agentsMdConfig if available, otherwise use defaults
+		name := "PersonalClaw"
+		profession := "通用助手"
+		var personality []string
+
+		if my.agentsMdConfig != nil {
+			name = my.agentsMdConfig.Name
+			if my.agentsMdConfig.Profession != "" {
+				profession = my.agentsMdConfig.Profession
+			}
+			if len(my.agentsMdConfig.Personality) > 0 {
+				personality = my.agentsMdConfig.Personality
+			}
+		}
+
 		my.agent = &types.Agent{
-			Name:        my.config.GetAgentName(),
-			Profession:  my.config.GetAgentProfession(),
-			Personality: my.config.GetAgentPersonality(),
+			Name:        name,
+			Profession:  profession,
+			Personality: personality,
 			State:       types.AgentStateIdle,
 		}
 	}
@@ -227,19 +243,7 @@ func (my *Manager) GetAgentsMdConfig() *AgentsMdConfig {
 // GetSystemPromptBase returns the base system prompt from agents.md.
 // If agents.md was not loaded, returns a default system prompt.
 func (my *Manager) GetSystemPromptBase() string {
-	my.mu.RLock()
-	defer my.mu.RUnlock()
-
-	if my.agentsMdConfig != nil {
-		return my.agentsMdConfig.ToSystemPrompt()
-	}
-
-	// Return default system prompt based on config
-	if my.config != nil {
-		return fmt.Sprintf("你是 %s。", my.config.GetAgentName())
-	}
-
-	return "你是一个 AI 助手。"
+	return my.getSystemPromptBaseLocked()
 }
 
 // Close saves the agent state and cleans up resources.
@@ -306,10 +310,10 @@ func (my *Manager) BuildSystemPrompt() string {
 
 // getSystemPromptBaseLocked returns the base system prompt (must be called with lock held).
 func (my *Manager) getSystemPromptBaseLocked() string {
-	// Try to read from agents.md file first (using simplified method)
+	// Try to read from agent.md file first (using simplified method)
 	if my.config != nil {
-		agentsMdPath := my.config.GetSystemPromptFile()
-		content, err := ReadAgentsMdContent(agentsMdPath)
+		agentMdPath := my.config.GetAgentPath()
+		content, err := ReadAgentsMdContent(agentMdPath)
 		if err == nil && content != "" {
 			return content
 		}
@@ -320,10 +324,6 @@ func (my *Manager) getSystemPromptBaseLocked() string {
 		return my.agentsMdConfig.ToSystemPrompt()
 	}
 
-	// Return default system prompt based on config
-	if my.config != nil {
-		return fmt.Sprintf("你是 %s。", my.config.GetAgentName())
-	}
-
+	// Return default system prompt
 	return "你是一个 AI 助手。"
 }

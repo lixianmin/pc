@@ -10,16 +10,18 @@ import (
 )
 
 // SystemPromptConfig holds system prompt configuration.
+// Deprecated: Use AgentPath instead. Kept for backward compatibility.
 type SystemPromptConfig struct {
-	File string `yaml:"file"` // Path to agents.md file
+	File string `yaml:"file,omitempty"` // Path to agents.md file
 }
 
 // GetFile returns the system prompt file path, or default if empty.
+// Deprecated: Use GetAgentPath instead.
 func (s SystemPromptConfig) GetFile() string {
 	if s.File != "" {
 		return s.File
 	}
-	return "~/.pc/agents.md"
+	return ""
 }
 
 // LogLevel represents the logging level.
@@ -43,36 +45,31 @@ type LogConfig struct {
 }
 
 // AgentConfig holds agent-specific configuration.
+// Deprecated: Agent configuration is now loaded from agent.md file specified by AgentPath.
 type AgentConfig struct {
-	Name        string   `yaml:"name"`        // Agent name
-	Profession  string   `yaml:"profession"`  // Agent profession (optional)
-	Personality []string `yaml:"personality"` // Personality traits (optional)
+	Name        string   `yaml:"name,omitempty"`        // Agent name (deprecated, use agent.md)
+	Profession  string   `yaml:"profession,omitempty"`  // Agent profession (deprecated, use agent.md)
+	Personality []string `yaml:"personality,omitempty"` // Personality traits (deprecated, use agent.md)
 }
 
 // Config holds the complete configuration.
 type Config struct {
-	Agent        AgentConfig        `yaml:"agent"`         // Agent configuration
-	Workspace    string             `yaml:"workspace"`     // Workspace directory
-	Log          LogConfig          `yaml:"log"`           // Logging configuration
-	SkillsDir    string             `yaml:"skills_dir"`    // Skills directory
-	PluginsDir   string             `yaml:"plugins_dir"`   // Plugins directory
-	SystemPrompt SystemPromptConfig `yaml:"system_prompt"` // System prompt configuration
+	AgentPath    string             `yaml:"agent_path,omitempty"`    // Path to agent.md file
+	Workspace    string             `yaml:"workspace"`               // Workspace directory
+	Log          LogConfig          `yaml:"log"`                     // Logging configuration
+	SkillsDir    string             `yaml:"skills_dir"`              // Skills directory
+	PluginsDir   string             `yaml:"plugins_dir"`             // Plugins directory
+	SystemPrompt SystemPromptConfig `yaml:"system_prompt,omitempty"` // Deprecated: Use AgentPath instead
+	Agent        AgentConfig        `yaml:"agent,omitempty"`         // Deprecated: Use agent.md file instead
 }
 
 // DefaultConfig returns a default configuration.
 func DefaultConfig() *Config {
 	return &Config{
-		Agent: AgentConfig{
-			Name:        "PersonalClaw",
-			Profession:  "通用助手",
-			Personality: []string{"友好", "专业"},
-		},
+		AgentPath:  "~/.pc/agent.md",
 		Workspace:  "~/workspace",
 		SkillsDir:  "~/.pc/skills",
 		PluginsDir: "~/.pc/plugins",
-		SystemPrompt: SystemPromptConfig{
-			File: "~/.pc/agents.md",
-		},
 		Log: LogConfig{
 			Level:  InfoLevel,
 			Output: "stdout",
@@ -92,7 +89,7 @@ func Load(path string) (*Config, error) {
 		cfg.Workspace = expandPath(cfg.Workspace)
 		cfg.SkillsDir = expandPath(cfg.SkillsDir)
 		cfg.PluginsDir = expandPath(cfg.PluginsDir)
-		cfg.SystemPrompt.File = expandPath(cfg.SystemPrompt.File)
+		cfg.AgentPath = expandPath(cfg.AgentPath)
 		return cfg, nil
 	}
 
@@ -114,16 +111,15 @@ func Load(path string) (*Config, error) {
 	cfg.Workspace = expandPath(cfg.Workspace)
 	cfg.SkillsDir = expandPath(cfg.SkillsDir)
 	cfg.PluginsDir = expandPath(cfg.PluginsDir)
-	cfg.SystemPrompt.File = expandPath(cfg.SystemPrompt.File)
+	cfg.AgentPath = expandPath(cfg.AgentPath)
 
 	return cfg, nil
 }
 
 // Validate validates the configuration.
 func (my *Config) Validate() error {
-	if my.Agent.Name == "" {
-		return fmt.Errorf("agent.name is required")
-	}
+	// Note: Agent configuration is now loaded from agent.md file
+	// The agent.md file existence is validated at runtime by the agent manager
 
 	if my.Workspace == "" {
 		return fmt.Errorf("workspace is required")
@@ -172,16 +168,11 @@ func (my *Config) Save(path string) error {
 
 // applyEnvOverrides applies environment variable overrides to the config.
 // Environment variables should be in the format PC_<FIELD>_<SUBFIELD>.
-// For example: PC_AGENT_NAME, PC_LOG_LEVEL.
+// For example: PC_AGENT_PATH, PC_LOG_LEVEL.
 func applyEnvOverrides(cfg *Config) {
-	// Agent name
-	if v := os.Getenv("PC_AGENT_NAME"); v != "" {
-		cfg.Agent.Name = v
-	}
-
-	// Agent profession
-	if v := os.Getenv("PC_AGENT_PROFESSION"); v != "" {
-		cfg.Agent.Profession = v
+	// Agent path (path to agent.md file)
+	if v := os.Getenv("PC_AGENT_PATH"); v != "" {
+		cfg.AgentPath = v
 	}
 
 	// Workspace
@@ -209,7 +200,7 @@ func applyEnvOverrides(cfg *Config) {
 		cfg.PluginsDir = v
 	}
 
-	// System prompt file
+	// System prompt file (deprecated, use PC_AGENT_PATH instead)
 	if v := os.Getenv("PC_SYSTEM_PROMPT_FILE"); v != "" {
 		cfg.SystemPrompt.File = v
 	}
@@ -237,19 +228,18 @@ func expandPath(path string) string {
 	return path
 }
 
-// GetAgentName returns the agent name.
-func (my *Config) GetAgentName() string {
-	return my.Agent.Name
-}
-
-// GetAgentProfession returns the agent profession.
-func (my *Config) GetAgentProfession() string {
-	return my.Agent.Profession
-}
-
-// GetAgentPersonality returns the agent personality traits.
-func (my *Config) GetAgentPersonality() []string {
-	return my.Agent.Personality
+// GetAgentPath returns the path to the agent.md file.
+func (my *Config) GetAgentPath() string {
+	// For backward compatibility: if AgentPath is not set but SystemPrompt.File is,
+	// use SystemPrompt.File as fallback
+	if my.AgentPath == "" && my.SystemPrompt.File != "" {
+		return my.SystemPrompt.File
+	}
+	// Default to ~/.pc/agent.md if neither is set
+	if my.AgentPath == "" {
+		return "~/.pc/agent.md"
+	}
+	return my.AgentPath
 }
 
 // GetWorkspace returns the workspace directory.
