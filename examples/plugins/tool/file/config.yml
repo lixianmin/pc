@@ -1,0 +1,12 @@
+timeout: 30s
+confirm_dangerous: true
+max_file_size: 10485760
+allowed_paths:
+  - /tmp
+  - ~/Documents
+  - ~/Desktop
+blocked_paths:
+  - /etc/passwd
+  - /etc/shadow
+  - ~/.ssh
+  - ~/.gnupg
