@@ -24,7 +24,7 @@ type RPCClient struct {
 func NewRPCClient(socketPath string) *RPCClient {
 	return &RPCClient{
 		socketPath: socketPath,
-		timeout:    60 * time.Second,
+		timeout:    120 * time.Second,
 	}
 }
 
@@ -79,14 +79,25 @@ func (my *RPCClient) Call(method string, params interface{}) (*protocol.RPCRespo
 		Params: paramsJSON,
 	}
 
-	// Marshal request
+	// Send request (with length prefix)
 	reqData, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	// Send request (with newline delimiter)
-	reqData = append(reqData, '\n')
+	// Write length prefix (4 bytes, big-endian)
+	length := int32(len(reqData))
+	lengthBytes := []byte{
+		byte(length >> 24),
+		byte(length >> 16),
+		byte(length >> 8),
+		byte(length),
+	}
+	if _, err := my.conn.Write(lengthBytes); err != nil {
+		return nil, fmt.Errorf("failed to write length prefix: %w", err)
+	}
+
+	// Write request data
 	if _, err := my.conn.Write(reqData); err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
@@ -96,10 +107,32 @@ func (my *RPCClient) Call(method string, params interface{}) (*protocol.RPCRespo
 		return nil, fmt.Errorf("failed to set read deadline: %w", err)
 	}
 
-	// Read response (line-delimited)
-	respData, err := my.reader.ReadBytes('\n')
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
+	// Read length prefix (4 bytes)
+	lengthBuf := make([]byte, 4)
+	totalRead := 0
+	for totalRead < 4 {
+		n, err := my.reader.Read(lengthBuf[totalRead:])
+		if err != nil {
+			return nil, fmt.Errorf("failed to read length prefix: %w", err)
+		}
+		totalRead += n
+	}
+
+	// Parse length (big-endian)
+	length = int32(lengthBuf[0])<<24 | int32(lengthBuf[1])<<16 | int32(lengthBuf[2])<<8 | int32(lengthBuf[3])
+	if length <= 0 || length > 10*1024*1024 { // Max 10MB
+		return nil, fmt.Errorf("invalid response length: %d", length)
+	}
+
+	// Read response data
+	respData := make([]byte, length)
+	totalRead = 0
+	for totalRead < int(length) {
+		n, err := my.reader.Read(respData[totalRead:])
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response: %w", err)
+		}
+		totalRead += n
 	}
 
 	// Clear deadline
@@ -110,7 +143,6 @@ func (my *RPCClient) Call(method string, params interface{}) (*protocol.RPCRespo
 	// Unmarshal response
 	var resp protocol.RPCResponse
 	if err := json.Unmarshal(respData, &resp); err != nil {
-		// Log the raw response data for debugging
 		logo.Error("Failed to unmarshal response:", err)
 		logo.Error("Raw response data:", string(respData))
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)

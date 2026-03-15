@@ -13,7 +13,7 @@ import (
 
 const (
 	// DefaultTimeout is the default timeout for plugin calls.
-	DefaultTimeout = 30 * time.Second
+	DefaultTimeout = 60 * time.Second
 )
 
 // StdioProtocol implements the Protocol interface using stdio (stdin/stdout).

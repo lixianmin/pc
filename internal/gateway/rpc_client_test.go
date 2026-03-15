@@ -41,9 +41,9 @@ func TestRPCClient_SetTimeout(t *testing.T) {
 
 	client := NewRPCClient(socketPath)
 
-	// Default timeout should be 60 seconds
-	if client.timeout != 60*time.Second {
-		t.Errorf("Default timeout = %v, want 60s", client.timeout)
+	// Default timeout should be 120 seconds (2 minutes)
+	if client.timeout != 120*time.Second {
+		t.Errorf("Default timeout = %v, want 120s", client.timeout)
 	}
 
 	// Set new timeout
@@ -105,8 +105,8 @@ func TestNewRPCClient(t *testing.T) {
 		t.Errorf("socketPath = %v, want %v", client.socketPath, socketPath)
 	}
 
-	if client.timeout != 60*time.Second {
-		t.Errorf("timeout = %v, want 60s", client.timeout)
+	if client.timeout != 120*time.Second {
+		t.Errorf("timeout = %v, want 120s (2 minutes)", client.timeout)
 	}
 }
 

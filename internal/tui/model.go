@@ -16,7 +16,7 @@ import (
 
 // Message represents a chat message.
 type Message struct {
-	Role      string    // "user" or "agent"
+	Role      string // "user" or "agent"
 	Content   string
 	Timestamp time.Time
 }
@@ -46,14 +46,14 @@ type Model struct {
 
 // Styles holds the UI styles.
 type Styles struct {
-	Header          lipgloss.Style
-	UserMessage     lipgloss.Style
-	AgentMessage    lipgloss.Style
-	StatusBar       lipgloss.Style
-	InputPrompt     lipgloss.Style
-	Error           lipgloss.Style
-	ScrollbarTrack  lipgloss.Style
-	ScrollbarThumb  lipgloss.Style
+	Header         lipgloss.Style
+	UserMessage    lipgloss.Style
+	AgentMessage   lipgloss.Style
+	StatusBar      lipgloss.Style
+	InputPrompt    lipgloss.Style
+	Error          lipgloss.Style
+	ScrollbarTrack lipgloss.Style
+	ScrollbarThumb lipgloss.Style
 }
 
 // DefaultStyles returns the default styles.
@@ -876,4 +876,20 @@ func (m *Model) deleteTask(taskID string) tea.Cmd {
 
 		return responseMsg(fmt.Sprintf("Task %s deleted.", taskID))
 	}
+}
+
+// AddMessage adds a message to the chat (public for testing).
+func (m *Model) AddMessage(role, content string) {
+	m.addMessage(role, content)
+}
+
+// RenderMessages renders all messages as a string (public for testing).
+func (m *Model) RenderMessages() string {
+	return m.renderMessages()
+}
+
+// SetViewportSize sets the viewport dimensions (public for testing).
+func (m *Model) SetViewportSize(width, height int) {
+	m.viewport.Width = width
+	m.viewport.Height = height
 }

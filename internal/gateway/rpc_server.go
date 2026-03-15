@@ -122,11 +122,33 @@ func (my *RPCServer) handleConnection(conn net.Conn) {
 	reader := bufio.NewReader(conn)
 
 	for {
-		// Read request (line-delimited)
-		reqData, err := reader.ReadBytes('\n')
-		if err != nil {
-			// Connection closed or error
+		// Read length prefix (4 bytes)
+		lengthBuf := make([]byte, 4)
+		totalRead := 0
+		for totalRead < 4 {
+			n, err := reader.Read(lengthBuf[totalRead:])
+			if err != nil {
+				return
+			}
+			totalRead += n
+		}
+
+		// Parse length (big-endian)
+		length := int32(lengthBuf[0])<<24 | int32(lengthBuf[1])<<16 | int32(lengthBuf[2])<<8 | int32(lengthBuf[3])
+		if length <= 0 || length > 10*1024*1024 {
+			logo.Error("Invalid request length:", length)
 			return
+		}
+
+		// Read request data
+		reqData := make([]byte, length)
+		totalRead = 0
+		for totalRead < int(length) {
+			n, err := reader.Read(reqData[totalRead:])
+			if err != nil {
+				return
+			}
+			totalRead += n
 		}
 
 		// Parse request
@@ -138,20 +160,33 @@ func (my *RPCServer) handleConnection(conn net.Conn) {
 		}
 
 		// Create timeout context for request handling
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 
 		// Handle request
 		resp := my.handleRequest(ctx, &req)
 		cancel()
 
-		// Send response
+		// Send response with length prefix
 		respData, err := json.Marshal(resp)
 		if err != nil {
 			logo.Error("Failed to marshal response:", err)
 			continue
 		}
 
-		respData = append(respData, '\n')
+		// Write length prefix (4 bytes, big-endian)
+		respLength := int32(len(respData))
+		lengthBytes := []byte{
+			byte(respLength >> 24),
+			byte(respLength >> 16),
+			byte(respLength >> 8),
+			byte(respLength),
+		}
+		if _, err := conn.Write(lengthBytes); err != nil {
+			logo.Error("Failed to write length prefix:", err)
+			return
+		}
+
+		// Write response data
 		if _, err := conn.Write(respData); err != nil {
 			logo.Error("Failed to write response:", err)
 			return

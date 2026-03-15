@@ -3,18 +3,30 @@ package engine
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/lixianmin/logo"
 	"github.com/lixianmin/pc/internal/plugin"
 	"github.com/lixianmin/pc/pkg/types"
 )
 
+type PluginCaller interface {
+	ListPlugins() []*types.Plugin
+	CallPlugin(plugin *types.Plugin, method string, params any) (any, error)
+}
+
+type llmCallback func(ctx context.Context, session *Session, systemPrompt string) (string, error)
+
 // Engine is the core engine implementation.
 type Engine struct {
 	pluginManager *plugin.PluginManager
+	mockCaller    PluginCaller
 	sessions      map[string]*Session
 	llmPlugin     *types.Plugin
-	systemPrompt  string // Complete system prompt for LLM
+	systemPrompt  string
+	maxIterations int
+	toolTimeout   time.Duration
+	llmCallback   llmCallback
 }
 
 // NewEngine creates a new core engine.
@@ -22,7 +34,34 @@ func NewEngine(pm *plugin.PluginManager) *Engine {
 	return &Engine{
 		pluginManager: pm,
 		sessions:      make(map[string]*Session),
+		maxIterations: 10,
+		toolTimeout:   30 * time.Second,
 	}
+}
+
+// NewEngineWithMock creates a new engine with a mock plugin caller for testing.
+func NewEngineWithMock(caller PluginCaller) *Engine {
+	return &Engine{
+		mockCaller:    caller,
+		sessions:      make(map[string]*Session),
+		maxIterations: 10,
+		toolTimeout:   30 * time.Second,
+	}
+}
+
+// SetLLMCallback sets a custom LLM callback for testing.
+func (my *Engine) SetLLMCallback(cb llmCallback) {
+	my.llmCallback = cb
+}
+
+// SetMaxIterations sets the maximum ReAct loop iterations.
+func (my *Engine) SetMaxIterations(n int) {
+	my.maxIterations = n
+}
+
+// SetToolTimeout sets the tool execution timeout.
+func (my *Engine) SetToolTimeout(d time.Duration) {
+	my.toolTimeout = d
 }
 
 // SetLLMPlugin sets the LLM plugin to use for generating responses.
@@ -35,9 +74,8 @@ func (my *Engine) SetSystemPrompt(prompt string) {
 	my.systemPrompt = prompt
 }
 
-// ProcessMessage processes an incoming message.
+// ProcessMessage processes an incoming message with ReAct loop.
 func (my *Engine) ProcessMessage(ctx context.Context, sessionId, message string) (string, error) {
-	// Validate inputs
 	if sessionId == "" {
 		return "", fmt.Errorf("session ID cannot be empty")
 	}
@@ -46,42 +84,37 @@ func (my *Engine) ProcessMessage(ctx context.Context, sessionId, message string)
 		return "", fmt.Errorf("message cannot be empty")
 	}
 
-	// Check if session exists
 	session, exists := my.sessions[sessionId]
 	if !exists {
 		return "", fmt.Errorf("session not found: %s", sessionId)
 	}
 
-	// Log user input
 	logo.Info("[Session:", sessionId, "] User:", message)
 
-	// Save user message to session
 	if err := session.AddMessage("user", message); err != nil {
 		return "", fmt.Errorf("failed to save user message: %w", err)
 	}
 
-	// Generate response using LLM plugin if available, otherwise echo
 	var response string
-	if my.pluginManager != nil && my.llmPlugin != nil {
-		logo.Info("[Session:", sessionId, "] Calling LLM plugin:", my.llmPlugin.Name)
-		resp, err := my.callLLM(ctx, session, message)
+	hasLLM := (my.pluginManager != nil && my.llmPlugin != nil) || (my.llmCallback != nil)
+	if hasLLM {
+		logo.Info("[Session:", sessionId, "] Starting ReAct loop")
+		resp, err := my.reactLoop(ctx, session, message)
 		if err != nil {
-			logo.Error("[Session:", sessionId, "] LLM call failed:", err)
-			return "", fmt.Errorf("failed to call LLM: %w", err)
+			logo.Error("[Session:", sessionId, "] ReAct loop failed:", err)
+			return "", fmt.Errorf("failed to process message: %w", err)
 		}
 		response = resp
-		logo.Info("[Session:", sessionId, "] LLM response length:", len(response))
+		logo.Info("[Session:", sessionId, "] ReAct loop completed, response length:", len(response))
 	} else {
 		response = fmt.Sprintf("Echo: %s", message)
 		logo.Info("[Session:", sessionId, "] No LLM plugin, echoing")
 	}
 
-	// Save assistant response to session
 	if err := session.AddMessage("assistant", response); err != nil {
 		return "", fmt.Errorf("failed to save assistant response: %w", err)
 	}
 
-	// Log assistant output (truncated for long responses)
 	logResp := response
 	if len(logResp) > 100 {
 		logResp = logResp[:97] + "..."
@@ -89,6 +122,52 @@ func (my *Engine) ProcessMessage(ctx context.Context, sessionId, message string)
 	logo.Info("[Session:", sessionId, "] Assistant:", logResp)
 
 	return response, nil
+}
+
+// reactLoop implements the ReAct (Reasoning + Acting) loop.
+func (my *Engine) reactLoop(ctx context.Context, session *Session, initialMessage string) (string, error) {
+	currentMessage := initialMessage
+
+	for iteration := 0; iteration < my.maxIterations; iteration++ {
+		logo.Info("[ReAct] Iteration", iteration+1, "/", my.maxIterations)
+
+		response, err := my.callLLM(ctx, session, currentMessage)
+		if err != nil {
+			return "", fmt.Errorf("LLM call failed at iteration %d: %w", iteration+1, err)
+		}
+
+		toolCalls, err := ParseToolCalls(response)
+		if err != nil {
+			logo.Warn("[ReAct] Failed to parse tool calls, returning response:", err)
+			return response, nil
+		}
+
+		if len(toolCalls) == 0 {
+			logo.Info("[ReAct] No tool calls found, returning final response")
+			return response, nil
+		}
+
+		logo.Info("[ReAct] Found", len(toolCalls), "tool call(s)")
+
+		if err := session.AddMessage("assistant", response); err != nil {
+			return "", fmt.Errorf("failed to save assistant message: %w", err)
+		}
+
+		toolCtx, cancel := context.WithTimeout(ctx, my.toolTimeout)
+		defer cancel()
+
+		executor := NewToolExecutor(my.pluginManager)
+		results := executor.ExecuteMultiple(toolCtx, toolCalls)
+
+		toolResultsMessage := FormatToolResults(results)
+		if err := session.AddMessage("system", toolResultsMessage); err != nil {
+			return "", fmt.Errorf("failed to save tool results: %w", err)
+		}
+
+		currentMessage = toolResultsMessage
+	}
+
+	return "", fmt.Errorf("exceeded maximum iterations (%d)", my.maxIterations)
 }
 
 // callLLM calls the LLM plugin to generate a response.
@@ -125,10 +204,14 @@ func (my *Engine) callLLM(ctx context.Context, session *Session, message string)
 		"content": message,
 	})
 
+	// Use llmCallback if available (for testing)
+	if my.llmCallback != nil {
+		return my.llmCallback(ctx, session, my.systemPrompt)
+	}
+
 	// Call LLM plugin
 	params := map[string]any{
 		"messages": messages,
-		// 不指定 model，让插件使用配置文件中的模型
 	}
 
 	result, err := my.pluginManager.CallPlugin(my.llmPlugin, "complete", params)
