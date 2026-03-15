@@ -323,10 +323,11 @@ ToolCall
 
 ---
 
-## M10-005: Shell Tool 插件示例
+## M10-005: Shell Tool 插件示例 ✅ 已完成
 
 **优先级**: P1 | **需求**: 示例实现
 **架构映射**: `examples/plugins/tool/shell/`
+**完成时间**: 2026-03-15
 
 ### 实现步骤
 
@@ -373,11 +374,19 @@ entry: ./bin/shell-tool
 
 ### 验收标准
 
-- [ ] Shell 插件可以独立运行
-- [ ] 支持基本的 shell 命令执行
-- [ ] 返回 stdout/stderr/exit_code
-- [ ] 支持超时控制
-- [ ] 示例配置可运行
+- [x] Shell 插件可以独立运行
+- [x] 支持基本的 shell 命令执行
+- [x] 返回 stdout/stderr/exit_code
+- [x] 支持超时控制
+- [x] 示例配置可运行
+
+### 实现的文件
+
+- `examples/plugins/tool/shell/plugin.yml` - 插件元信息
+- `examples/plugins/tool/shell/config.yml` - 配置模板
+- `examples/plugins/tool/shell/shell.go` - Shell 工具实现
+- `examples/plugins/tool/shell/shell_test.go` - 单元测试
+- `examples/plugins/tool/shell/cmd/shell-tool/main.go` - 主入口
 
 ---
 
@@ -488,7 +497,7 @@ tools:
 | M10-002 | 工具调用解析器 | P0 | ✅ 已完成 |
 | M10-003 | 工具执行器 | P0 | ✅ 已完成 |
 | M10-004 | Engine ReAct 循环改造 | P0 | ✅ 已完成 |
-| M10-005 | Shell Tool 插件示例 | P1 | ⏳ 待开始 |
+| M10-005 | Shell Tool 插件示例 | P1 | ✅ 已完成 |
 | M10-006 | 工具调用安全控制 | P1 | ⏳ 待开始 |
 | M10-007 | 集成测试 | P1 | ⏳ 待开始 |
 
