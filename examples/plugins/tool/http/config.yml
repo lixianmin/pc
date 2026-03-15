@@ -1,0 +1,2 @@
+timeout: 30s
+max_body_size: 1048576

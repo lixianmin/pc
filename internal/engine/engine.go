@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/lixianmin/logo"
@@ -177,44 +178,38 @@ func (my *Engine) reactLoop(ctx context.Context, session *Session, initialMessag
 
 // callLLM calls the LLM plugin to generate a response.
 func (my *Engine) callLLM(ctx context.Context, session *Session, message string) (string, error) {
-	// Get conversation history
 	var history = session.GetMessages()
 
-	// Build messages for LLM
-	// Pre-allocate capacity: system prompt (optional) + history + current message
+	systemPrompt := my.buildDynamicSystemPrompt()
+
 	capacity := len(history) + 1
-	if my.systemPrompt != "" {
+	if systemPrompt != "" {
 		capacity++
 	}
 	messages := make([]map[string]string, 0, capacity)
 
-	// Add system prompt if available
-	if my.systemPrompt != "" {
+	if systemPrompt != "" {
 		messages = append(messages, map[string]string{
 			"role":    "system",
-			"content": my.systemPrompt,
+			"content": systemPrompt,
 		})
 	}
 
-	// Add conversation history
 	for _, msg := range history {
 		messages = append(messages, map[string]string{
 			"role":    msg.Role,
 			"content": msg.Content,
 		})
 	}
-	// Add current message
 	messages = append(messages, map[string]string{
 		"role":    "user",
 		"content": message,
 	})
 
-	// Use llmCallback if available (for testing)
 	if my.llmCallback != nil {
-		return my.llmCallback(ctx, session, my.systemPrompt)
+		return my.llmCallback(ctx, session, systemPrompt)
 	}
 
-	// Call LLM plugin
 	params := map[string]any{
 		"messages": messages,
 	}
@@ -224,8 +219,6 @@ func (my *Engine) callLLM(ctx context.Context, session *Session, message string)
 		return "", err
 	}
 
-	// Extract response content from result
-	// TODO: 如果result的处理逻辑就只是取到其中的content字段，那么是否可以在plugin协议层面做一个约定，直接把content作为结果返回，而不是在这里再解析一次
 	resultMap, ok := result.(map[string]any)
 	if !ok {
 		return "", fmt.Errorf("unexpected LLM response format")
@@ -237,6 +230,94 @@ func (my *Engine) callLLM(ctx context.Context, session *Session, message string)
 	}
 
 	return content, nil
+}
+
+func (my *Engine) buildDynamicSystemPrompt() string {
+	var parts []string
+
+	if my.systemPrompt != "" {
+		parts = append(parts, my.systemPrompt)
+	}
+
+	availableTools := my.getAvailableTools()
+	if len(availableTools) > 0 {
+		parts = append(parts, "", my.buildToolGuide(availableTools))
+	}
+
+	return strings.Join(parts, "\n")
+}
+
+func (my *Engine) getAvailableTools() []ToolInfo {
+	if my.mockCaller != nil {
+		plugins := my.mockCaller.ListPlugins()
+		var tools []ToolInfo
+		for _, p := range plugins {
+			if p.Type == types.PluginTypeTool && p.Enabled {
+				tools = append(tools, ToolInfo{
+					Name:        p.Name,
+					Description: fmt.Sprintf("%s tool", p.Name),
+					Type:        string(p.Type),
+				})
+			}
+		}
+		return tools
+	}
+
+	if my.pluginManager == nil {
+		return nil
+	}
+
+	plugins := my.pluginManager.ListPlugins()
+	var tools []ToolInfo
+	for _, p := range plugins {
+		if p.Type == types.PluginTypeTool && p.Enabled {
+			tools = append(tools, ToolInfo{
+				Name:        p.Name,
+				Description: fmt.Sprintf("%s tool", p.Name),
+				Type:        string(p.Type),
+			})
+		}
+	}
+	return tools
+}
+
+func (my *Engine) buildToolGuide(tools []ToolInfo) string {
+	var parts []string
+
+	parts = append(parts, "## 工具使用指南")
+	parts = append(parts, "")
+	parts = append(parts, "当你需要获取外部信息或执行操作时，可以使用以下工具。")
+	parts = append(parts, "")
+
+	parts = append(parts, "### 可用工具")
+	for _, t := range tools {
+		parts = append(parts, fmt.Sprintf("- **%s**: %s", t.Name, t.Description))
+	}
+
+	parts = append(parts, "")
+	parts = append(parts, "### 工具调用格式")
+	parts = append(parts, "")
+	parts = append(parts, "使用以下 XML 格式调用工具：")
+	parts = append(parts, "")
+	parts = append(parts, "<invoke>")
+	parts = append(parts, "<name>工具名</name>")
+	parts = append(parts, "<params>{\"参数\": \"值\"}</params>")
+	parts = append(parts, "</invoke>")
+	parts = append(parts, "")
+
+	parts = append(parts, "### ReAct 工作流程")
+	parts = append(parts, "1. 思考：分析用户需求")
+	parts = append(parts, "2. 行动：调用工具")
+	parts = append(parts, "3. 观察：接收工具结果")
+	parts = append(parts, "4. 回复：基于结果回答用户")
+
+	return strings.Join(parts, "\n")
+}
+
+type ToolInfo struct {
+	Name        string
+	Description string
+	Type        string
 }
 
 // CreateSession creates a new session.

@@ -1,0 +1,5 @@
+name: http
+type: tool
+enabled: true
+version: 1.0.0
+entry: ./bin/http-tool
