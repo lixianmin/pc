@@ -156,7 +156,12 @@ func (my *Engine) reactLoop(ctx context.Context, session *Session, initialMessag
 		toolCtx, cancel := context.WithTimeout(ctx, my.toolTimeout)
 		defer cancel()
 
-		executor := NewToolExecutor(my.pluginManager)
+		var executor *ToolExecutor
+		if my.mockCaller != nil {
+			executor = NewToolExecutor(my.mockCaller)
+		} else {
+			executor = NewToolExecutor(my.pluginManager)
+		}
 		results := executor.ExecuteMultiple(toolCtx, toolCalls)
 
 		toolResultsMessage := FormatToolResults(results)

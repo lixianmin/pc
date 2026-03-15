@@ -7,39 +7,24 @@ import (
 	"strings"
 )
 
-// ToolCall represents a parsed tool call from LLM output.
 type ToolCall struct {
-	Name   string                 // Tool name
-	Params map[string]interface{} // Tool parameters
+	Name   string
+	Params map[string]interface{}
 }
 
-// ToolResult represents the result of a tool execution.
 type ToolResult struct {
-	Name   string // Tool name
-	Output string // Tool output
-	Error  error  // Execution error if any
+	Name   string
+	Output string
+	Error  error
 }
 
-// ParseToolCalls parses tool calls from LLM output content.
-// It extracts <tool_call> XML tags and returns a list of ToolCall.
-//
-// Supported format:
-//   <tool_call>
-//   <name>tool_name</name>
-//   <params>{"key": "value"}</params>
-//   </tool_call>
-//
-// Returns empty slice if no tool calls found.
 func ParseToolCalls(content string) ([]ToolCall, error) {
 	if strings.TrimSpace(content) == "" {
 		return nil, nil
 	}
 
-	// Regular expression to match tool_call blocks
-	// Using (?s) flag to make . match newlines
-	re := regexp.MustCompile(`(?s)<tool_call>\s*<name>([^<]+)</name>\s*<params>([^<]*)</params>\s*</tool_call>`)
-
-	matches := re.FindAllStringSubmatch(content, -1)
+	reInvoke := regexp.MustCompile(`(?s)<invoke>\s*<name>([^<]+)</name>\s*<params>([^<]*)</params>\s*</invoke>`)
+	matches := reInvoke.FindAllStringSubmatch(content, -1)
 	if len(matches) == 0 {
 		return nil, nil
 	}
@@ -57,11 +42,9 @@ func ParseToolCalls(content string) ([]ToolCall, error) {
 			continue
 		}
 
-		// Parse JSON params
 		var params map[string]interface{}
 		if paramsJSON != "" {
 			if err := json.Unmarshal([]byte(paramsJSON), &params); err != nil {
-				// If JSON parsing fails, store as raw string
 				params = map[string]interface{}{"_raw": paramsJSON}
 			}
 		}
@@ -75,18 +58,15 @@ func ParseToolCalls(content string) ([]ToolCall, error) {
 	return toolCalls, nil
 }
 
-// HasToolCalls checks if the content contains any tool calls.
 func HasToolCalls(content string) bool {
 	if strings.TrimSpace(content) == "" {
 		return false
 	}
 
-	re := regexp.MustCompile(`(?s)<tool_call>.*?</tool_call>`)
+	re := regexp.MustCompile(`(?s)<invoke>.*?</invoke>`)
 	return re.MatchString(content)
 }
 
-// FormatToolResult formats a tool result for inclusion in the conversation.
-// This format is used to feed tool execution results back to the LLM.
 func FormatToolResult(result ToolResult) string {
 	var parts []string
 
@@ -104,7 +84,6 @@ func FormatToolResult(result ToolResult) string {
 	return strings.Join(parts, "\n")
 }
 
-// FormatToolResults formats multiple tool results.
 func FormatToolResults(results []ToolResult) string {
 	if len(results) == 0 {
 		return ""
@@ -118,7 +97,6 @@ func FormatToolResults(results []ToolResult) string {
 	return strings.Join(parts, "\n\n")
 }
 
-// escapeXML escapes special XML characters.
 func escapeXML(s string) string {
 	s = strings.ReplaceAll(s, "&", "&amp;")
 	s = strings.ReplaceAll(s, "<", "&lt;")
@@ -128,7 +106,6 @@ func escapeXML(s string) string {
 	return s
 }
 
-// unescapeXML unescapes special XML characters.
 func unescapeXML(s string) string {
 	s = strings.ReplaceAll(s, "&apos;", "'")
 	s = strings.ReplaceAll(s, "&quot;", "\"")

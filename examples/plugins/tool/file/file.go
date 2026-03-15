@@ -2,7 +2,6 @@ package file
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,23 +34,45 @@ type ReadParams struct {
 	Path string `json:"path"`
 }
 
-type WriteParams struct {
-	Path    string `json:"path"`
-	Content string `json:"content"`
-}
-
-type DeleteParams struct {
-	Path string `json:"path"`
-}
-
-type ListParams struct {
-	Path string `json:"path"`
-}
-
 type ReadResult struct {
 	Content  string `json:"content"`
 	Size     int64  `json:"size"`
 	MimeType string `json:"mime_type,omitempty"`
+}
+
+func (t *FileTool) Read(params ReadParams) (*ReadResult, error) {
+	path := params.Path
+
+	if err := t.validatePath(path); err != nil {
+		return nil, err
+	}
+
+	if err := t.checkFileSize(path); err != nil {
+		return nil, err
+	}
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+
+	mimeType := t.detectMimeType(path)
+
+	return &ReadResult{
+		Content:  string(content),
+		Size:     info.Size(),
+		MimeType: mimeType,
+	}, nil
+}
+
+type WriteParams struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
 }
 
 type WriteResult struct {
@@ -60,9 +81,53 @@ type WriteResult struct {
 	Path    string `json:"path"`
 }
 
+func (t *FileTool) Write(params WriteParams) (*WriteResult, error) {
+	path := params.Path
+	content := params.Content
+
+	if err := t.validatePath(path); err != nil {
+		return nil, err
+	}
+
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		return nil, err
+	}
+
+	return &WriteResult{
+		Success: true,
+		Size:    len(content),
+		Path:    path,
+	}, nil
+}
+
+type DeleteParams struct {
+	Path string `json:"path"`
+}
+
 type DeleteResult struct {
 	Success bool   `json:"success"`
 	Path    string `json:"path"`
+}
+
+func (t *FileTool) Delete(params DeleteParams) (*DeleteResult, error) {
+	path := params.Path
+
+	if err := t.validatePath(path); err != nil {
+		return nil, err
+	}
+
+	if err := os.Remove(path); err != nil {
+		return nil, err
+	}
+
+	return &DeleteResult{
+		Success: true,
+		Path:    path,
+	}, nil
+}
+
+type ListParams struct {
+	Path string `json:"path"`
 }
 
 type ListResult struct {
@@ -71,237 +136,102 @@ type ListResult struct {
 }
 
 type FileInfo struct {
-	Name    string `json:"name"`
-	IsDir   bool   `json:"is_dir"`
-	Size    int64  `json:"size"`
-	ModTime string `json:"mod_time"`
+	Name  string `json:"name"`
+	IsDir bool   `json:"is_dir"`
+	Size  int64  `json:"size,omitempty"`
+	Mode  string `json:"mode,omitempty"`
 }
 
-func (my *FileTool) Read(params ReadParams) (*ReadResult, error) {
-	if params.Path == "" {
-		return nil, fmt.Errorf("path is required")
+func (t *FileTool) List(params ListParams) (*ListResult, error) {
+	path := params.Path
+	if path == "" {
+		path = "."
 	}
 
-	absPath, err := my.validatePath(params.Path)
+	if err := t.validatePath(path); err != nil {
+		return nil, err
+	}
+
+	entries, err := os.ReadDir(path)
 	if err != nil {
 		return nil, err
 	}
 
-	info, err := os.Stat(absPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to stat file: %w", err)
-	}
-
-	if info.IsDir() {
-		return nil, fmt.Errorf("path is a directory, use 'list' action instead")
-	}
-
-	if info.Size() > my.config.MaxFileSize {
-		return nil, fmt.Errorf("file too large: %d bytes (max: %d)", info.Size(), my.config.MaxFileSize)
-	}
-
-	file, err := os.Open(absPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open file: %w", err)
-	}
-	defer file.Close()
-
-	content, err := io.ReadAll(file)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read file: %w", err)
-	}
-
-	return &ReadResult{
-		Content:  string(content),
-		Size:     info.Size(),
-		MimeType: my.detectMimeType(absPath),
-	}, nil
-}
-
-func (my *FileTool) Write(params WriteParams) (*WriteResult, error) {
-	if params.Path == "" {
-		return nil, fmt.Errorf("path is required")
-	}
-
-	absPath, err := my.validatePath(params.Path)
-	if err != nil {
-		return nil, err
-	}
-
-	dir := filepath.Dir(absPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create directory: %w", err)
-	}
-
-	if err := os.WriteFile(absPath, []byte(params.Content), 0644); err != nil {
-		return nil, fmt.Errorf("failed to write file: %w", err)
-	}
-
-	return &WriteResult{
-		Success: true,
-		Size:    len(params.Content),
-		Path:    absPath,
-	}, nil
-}
-
-func (my *FileTool) Delete(params DeleteParams) (*DeleteResult, error) {
-	if params.Path == "" {
-		return nil, fmt.Errorf("path is required")
-	}
-
-	absPath, err := my.validatePath(params.Path)
-	if err != nil {
-		return nil, err
-	}
-
-	if my.config.ConfirmDangerous {
-		if my.isDangerousPath(absPath) {
-			return nil, fmt.Errorf("deleting this path requires confirmation")
-		}
-	}
-
-	if err := os.Remove(absPath); err != nil {
-		return nil, fmt.Errorf("failed to delete file: %w", err)
-	}
-
-	return &DeleteResult{
-		Success: true,
-		Path:    absPath,
-	}, nil
-}
-
-func (my *FileTool) List(params ListParams) (*ListResult, error) {
-	if params.Path == "" {
-		params.Path = "."
-	}
-
-	absPath, err := my.validatePath(params.Path)
-	if err != nil {
-		return nil, err
-	}
-
-	info, err := os.Stat(absPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to stat path: %w", err)
-	}
-
-	if !info.IsDir() {
-		return nil, fmt.Errorf("path is not a directory")
-	}
-
-	entries, err := os.ReadDir(absPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read directory: %w", err)
-	}
-
-	files := make([]FileInfo, 0, len(entries))
+	var files []FileInfo
 	for _, entry := range entries {
 		info, err := entry.Info()
 		if err != nil {
 			continue
 		}
-
 		files = append(files, FileInfo{
-			Name:    entry.Name(),
-			IsDir:   entry.IsDir(),
-			Size:    info.Size(),
-			ModTime: info.ModTime().Format(time.RFC3339),
+			Name:  entry.Name(),
+			IsDir: entry.IsDir(),
+			Size:  info.Size(),
+			Mode:  info.Mode().String(),
 		})
 	}
 
 	return &ListResult{
 		Files: files,
-		Path:  absPath,
+		Path:  path,
 	}, nil
 }
 
-func (my *FileTool) validatePath(path string) (string, error) {
-	absPath, err := filepath.Abs(path)
+func (t *FileTool) validatePath(path string) error {
+	expanded := os.ExpandEnv(path)
+
+	absPath, err := filepath.Abs(expanded)
 	if err != nil {
-		return "", fmt.Errorf("failed to get absolute path: %w", err)
+		return fmt.Errorf("invalid path: %w", err)
 	}
 
-	if len(my.config.BlockedPaths) > 0 {
-		for _, blocked := range my.config.BlockedPaths {
-			if strings.HasPrefix(absPath, blocked) || strings.Contains(absPath, blocked) {
-				return "", fmt.Errorf("access to path is blocked: %s", blocked)
-			}
-		}
-	}
-
-	if len(my.config.AllowedPaths) > 0 {
+	if len(t.config.AllowedPaths) > 0 {
 		allowed := false
-		for _, allowedPath := range my.config.AllowedPaths {
-			expanded := os.ExpandEnv(allowedPath)
-			if strings.HasPrefix(absPath, expanded) {
+		for _, allowedPath := range t.config.AllowedPaths {
+			if strings.HasPrefix(absPath, os.ExpandEnv(allowedPath)) {
 				allowed = true
 				break
 			}
 		}
 		if !allowed {
-			return "", fmt.Errorf("path not in allowed list: %s", absPath)
+			return fmt.Errorf("path not in allowed list: %s", absPath)
 		}
 	}
 
-	return absPath, nil
+	return nil
 }
 
-func (my *FileTool) isDangerousPath(path string) bool {
-	dangerousPaths := []string{
-		"/etc/passwd",
-		"/etc/shadow",
-		"/.ssh",
-		"/.gnupg",
-		"/etc",
-		"/usr",
-		"/bin",
-		"/sbin",
+func (t *FileTool) checkFileSize(path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
 	}
 
-	for _, dangerous := range dangerousPaths {
-		if strings.HasPrefix(path, dangerous) {
-			return true
-		}
+	if info.Size() > t.config.MaxFileSize {
+		return fmt.Errorf("file size %d exceeds maximum allowed size %d", info.Size(), t.config.MaxFileSize)
 	}
-	return false
+
+	return nil
 }
 
-func (my *FileTool) detectMimeType(path string) string {
+func (t *FileTool) detectMimeType(path string) string {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
 	case ".txt":
 		return "text/plain"
 	case ".json":
 		return "application/json"
-	case ".xml":
-		return "application/xml"
-	case ".html", ".htm":
-		return "text/html"
-	case ".css":
-		return "text/css"
-	case ".js":
-		return "application/javascript"
-	case ".go":
-		return "text/x-go"
-	case ".py":
-		return "text/x-python"
 	case ".md":
 		return "text/markdown"
 	case ".yml", ".yaml":
 		return "text/yaml"
-	case ".pdf":
-		return "application/pdf"
-	case ".png":
-		return "image/png"
-	case ".jpg", ".jpeg":
-		return "image/jpeg"
-	case ".gif":
-		return "image/gif"
+	case ".go":
+		return "text/x-go"
+	case ".py":
+		return "text/x-python"
+	case ".js":
+		return "application/javascript"
 	default:
 		return "application/octet-stream"
 	}
-}
-
-func (my *FileTool) SetConfig(config Config) {
-	my.config = config
 }
