@@ -390,48 +390,69 @@ entry: ./bin/shell-tool
 
 ---
 
-## M10-006: 工具调用安全控制
+## M10-006: 工具调用安全控制 ✅ 已完成
 
 **优先级**: P1 | **需求**: NFP-SEC-001
-**架构映射**: `internal/engine/tool_executor.go`
+**架构映射**: `internal/engine/security_checker.go`
+**完成时间**: 2026-03-15
 
 ### 实现步骤
 
-1. 实现危险命令检测（如 `rm -rf /`）
-2. 实现命令白名单/黑名单机制
-3. 实现用户确认机制（可选）
-4. 添加配置项 `tool.confirm_dangerous`
-5. 编写安全测试
+1. ✅ 实现危险命令检测（如 `rm -rf /`）
+2. ✅ 实现命令白名单/黑名单机制
+3. ✅ 实现用户确认机制（通过回调）
+4. ✅ 添加配置项 `tool.confirm_dangerous`
+5. ✅ 编写安全测试
+
+### 实现的功能
+
+**`security_checker.go` 包含：**
+
+```go
+type SecurityConfig struct {
+    Level             SecurityLevel
+    ConfirmDangerous  bool
+    AllowedCommands   []string
+    BlockedCommands   []string
+    AllowedTools      []string
+    BlockedTools      []string
+    ConfirmCallback   func(toolName string, params map[string]interface{}) (bool, error)
+}
+
+type SecurityChecker struct {
+    config SecurityConfig
+}
+```
+
+**主要方法：**
+- `CheckToolCall(call ToolCall) error` - 检查工具调用是否安全
+- `NeedsConfirmation(call ToolCall) bool` - 判断是否需要用户确认
+- `Confirm(ctx context.Context, call ToolCall) (bool, error)` - 执行用户确认
+- `ValidateMultiple(calls []ToolCall) error` - 批量验证工具调用
 
 ### 危险命令检测规则
 
 ```go
-var dangerousPatterns = []string{
+dangerousPatterns := []string{
     `rm\s+-rf\s+/`,
-    `>\s*/dev/sda`,
-    `mkfs\.`,
+    `rm\s+-rf\s+/\*`,
+    `mkfs`,
     `dd\s+if=.*\s+of=/dev/`,
+    `:$$\)\s*{\s*:\|:&\s*}\s*;:`,
+    `>\s*/dev/sd[a-z]`,
+    `chmod\s+-R\s+777\s+/`,
+    `curl.*\|\s*(ba)?sh`,
+    `wget.*\|\s*(ba)?sh`,
 }
-```
-
-### 配置示例
-
-```yaml
-# ~/.pc/config.yml
-tools:
-  shell:
-    confirm_dangerous: true
-    allowed_commands: ["ls", "cat", "grep", "find"]
-    timeout: 30s
 ```
 
 ### 验收标准
 
-- [ ] 识别危险命令模式
-- [ ] 可配置是否启用确认
-- [ ] 可配置命令白名单
-- [ ] 超时控制有效
-- [ ] 安全测试覆盖
+- [x] 识别危险命令模式
+- [x] 可配置是否启用确认
+- [x] 可配置命令白名单
+- [x] 超时控制有效
+- [x] 安全测试覆盖
 
 ---
 
@@ -498,8 +519,8 @@ tools:
 | M10-003 | 工具执行器 | P0 | ✅ 已完成 |
 | M10-004 | Engine ReAct 循环改造 | P0 | ✅ 已完成 |
 | M10-005 | Shell Tool 插件示例 | P1 | ✅ 已完成 |
-| M10-006 | 工具调用安全控制 | P1 | ⏳ 待开始 |
-| M10-007 | 集成测试 | P1 | ⏳ 待开始 |
+| M10-006 | 工具调用安全控制 | P1 | ✅ 已完成 |
+| M10-007 | 集成测试 | P1 | ✅ 已完成 |
 
 ---
 
