@@ -428,7 +428,7 @@ func (m *Model) handleCommand(cmd string) tea.Cmd {
 	command := parts[0]
 
 	switch command {
-	case "/quit", "/q":
+	case "/quit", "/q", "/exit":
 		m.quitting = true
 		return tea.Quit
 
@@ -445,7 +445,7 @@ func (m *Model) handleCommand(cmd string) tea.Cmd {
 
 	case "/help", "/h":
 		help := `Available commands:
-  /quit, /q     - Exit the TUI
+  /quit, /q, /exit - Exit the TUI
   /clear, /c    - Clear the screen
   /skills, /s   - List available skills
   /status       - Show gateway status
@@ -484,7 +484,7 @@ func (m *Model) completeCommand(input string) string {
 	}
 
 	commands := []string{
-		"/quit", "/q",
+		"/quit", "/q", "/exit",
 		"/clear", "/c",
 		"/skills", "/s",
 		"/status",
