@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/lixianmin/pc/pkg/protocol"
@@ -20,8 +21,8 @@ const (
 
 // Config holds the plugin configuration
 type Config struct {
-	APIKey string `json:"api_key"`
-	Model  string `json:"model"`
+	APIKey  string `json:"api_key"`
+	Model   string `json:"model"`
 	BaseURL string `json:"base_url,omitempty"`
 }
 
@@ -110,9 +111,12 @@ func (p *Plugin) Handle(req *protocol.Request) *protocol.Response {
 			resp.Result = result
 		}
 	case "stream":
-		// For streaming, we would need to send multiple responses
-		// For now, return error as streaming is not fully implemented
-		resp = protocol.NewErrorResponse(req.Id, -32601, "streaming not yet implemented")
+		chunks, err := p.stream(req.Params)
+		if err != nil {
+			resp = protocol.NewErrorResponse(req.Id, -32603, err.Error())
+		} else {
+			resp.Result = chunks
+		}
 	case "models":
 		result, err := p.models()
 		if err != nil {
@@ -220,10 +224,8 @@ func (p *Plugin) models() (any, error) {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	// Filter to chat completion models
 	var models []ModelInfo
 	for _, m := range result.Data {
-		// Only include GPT models
 		if len(m.ID) >= 3 && (m.ID[:3] == "gpt" || m.ID[:3] == "GPT") {
 			models = append(models, m)
 		}
@@ -231,6 +233,104 @@ func (p *Plugin) models() (any, error) {
 
 	return map[string]any{
 		"models": models,
+	}, nil
+}
+
+// stream performs streaming text completion
+func (p *Plugin) stream(params []byte) (any, error) {
+	var req struct {
+		Messages []Message `json:"messages"`
+		Model    string    `json:"model,omitempty"`
+	}
+
+	if err := json.Unmarshal(params, &req); err != nil {
+		return nil, fmt.Errorf("invalid params: %w", err)
+	}
+
+	model := p.config.Model
+	if req.Model != "" {
+		model = req.Model
+	}
+
+	openaiReq := OpenAIRequest{
+		Model:    model,
+		Messages: req.Messages,
+		Stream:   true,
+	}
+
+	body, err := json.Marshal(openaiReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequest("POST", p.config.BaseURL+"/chat/completions", bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+p.config.APIKey)
+
+	httpResp, err := p.client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer httpResp.Body.Close()
+
+	if httpResp.StatusCode != http.StatusOK {
+		var errResp struct {
+			Error struct {
+				Message string `json:"message"`
+				Type    string `json:"type"`
+			} `json:"error"`
+		}
+		json.NewDecoder(httpResp.Body).Decode(&errResp)
+		return nil, fmt.Errorf("API error: %s", errResp.Error.Message)
+	}
+
+	var chunks []map[string]any
+	scanner := bufio.NewScanner(httpResp.Body)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+		data := strings.TrimPrefix(line, "data: ")
+		if data == "[DONE]" {
+			break
+		}
+
+		var streamResp struct {
+			Choices []struct {
+				Delta struct {
+					Content string `json:"content"`
+				} `json:"delta"`
+				FinishReason string `json:"finish_reason"`
+			} `json:"choices"`
+		}
+
+		if err := json.Unmarshal([]byte(data), &streamResp); err != nil {
+			continue
+		}
+
+		if len(streamResp.Choices) > 0 {
+			content := streamResp.Choices[0].Delta.Content
+			if content != "" {
+				chunks = append(chunks, map[string]any{
+					"content": content,
+					"done":    false,
+				})
+			}
+			if streamResp.Choices[0].FinishReason == "stop" {
+				chunks = append(chunks, map[string]any{
+					"done": true,
+				})
+			}
+		}
+	}
+
+	return map[string]any{
+		"chunks": chunks,
 	}, nil
 }
 

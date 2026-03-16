@@ -1,5 +1,8 @@
 package memory
 
+// Deprecated: Use engine.Session instead. This package will be removed in a future version.
+// The session management has been consolidated into the Engine package for better cohesion.
+
 import "fmt"
 
 // MemoryService is the interface for the memory service.
