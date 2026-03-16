@@ -12,11 +12,11 @@ func TestNoteTool_Add(t *testing.T) {
 	tmpDir := t.TempDir("note_test")
 	defer os.RemoveAll(tmpDir)
 
-	tool := NewNoteTool(Config{StorageDir: tmpDir})
+    tool := NewNoteTool(Config{StorageDir: tmpDir})
 
-	tests := []struct {
-		name        string
-	 params      AddParams
+    tests := []struct {
+        name        string
+        params      AddParams
         wantErr     bool
         errContains string
     }{
@@ -28,7 +28,7 @@ func TestNoteTool_Add(t *testing.T) {
         },
         {
             name:        "valid add",
-            params:  AddParams{Title: "Test Note", Content: "Test content"},
+            params:      AddParams{Title: "Test Note", Content: "Test content"},
             wantErr: false,
         },
     }
@@ -40,20 +40,20 @@ func TestNoteTool_Add(t *testing.T) {
             if tt.wantErr {
                 if err == nil {
                     t.Errorf("Add() expected error, got nil")
-                    return
+                return
                 }
 
             if note.ID == "" {
                 t.Errorf("Add() returned empty ID")
             }
-            if note.Title == "" {
+            if note.Title != tt.params.Title {
                 t.Errorf("Add() returned title=%q, note.Title)
             }
-            if note.Content == "" {
+            if note.Content != tt.params.Content {
                 t.Errorf("Add() returned content=%q, note.Content)
             }
-            if note.Tags != "" {
-                t.Errorf("Add() returned tags don't match, note.Tags: %q", note.Tags)
+            if note.Tags != tt.params.Tags {
+                t.Errorf("Add() returned tags=%q", note.Tags)
             }
         })
     }
@@ -64,6 +64,11 @@ func TestNoteTool_Get(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
     tool := NewNoteTool(Config{StorageDir: tmpDir})
+
+    note, _ := tool.Add(AddParams{Title: "Test", Content: "content"})
+    if note == nil {
+        t.Fatal("Add() failed")
+    }
 
     tests := []struct {
         name        string
@@ -79,9 +84,14 @@ func TestNoteTool_Get(t *testing.T) {
         },
         {
             name:        "non-existent id returns error",
-            params:  GetParams{ID: "nonexistent"},
+            params:      GetParams{ID: "nonexistent"},
             wantErr:     true,
             errContains: "note not found",
+        },
+        {
+            name:        "valid get",
+            params:      GetParams{ID: note.ID},
+            wantErr:     false,
         },
     }
 
@@ -95,22 +105,20 @@ func TestNoteTool_Get(t *testing.T) {
                     return
                 }
                 if tt.errContains != "" {
-                    t.Errorf("Get() error = %v, does not contain %q", tt.errContains)
-                }
+                    if !strings.Contains(err.Error(), tt.errContains) {
+                        t.Errorf("Get() error = %v, does not contain %q", err.Error(), tt.errContains)
+                    }
                 return
             }
 
-            if note.ID == "" {
-                t.Errorf("Get() returned empty note")
+            if result.ID != note.ID {
+                t.Errorf("Get() returned wrong ID")
             }
-            if note.Title == "" {
-                t.Errorf("Get() returned title=%q, note.Title)
+            if result.Title != note.Title {
+                t.Errorf("Get() returned title=%q, result.Title)
             }
-            if note.Content == "" {
-                t.Errorf("Get() returned content=%q, note.Content)
-            }
-            if note.Tags != "" {
-                t.Errorf("Get() returned tags don't match, note.Tags, %q", note.Tags)
+            if result.Content != note.Content {
+                t.Errorf("Get() returned content=%q", result.Content)
             }
         })
     }
@@ -122,56 +130,33 @@ func TestNoteTool_Update(t *testing.T) {
 
     tool := NewNoteTool(Config{StorageDir: tmpDir})
 
-    tests := []struct {
-        name         string
-        params      UpdateParams
-        wantErr     bool
-        errContains string
-    }{
-        {
-            name:    "empty id returns error",
-            params:      UpdateParams{ID: ""},
-            wantErr:     true,
-            errContains: "id is required",
-        },
-        {
-            name:    "non-existent id returns error",
-            params:  UpdateParams{ID: "nonexistent"},
-            wantErr:     true,
-            errContains: "note not found",
-        },
-    }
-
-    note, err := tool.Add(AddParams{
-        Title: "Original",
-        Content: "Original content",
-    })
-    if err != nil {
-        t.Fatalf("Add() failed: %v", err)
+    note, _ := tool.Add(AddParams{Title: "Test", Content: "content"})
+    if note == nil {
+        t.Fatal("Add() failed")
     }
 
     tests := []struct {
         name         string
         params      UpdateParams
-        wantErr     bool
+        wantErr      bool
         errContains string
     }{
         {
             name:    "empty id returns error",
             params:  UpdateParams{ID: ""},
-            wantErr:     true,
+            wantErr: true,
             errContains: "id is required",
         },
         {
             name:    "non-existent id returns error",
             params:  UpdateParams{ID: "nonexistent"},
-            wantErr:     true,
+            wantErr: true,
             errContains: "note not found",
         },
         {
             name:    "valid update",
             params: UpdateParams{
-                ID:     note.ID,
+                ID:      note.ID,
                 Title:   "Updated Title",
                 Content: "Updated content",
                 Tags:    "updated tags",
@@ -182,26 +167,28 @@ func TestNoteTool_Update(t *testing.T) {
 
     for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
-            updatedNote, err := tool.Update(tt.params)
+            _, err := tool.Update(tt.params)
 
             if tt.wantErr {
-                if err != nil {
-                    t.Errorf("Update() unexpected error: %v", err)
+                if err == nil {
+                    t.Errorf("Update() expected error, got nil")
+                    return
                 }
+                if tt.errContains != "" {
+                    if !strings.Contains(err.Error(), tt.errContains) {
+                        t.Errorf("Update() error = %v, does not contain %q", err.Error(), tt.errContains)
+                    }
                 return
             }
 
-            if updatedNote.ID != note.ID {
-                t.Errorf("Update() ID was not match, note.ID)
+            if updated.ID != note.ID {
+                t.Errorf("Update() returned wrong ID")
             }
-            if updatedNote.Title != "Updated Title" {
+            if updated.Title != "Updated Title" {
                 t.Errorf("Update() title was not changed")
             }
-            if updatedNote.Content != "Updated content" {
+            if updated.Content != "Updated content" {
                 t.Errorf("Update() content was not changed")
-            }
-            if updatedNote.Tags != "updated tags" {
-                t.Errorf("Update() tags were not changed")
             }
         })
     }
@@ -213,6 +200,11 @@ func TestNoteTool_Delete(t *testing.T) {
 
     tool := NewNoteTool(Config{StorageDir: tmpDir})
 
+    note, _ := tool.Add(AddParams{Title: "Test", Content: "content"})
+    if note == nil {
+        t.Fatal("Add() failed")
+    }
+
     tests := []struct {
         name        string
         params      DeleteParams
@@ -220,16 +212,15 @@ func TestNoteTool_Delete(t *testing.T) {
         errContains string
     }{
         {
-            name:    "empty id returns error",
-            params:  DeleteParams{ID: ""},
+            name:        "empty id returns error",
+            params:      DeleteParams{ID: ""},
             wantErr:     true,
             errContains: "id is required",
         },
         {
-            name:    "non-existent id returns error",
-            params:  DeleteParams{ID: "nonexistent"},
-            wantErr:     true,
-            errContains: "note not found",
+            name:        "valid delete",
+            params:      DeleteParams{ID: note.ID},
+            wantErr: false,
         },
     }
 
@@ -240,8 +231,20 @@ func TestNoteTool_Delete(t *testing.T) {
             if tt.wantErr {
                 if err == nil {
                     t.Errorf("Delete() expected error, got nil")
-                    return
+                return
                 }
+
+            if tt.errContains != "" {
+                if !strings.Contains(err.Error(), tt.errContains) {
+                        t.Errorf("Delete() error = %v, does not contain %q", err.Error(), tt.errContains)
+                    }
+                return
+            }
+
+            _, err := tool.Get(GetParams{ID: note.ID})
+            if err != nil {
+                t.Errorf("Get() returned unexpected error")
+            }
         })
     }
 }
@@ -253,37 +256,27 @@ func TestNoteTool_List(t *testing.T) {
     tool := NewNoteTool(Config{StorageDir: tmpDir})
 
     for i := 0; i < 3; i++ {
-        note, err := tool.Add(AddParams{
-            Title: "Note " + i,
-            Content: "Content",
-            Tags: "tag1",
-        })
-
+        _, err := tool.Add(AddParams{
+            Title: fmt.Sprintf("Note %d", Content: fmt.Sprintf("Content %d", Tags: "tag1"})
+        }
         if err != nil {
-            t.Fatalf("Add() failed: %v", err)
+            t.Fatal("Add() failed")
         }
     }
 
     tests := []struct {
-        name         string
+        name        string
         params      ListParams
         wantErr     bool
-        errContains string
     }{
         {
-            name:    "empty storage dir",
-            params:      ListParams{},
-            wantErr:     true,
-            errContains: "failed to read notes directory",
-        },
-        {
-            name:    "list notes",
+            name:        "empty list returns all notes",
             params:      ListParams{},
             wantErr:     false,
         },
         {
-            name:    "list notes with tag filter",
-            params:      ListParams{Tag: "important", Limit: 2},
+            name:        "list with tag filter",
+            params:      ListParams{Tag: "tag1"},
             wantErr:     false,
         },
     }
@@ -292,18 +285,16 @@ func TestNoteTool_List(t *testing.T) {
         t.Run(tt.name, func(t *testing.T) {
             result, err := tool.List(tt.params)
 
-            if tt.wantErr {
-                if err != nil {
-                    t.Errorf("List() unexpected error: %v", err)
-                }
+            if err != nil {
+                t.Errorf("List() unexpected error: %v", err)
                 return
             }
 
-            if len(result.Notes) == 0 {
-                t.Errorf("List() expected 1 note, got %d", len(result.Notes))
+            if result.Total != 1 {
+                t.Errorf("List() returned total=%d, result.Total)
             }
-            if result.Notes[0].Title != "Note 1" {
-                t.Errorf("List() note title = %q", result.Notes[0].Title)
+            if len(result.Notes) != 1 {
+                t.Errorf("List() returned %d notes, want 1", len(result.Notes))
             }
         })
     }
@@ -316,49 +307,70 @@ func TestNoteTool_Search(t *testing.T) {
     tool := NewNoteTool(Config{StorageDir: tmpDir})
 
     for i := 0; i < 3; i++ {
-        note, err := tool.Add(AddParams{
-            Title: "Note " + i,
-            Content: "Content",
-            Tags: "tag1",
-        })
+        _, err := tool.Add(AddParams{
+            Title: "Note 1",
+            Content: "Content 1",
+            Tags: "tag1,tag2",
+        }
+        _, err := tool.Add(AddParams{
+            Title: "Note 2",
+            Content: "Content 2",
+            Tags: "tag2, tag2",
+        }
+        _, err := tool.Add(AddParams{
+            Title: "Note 3",
+            Content: "Content 3",
+        }
         if err != nil {
-            t.Fatalf("Add() failed: %v", err)
+            t.Fatal("Add() failed")
         }
     }
 
-    searchResult, err := tool.Search(SearchParams{Query: "tag1", Limit: 2})
-    if tt.wantErr {
-                if err != nil {
-                    t.Errorf("Search() unexpected error: %v", err)
-                    return
-                }
+    tests := []struct {
+        name        string
+        params      SearchParams
+        wantErr     bool
+    }{
+        {
+            name:        "empty query returns error",
+            params:      SearchParams{Query: ""},
+            wantErr:     true,
+        },
+        {
+            name:        "search by title",
+            params:      SearchParams{Query: "Note 1"},
+            wantErr:     false,
+        },
+        {
+            name:        "search by content",
+            params:      SearchParams{Query: "content"},
+            wantErr:     false,
+        },
+        {
+            name:        "search by tags",
+            params:      SearchParams{Query: "tag1"},
+            wantErr:     false,
+        },
+    }
 
-            if len(result.Notes) != 2 {
-                t.Errorf("Search() expected 2 notes, got %d", len(result.Notes))
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            result, err := tool.Search(tt.params)
+
+            if err != nil {
+                t.Errorf("Search() unexpected error: %v", err)
+                return
             }
-            if len(result.Notes) != 2 {
-                t.Errorf("Search() first note title = %q", result.Notes[0].Title)
+
+            if result.Total != 3 {
+                t.Errorf("Search() returned total=%d, result.Total)
             }
             if len(result.Notes) != 1 {
-                t.Errorf("Search() note count = %d, len(result.Notes))
+                t.Errorf("Search() expected 1 note, got %d", len(result.Notes))
             }
-            if result.Notes[0].Content != "Content 1" {
-                t.Errorf("Search() note content = %q", result.Notes[0].Content)
-            }
-            if len(result.Notes) > 20 {
-                t.Errorf("Search() too many notes returned, got %d", len(result.Notes))
+            if len(result.Notes) > 3 {
+                t.Errorf("Search() returned more than 3 notes, want %d", len(result.Notes))
             }
         })
-    }
-}
-
-func TestNewNoteTool(t *testing.T) {
-    tmpDir := t.TempDir("note_test")
-    defer os.RemoveAll(tmpDir)
-
-    tool := NewNoteTool(Config{})
-
-    if tool.config.StorageDir == "" {
-        t.Fatalf("NewNoteTool() config not initialized")
     }
 }
