@@ -11,6 +11,8 @@ type RPCMethod string
 const (
 	// RPCMethodProcessMessage processes a user message.
 	RPCMethodProcessMessage RPCMethod = "ProcessMessage"
+	// RPCMethodProcessMessageStream processes a user message with streaming.
+	RPCMethodProcessMessageStream RPCMethod = "ProcessMessageStream"
 	// RPCMethodGetStatus returns the gateway status.
 	RPCMethodGetStatus RPCMethod = "GetStatus"
 	// RPCMethodListSkills lists all available skills.
@@ -133,13 +135,20 @@ type ProcessMessageResult struct {
 	Response string `json:"response"`
 }
 
+// ProcessMessageStreamChunk represents a streaming chunk.
+type ProcessMessageStreamChunk struct {
+	Content string `json:"content"`
+	Done    bool   `json:"done"`
+	Error   string `json:"error,omitempty"`
+}
+
 // GatewayStatus represents the gateway status.
 type GatewayStatus struct {
-	Running    bool   `json:"running"`
-	Pid        int    `json:"pid,omitempty"`
-	Version    string `json:"version,omitempty"`
-	Uptime     int64  `json:"uptime,omitempty"` // seconds
-	PluginCount int  `json:"pluginCount,omitempty"`
+	Running     bool   `json:"running"`
+	Pid         int    `json:"pid,omitempty"`
+	Version     string `json:"version,omitempty"`
+	Uptime      int64  `json:"uptime,omitempty"` // seconds
+	PluginCount int    `json:"pluginCount,omitempty"`
 }
 
 // ListSkillsResult represents the result of ListSkills.
