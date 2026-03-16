@@ -530,6 +530,7 @@ dangerousPatterns := []string{
 | http | ✅ 已完成 | HTTP请求(GET/POST/REQUEST) |
 | time | ✅ 已完成 | 时间日期操作 |
 | shell | ✅ 已完成 | Shell命令执行 |
+| search | ✅ 已完成 | DuckDuckGo网页搜索 |
 
 ---
 
