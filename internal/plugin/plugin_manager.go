@@ -262,6 +262,20 @@ func (my *PluginManager) ListPlugins() []*types.Plugin {
 	return plugins
 }
 
+// GetPluginsByType returns all plugins of a specific type.
+func (my *PluginManager) GetPluginsByType(pluginType types.PluginType) []*types.Plugin {
+	my.mu.RLock()
+	defer my.mu.RUnlock()
+
+	var plugins []*types.Plugin
+	for _, plugin := range my.plugins {
+		if plugin.Type == pluginType {
+			plugins = append(plugins, plugin)
+		}
+	}
+	return plugins
+}
+
 // EnablePlugin enables a plugin.
 func (my *PluginManager) EnablePlugin(name string) error {
 	my.mu.Lock()

@@ -8,11 +8,15 @@ import (
 	"path/filepath"
 	"syscall"
 	"time"
+
+	"github.com/lixianmin/pc/internal/engine"
+	"github.com/lixianmin/pc/internal/plugin"
+	"github.com/lixianmin/pc/pkg/types"
 )
 
 // Daemon manages the lifecycle of the gateway daemon.
 type Daemon struct {
-	pidfile *Pidfile
+	pidfile    *Pidfile
 	socketPath string
 	logPath    string
 }
@@ -178,21 +182,35 @@ func (my *Daemon) GetStatus() *Status {
 
 // Run runs the daemon process (internal use, called with --daemon flag).
 func (my *Daemon) Run() error {
-	// This is the actual daemon process entry point
-	// TODO: Implement the actual gateway runtime logic
-	// For now, just keep running
+	pcDir := filepath.Dir(my.pidfile.path)
+	pluginsDir := filepath.Join(pcDir, "plugins")
 
-	// Setup signal handling
+	pm, err := plugin.NewPluginManager(pluginsDir)
+	if err != nil {
+		return fmt.Errorf("failed to create plugin manager: %w", err)
+	}
+
+	eng := engine.NewEngine(pm)
+
+	llmPlugins := pm.GetPluginsByType(types.PluginTypeLLM)
+	if len(llmPlugins) > 0 {
+		eng.SetLLMPlugin(llmPlugins[0])
+	}
+
+	eng.CreateSession("default")
+
+	server := NewRPCServer(my.socketPath, eng, pm)
+	if err := server.Start(); err != nil {
+		return fmt.Errorf("failed to start RPC server: %w", err)
+	}
+
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
 
-	// TODO: Initialize Engine, PluginManager, AgentManager
-	// TODO: Start RPC server
-
-	// Wait for shutdown signal
 	<-sigChan
 
-	// Cleanup
+	server.Stop()
+	eng.Close()
 	my.pidfile.Remove()
 	return nil
 }
