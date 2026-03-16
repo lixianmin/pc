@@ -4,19 +4,17 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"os"
 	"sync"
 	"time"
 
 	"github.com/lixianmin/got/loom"
+	"github.com/lixianmin/logo"
 )
 
 const (
-	// DefaultTimeout is the default timeout for plugin calls.
 	DefaultTimeout = 60 * time.Second
 )
 
-// StdioProtocol implements the Protocol interface using stdio (stdin/stdout).
 type StdioProtocol struct {
 	cmd          execCmd
 	stdin        io.WriteCloser
@@ -29,7 +27,6 @@ type StdioProtocol struct {
 	timeout      time.Duration
 }
 
-// execCmd is a wrapper for exec.Cmd to avoid importing os/exec in the main package.
 type execCmd interface {
 	Start() error
 	Wait() error
@@ -38,7 +35,6 @@ type execCmd interface {
 	StderrPipe() (io.ReadCloser, error)
 }
 
-// NewStdioProtocol creates a new StdioProtocol for a command.
 func NewStdioProtocol(cmd execCmd) *StdioProtocol {
 	return &StdioProtocol{
 		cmd:          cmd,
@@ -48,7 +44,6 @@ func NewStdioProtocol(cmd execCmd) *StdioProtocol {
 	}
 }
 
-// NewStdioProtocolWithTimeout creates a new StdioProtocol with a custom timeout.
 func NewStdioProtocolWithTimeout(cmd execCmd, timeout time.Duration) *StdioProtocol {
 	return &StdioProtocol{
 		cmd:          cmd,
@@ -58,9 +53,7 @@ func NewStdioProtocolWithTimeout(cmd execCmd, timeout time.Duration) *StdioProto
 	}
 }
 
-// Connect establishes the connection to the plugin.
 func (my *StdioProtocol) Connect() error {
-	// Setup pipes
 	stdin, err := my.cmd.StdinPipe()
 	if err != nil {
 		return fmt.Errorf("failed to create stdin pipe: %w", err)
@@ -79,31 +72,25 @@ func (my *StdioProtocol) Connect() error {
 	}
 	my.stderr = stderr
 
-	// Start the command
 	if err := my.cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start command: %w", err)
 	}
 
-	// Start response reader
 	loom.Go(my.readResponses)
 	loom.Go(my.readErrors)
 
 	return nil
 }
 
-// Call invokes a method with parameters and returns the result.
 func (my *StdioProtocol) Call(method string, params any) (any, error) {
 	if my.closed {
 		return nil, fmt.Errorf("protocol is closed")
 	}
 
-	// Create request
 	var request = NewRequest(method, params)
 
-	// Create response channel
 	respChan := make(chan *Response, 1)
 
-	// Register pending request
 	my.mu.Lock()
 	my.pendingReqs[request.Id] = respChan
 	my.mu.Unlock()
@@ -114,36 +101,33 @@ func (my *StdioProtocol) Call(method string, params any) (any, error) {
 		my.mu.Unlock()
 	}()
 
-	// Encode and send request
 	data, err := request.Encode()
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode request: %w", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "[Protocol] Sending request ID=%s method=%s\n", request.Id, method)
+	logo.Debug("[Protocol] Sending request", "id", request.Id, "method", method)
 
-	// Write request with newline delimiter (required for line-based protocol)
 	data = append(data, '\n')
 	if _, err := my.stdin.Write(data); err != nil {
 		return nil, fmt.Errorf("failed to write request: %w", err)
 	}
 
-	// Wait for response with timeout
-	fmt.Fprintf(os.Stderr, "[Protocol] Waiting for response (timeout=%v)...\n", my.timeout)
+	logo.Debug("[Protocol] Waiting for response", "id", request.Id, "timeout", my.timeout)
+
 	select {
 	case resp := <-respChan:
-		fmt.Fprintf(os.Stderr, "[Protocol] Received response ID=%s\n", resp.Id)
+		logo.Debug("[Protocol] Received response", "id", resp.Id)
 		if resp.IsError() {
 			return nil, fmt.Errorf("plugin error: %s", resp.Error.Message)
 		}
 		return resp.Result, nil
 	case <-time.After(my.timeout):
-		fmt.Fprintf(os.Stderr, "[Protocol] Timeout waiting for response ID=%s\n", request.Id)
+		logo.Warn("[Protocol] Timeout waiting for response", "id", request.Id)
 		return nil, fmt.Errorf("timeout waiting for response")
 	}
 }
 
-// Close terminates the connection.
 func (my *StdioProtocol) Close() error {
 	my.mu.Lock()
 	defer my.mu.Unlock()
@@ -153,7 +137,6 @@ func (my *StdioProtocol) Close() error {
 	}
 	my.closed = true
 
-	// Close pipes
 	if my.stdin != nil {
 		my.stdin.Close()
 	}
@@ -164,70 +147,61 @@ func (my *StdioProtocol) Close() error {
 		my.stderr.Close()
 	}
 
-	// Close response channel
 	close(my.responseChan)
 
 	return nil
 }
 
-// readResponses reads responses from stdout.
 func (my *StdioProtocol) readResponses(later loom.Later) {
 	scanner := bufio.NewScanner(my.stdout)
 
 	for scanner.Scan() {
 		var data = scanner.Bytes()
-		fmt.Fprintf(os.Stderr, "[Protocol] Raw response: %s\n", string(data))
+		logo.Debug("[Protocol] Raw response", "data", string(data))
 
-		// Decode response
 		resp, err := DecodeResponse(data)
 		if err != nil {
-			// Log error but continue
-			fmt.Fprintf(os.Stderr, "[Protocol] Failed to decode response: %v\n", err)
+			logo.Warn("[Protocol] Failed to decode response", "error", err)
 			continue
 		}
 
-		fmt.Fprintf(os.Stderr, "[Protocol] Decoded response ID=%s type=%s\n", resp.Id, resp.Type)
+		logo.Debug("[Protocol] Decoded response", "id", resp.Id, "type", resp.Type)
 
-		// Route response to pending request
 		my.mu.RLock()
 		respChan, ok := my.pendingReqs[resp.Id]
 		my.mu.RUnlock()
 
 		if ok {
-			fmt.Fprintf(os.Stderr, "[Protocol] Routing response to pending request ID=%s\n", resp.Id)
+			logo.Debug("[Protocol] Routing response", "id", resp.Id)
 			respChan <- resp
 		} else {
-			fmt.Fprintf(os.Stderr, "[Protocol] No pending request for response ID=%s\n", resp.Id)
+			logo.Warn("[Protocol] No pending request for response", "id", resp.Id)
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		// Ignore closed pipe errors (normal when protocol is closed)
 		if err.Error() != "io: read/write on closed pipe" {
-			fmt.Fprintf(os.Stderr, "[Protocol] error reading stdout: %v\n", err)
+			logo.Warn("[Protocol] Error reading stdout", "error", err)
 		}
 	}
-	fmt.Fprintf(os.Stderr, "[Protocol] Response reader stopped\n")
+
+	logo.Debug("[Protocol] Response reader stopped")
 }
 
-// readErrors reads errors from stderr.
 func (my *StdioProtocol) readErrors(later loom.Later) {
 	scanner := bufio.NewScanner(my.stderr)
 
 	for scanner.Scan() {
-		// Output stderr to our stderr
-		fmt.Fprintln(os.Stderr, scanner.Text())
+		logo.Info("[Plugin stderr]", "line", scanner.Text())
 	}
 }
 
-// SetTimeout sets the timeout for calls.
 func (my *StdioProtocol) SetTimeout(timeout time.Duration) {
 	my.mu.Lock()
 	defer my.mu.Unlock()
 	my.timeout = timeout
 }
 
-// GetTimeout returns the current timeout.
 func (my *StdioProtocol) GetTimeout() time.Duration {
 	my.mu.RLock()
 	defer my.mu.RUnlock()
