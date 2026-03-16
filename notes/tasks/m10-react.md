@@ -531,6 +531,7 @@ dangerousPatterns := []string{
 | time | ✅ 已完成 | 时间日期操作 |
 | shell | ✅ 已完成 | Shell命令执行 |
 | search | ✅ 已完成 | DuckDuckGo网页搜索 |
+| note | ✅ 已完成 | 持久化笔记管理 |
 
 ---
 
