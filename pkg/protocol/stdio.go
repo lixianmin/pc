@@ -113,17 +113,17 @@ func (my *StdioProtocol) Call(method string, params any) (any, error) {
 		return nil, fmt.Errorf("failed to write request: %w", err)
 	}
 
-	logo.Debug("[Protocol] Waiting for response", "id", request.Id, "timeout", my.timeout)
+	logo.Debug("[Protocol] Waiting for response", "id", request.Id, "timeout", my.timeout, "startTime", time.Now().Format("15:04:05"))
 
 	select {
 	case resp := <-respChan:
-		logo.Debug("[Protocol] Received response", "id", resp.Id)
+		logo.Debug("[Protocol] Received response", "id", resp.Id, "endTime", time.Now().Format("15:04:05"))
 		if resp.IsError() {
 			return nil, fmt.Errorf("plugin error: %s", resp.Error.Message)
 		}
 		return resp.Result, nil
 	case <-time.After(my.timeout):
-		logo.Warn("[Protocol] Timeout waiting for response", "id", request.Id)
+		logo.Warn("[Protocol] Timeout waiting for response", "id", request.Id, "timeout", my.timeout)
 		return nil, fmt.Errorf("timeout waiting for response")
 	}
 }

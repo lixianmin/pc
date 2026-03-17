@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/lixianmin/logo"
 	"github.com/lixianmin/pc/pkg/protocol"
@@ -18,6 +19,7 @@ type PluginManager struct {
 	plugins    map[string]*types.Plugin
 	pluginsDir string
 	protocols  map[string]*protocol.StdioProtocol // Plugin protocol instances
+	llmTimeout time.Duration
 	mu         sync.RWMutex
 }
 
@@ -27,8 +29,16 @@ func NewPluginManager(pluginsDir string) (*PluginManager, error) {
 		plugins:    make(map[string]*types.Plugin),
 		pluginsDir: pluginsDir,
 		protocols:  make(map[string]*protocol.StdioProtocol),
+		llmTimeout: 120 * time.Second,
 		mu:         sync.RWMutex{},
 	}, nil
+}
+
+// SetLLMTimeout sets the LLM request timeout.
+func (my *PluginManager) SetLLMTimeout(timeout time.Duration) {
+	my.mu.Lock()
+	defer my.mu.Unlock()
+	my.llmTimeout = timeout
 }
 
 // Discover scans the plugins directory and loads all plugins.
@@ -151,7 +161,12 @@ func (my *PluginManager) ensurePluginStarted(plugin *types.Plugin) (*protocol.St
 
 	logo.Info("Starting plugin:", plugin.Name, "path:", entryPath)
 	cmd := exec.Command(entryPath)
-	proto := protocol.NewStdioProtocol(cmd)
+
+	my.mu.RLock()
+	timeout := my.llmTimeout
+	my.mu.RUnlock()
+
+	proto := protocol.NewStdioProtocolWithTimeout(cmd, timeout)
 
 	if err := proto.Connect(); err != nil {
 		return nil, fmt.Errorf("failed to connect to plugin: %w", err)

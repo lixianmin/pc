@@ -156,6 +156,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.viewport.Width = msg.Width
 			m.viewport.Height = msg.Height - 6
+			m.viewport.SetContent(m.renderMessages())
 		}
 
 		m.textarea.SetWidth(msg.Width - 4)

@@ -59,6 +59,7 @@ type Config struct {
 	Log          LogConfig          `yaml:"log"`                     // Logging configuration
 	SkillsDir    string             `yaml:"skills_dir"`              // Skills directory
 	PluginsDir   string             `yaml:"plugins_dir"`             // Plugins directory
+	LLMTimeout   int                `yaml:"llm_timeout,omitempty"`   // LLM request timeout in seconds (default: 120)
 	SystemPrompt SystemPromptConfig `yaml:"system_prompt,omitempty"` // Deprecated: Use AgentPath instead
 	Agent        AgentConfig        `yaml:"agent,omitempty"`         // Deprecated: Use agent.md file instead
 }
@@ -70,6 +71,7 @@ func DefaultConfig() *Config {
 		Workspace:  "~/workspace",
 		SkillsDir:  "~/.pc/skills",
 		PluginsDir: "~/.pc/plugins",
+		LLMTimeout: 120,
 		Log: LogConfig{
 			Level:  InfoLevel,
 			Output: "stdout",
@@ -270,4 +272,12 @@ func (my *Config) GetLogOutput() string {
 // GetSystemPromptFile returns the system prompt file path.
 func (my *Config) GetSystemPromptFile() string {
 	return my.SystemPrompt.GetFile()
+}
+
+// GetLLMTimeout returns the LLM request timeout in seconds.
+func (my *Config) GetLLMTimeout() int {
+	if my.LLMTimeout <= 0 {
+		return 120
+	}
+	return my.LLMTimeout
 }
