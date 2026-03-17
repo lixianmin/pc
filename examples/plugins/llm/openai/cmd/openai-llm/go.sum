@@ -1,5 +1,7 @@
 github.com/lixianmin/got v0.0.0-20241022084720-9b9e479e6a53 h1:c/zBypsKnG6LkHLQYm4IJjIjFF6H9d405Z+Zmu6SQt4=
 github.com/lixianmin/got v0.0.0-20241022084720-9b9e479e6a53/go.mod h1:n/0dsJ71jCvouGys29Z4u/JQP1UolyMe9zb1/Rw26Kc=
+github.com/lixianmin/logo v0.0.0-20251208064508-967018198d48 h1:BBeAhHOjsYT8gyfyWxCLI2O6qJZpPA9Q700GXxEuTls=
+github.com/lixianmin/logo v0.0.0-20251208064508-967018198d48/go.mod h1:e2TI3xGjKeD+3unMm10rD1AbIBRhQML1/Vkghmenlwk=
 github.com/oklog/ulid/v2 v2.1.1 h1:suPZ4ARWLOJLegGFiZZ1dFAkqzhMjL3J1TzI+5wHz8s=
 github.com/oklog/ulid/v2 v2.1.1/go.mod h1:rcEKHmBBKfef9DhnvX7y1HZBYxjXb0cP5ExxNsTT1QQ=
 github.com/pborman/getopt v0.0.0-20170112200414-7148bc3a4c30/go.mod h1:85jBQOZwpVEaDAr341tbn15RS4fCAsIst0qp7i8ex1o=
