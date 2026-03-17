@@ -401,11 +401,11 @@ git push origin dev
 | Task 2 | Engine streaming support | 1-2 hours | ✅ Complete |
 | Task 3 | Plugin protocol streaming | 1-2 hours | ✅ Complete |
 | Task 4 | RPC streaming support | 1-2 hours | ✅ Complete |
-| Task 5 | TUI streaming support | 1-2 hours | ⏳ Pending |
+| Task 5 | TUI streaming support | 1-2 hours | ✅ Complete |
 | Task 6 | Integration testing | 1 hour | ⏳ Pending |
 
-**Completed:** Tasks 1-4 (core streaming infrastructure)
-**Remaining:** Tasks 5-6 (TUI integration, full e2e tests)
+**Completed:** Tasks 1-5 (core streaming infrastructure + TUI)
+**Remaining:** Task 6 (full e2e tests)
 
 **Actual Time:** 2-3 hours for core infrastructure
 
