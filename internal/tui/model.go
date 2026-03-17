@@ -37,8 +37,12 @@ type Model struct {
 	height       int
 	quitting     bool
 	ready        bool
-	skillCache   []SkillInfo // Cache of available skills for completion
-	userScrolled bool        // Whether user has manually scrolled
+	skillCache   []SkillInfo
+	userScrolled bool
+
+	// Streaming state
+	isStreaming  bool
+	streamBuffer strings.Builder
 
 	// Styles
 	styles *Styles
@@ -274,7 +278,48 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.addMessage("agent", fmt.Sprintf("Error: %v", msg))
 		if m.ready {
 			m.viewport.SetContent(m.renderMessages())
-			// Only auto-scroll if user hasn't manually scrolled
+			if !m.userScrolled {
+				m.viewport.GotoBottom()
+			}
+		}
+
+	case streamStartMsg:
+		m.isStreaming = true
+		m.streamBuffer.Reset()
+		m.status = "Streaming..."
+
+	case streamChunkMsg:
+		m.streamBuffer.WriteString(msg.content)
+		if m.ready {
+			lastIdx := len(m.messages) - 1
+			if lastIdx >= 0 && m.messages[lastIdx].Role == "agent-streaming" {
+				m.messages[lastIdx].Content = m.streamBuffer.String()
+			} else {
+				m.messages = append(m.messages, Message{
+					Role:    "agent-streaming",
+					Content: m.streamBuffer.String(),
+				})
+			}
+			m.viewport.SetContent(m.renderMessages())
+			if !m.userScrolled {
+				m.viewport.GotoBottom()
+			}
+		}
+
+		if msg.done {
+			return m, m.processStreamFinalize()
+		}
+
+	case streamDoneMsg:
+		m.isStreaming = false
+		m.status = "Connected"
+		if m.ready {
+			lastIdx := len(m.messages) - 1
+			if lastIdx >= 0 && m.messages[lastIdx].Role == "agent-streaming" {
+				m.messages[lastIdx].Role = "agent"
+				m.messages[lastIdx].Content = msg.fullContent
+			}
+			m.viewport.SetContent(m.renderMessages())
 			if !m.userScrolled {
 				m.viewport.GotoBottom()
 			}
@@ -740,10 +785,56 @@ func (m *Model) sendMessageCmd(content string, isAgent bool) tea.Cmd {
 type responseMsg string
 type errorMsg string
 type statusMsg string
+type streamChunkMsg struct {
+	content string
+	done    bool
+}
+type streamStartMsg struct{}
+type streamDoneMsg struct {
+	fullContent string
+}
 
-// generateSessionID generates a unique session ID.
+func (m *Model) sendToAgentStream(message string) tea.Cmd {
+	return func() tea.Msg {
+		if m.rpcClient == nil {
+			return errorMsg("not connected to gateway")
+		}
+
+		return streamStartMsg{}
+	}
+}
+
 func generateSessionID() string {
 	return fmt.Sprintf("session-%d", time.Now().UnixNano())
+}
+
+func (m *Model) processStreamFinalize() tea.Cmd {
+	return func() tea.Msg {
+		return streamDoneMsg{fullContent: m.streamBuffer.String()}
+	}
+}
+
+func (m *Model) processStreamChunks(sessionID, message string) tea.Cmd {
+	return func() tea.Msg {
+		if m.rpcClient == nil {
+			return errorMsg("not connected to gateway")
+		}
+
+		chunks, err := m.rpcClient.ProcessMessageStream(sessionID, message)
+		if err != nil {
+			return errorMsg(err.Error())
+		}
+
+		var fullContent strings.Builder
+		for _, chunk := range chunks {
+			if chunk.Error != "" {
+				return errorMsg(chunk.Error)
+			}
+			fullContent.WriteString(chunk.Content)
+		}
+
+		return streamDoneMsg{fullContent: fullContent.String()}
+	}
 }
 
 // handleTaskCommand handles /task subcommands

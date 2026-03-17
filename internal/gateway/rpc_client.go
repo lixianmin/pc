@@ -180,7 +180,53 @@ func (my *RPCClient) ProcessMessage(sessionID, message string) (string, error) {
 	return result.Response, nil
 }
 
-// GetStatus gets the gateway status.
+func (my *RPCClient) ProcessMessageStream(sessionID, message string) ([]protocol.ProcessMessageStreamChunk, error) {
+	params := &protocol.ProcessMessageParams{
+		SessionID: sessionID,
+		Message:   message,
+	}
+
+	resp, err := my.Call(string(protocol.RPCMethodProcessMessageStream), params)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.IsError() {
+		return nil, resp.Error
+	}
+
+	resultMap, ok := resp.Result.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result format")
+	}
+
+	chunksRaw, ok := resultMap["chunks"].([]any)
+	if !ok {
+		return nil, fmt.Errorf("missing chunks in result")
+	}
+
+	var chunks []protocol.ProcessMessageStreamChunk
+	for _, c := range chunksRaw {
+		chunkMap, ok := c.(map[string]any)
+		if !ok {
+			continue
+		}
+		chunk := protocol.ProcessMessageStreamChunk{}
+		if content, ok := chunkMap["content"].(string); ok {
+			chunk.Content = content
+		}
+		if done, ok := chunkMap["done"].(bool); ok {
+			chunk.Done = done
+		}
+		if errMsg, ok := chunkMap["error"].(string); ok {
+			chunk.Error = errMsg
+		}
+		chunks = append(chunks, chunk)
+	}
+
+	return chunks, nil
+}
+
 func (my *RPCClient) GetStatus() (*protocol.GatewayStatus, error) {
 	resp, err := my.Call(string(protocol.RPCMethodGetStatus), nil)
 	if err != nil {
