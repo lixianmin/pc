@@ -166,11 +166,14 @@ func (my *PluginManager) ensurePluginStarted(plugin *types.Plugin) (*protocol.St
 	timeout := my.llmTimeout
 	my.mu.RUnlock()
 
+	logo.Info("Creating protocol with timeout:", timeout)
 	proto := protocol.NewStdioProtocolWithTimeout(cmd, timeout)
 
+	logo.Info("Connecting to plugin...")
 	if err := proto.Connect(); err != nil {
 		return nil, fmt.Errorf("failed to connect to plugin: %w", err)
 	}
+	logo.Info("Plugin connected, initializing...")
 
 	my.protocols[plugin.Name] = proto
 
