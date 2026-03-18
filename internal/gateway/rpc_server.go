@@ -218,14 +218,18 @@ func (my *RPCServer) handleProcessMessage(ctx context.Context, params json.RawMe
 		return nil, fmt.Errorf("message is required")
 	}
 
+	logo.Info("[RPC] handleProcessMessage: sessionId=", req.SessionID, ", message=", req.Message)
+
 	if err := my.engine.CreateSession(req.SessionID); err != nil {
 	}
 
 	response, err := my.engine.ProcessMessage(ctx, req.SessionID, req.Message)
 	if err != nil {
+		logo.Error("[RPC] handleProcessMessage error:", err)
 		return nil, err
 	}
 
+	logo.Info("[RPC] handleProcessMessage completed: response length=", len(response))
 	return &protocol.ProcessMessageResult{Response: response}, nil
 }
 

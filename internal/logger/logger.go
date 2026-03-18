@@ -13,7 +13,7 @@ var (
 // Init initializes the logger with given level and output.
 func Init(level string) {
 	// Set filter level
-	filterLevel := getFilterLevel(level)
+	var filterLevel = getFilterLevel(level)
 	theLogger.SetFilterLevel(filterLevel)
 
 	// var consoleHook = logo.NewConsoleHook(logo.ConsoleHookArgs{Flag: logo.FlagDate | logo.FlagTime | logo.FlagLevel})

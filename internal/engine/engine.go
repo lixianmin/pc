@@ -178,6 +178,8 @@ func (my *Engine) reactLoop(ctx context.Context, session *Session, initialMessag
 
 // callLLM calls the LLM plugin to generate a response.
 func (my *Engine) callLLM(ctx context.Context, session *Session, message string) (string, error) {
+	logo.Info("[Engine.callLLM] Starting LLM call, message length:", len(message))
+
 	var history = session.GetMessages()
 
 	systemPrompt := my.buildDynamicSystemPrompt()
@@ -214,21 +216,27 @@ func (my *Engine) callLLM(ctx context.Context, session *Session, message string)
 		"messages": messages,
 	}
 
+	logo.Info("[Engine.callLLM] Calling plugin manager with", len(messages), "messages")
+
 	result, err := my.pluginManager.CallPlugin(my.llmPlugin, "complete", params)
 	if err != nil {
+		logo.Error("[Engine.callLLM] Plugin call failed:", err)
 		return "", err
 	}
 
 	resultMap, ok := result.(map[string]any)
 	if !ok {
+		logo.Error("[Engine.callLLM] Unexpected result type:", resultMap)
 		return "", fmt.Errorf("unexpected LLM response format")
 	}
 
 	content, ok := resultMap["content"].(string)
 	if !ok {
+		logo.Error("[Engine.callLLM] Missing content in result:", resultMap)
 		return "", fmt.Errorf("LLM response missing content")
 	}
 
+	logo.Info("[Engine.callLLM] LLM call completed, response length:", len(content))
 	return content, nil
 }
 

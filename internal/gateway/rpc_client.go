@@ -37,6 +37,7 @@ func (my *RPCClient) SetTimeout(timeout time.Duration) {
 func (my *RPCClient) Connect() error {
 	conn, err := net.DialTimeout("unix", my.socketPath, my.timeout)
 	if err != nil {
+		logo.Error("[RPCClient.Connect] failed to connect to gateway: socketPath=", my.socketPath, ", err=", err)
 		return fmt.Errorf("failed to connect to gateway: %w", err)
 	}
 
@@ -94,11 +95,13 @@ func (my *RPCClient) Call(method string, params interface{}) (*protocol.RPCRespo
 		byte(length),
 	}
 	if _, err := my.conn.Write(lengthBytes); err != nil {
+		logo.Error("[RPCClient.Call] failed to write length prefix: method=", method, ", err=", err)
 		return nil, fmt.Errorf("failed to write length prefix: %w", err)
 	}
 
 	// Write request data
 	if _, err := my.conn.Write(reqData); err != nil {
+		logo.Error("[RPCClient.Call] failed to send request: method=", method, ", err=", err)
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 
@@ -113,6 +116,7 @@ func (my *RPCClient) Call(method string, params interface{}) (*protocol.RPCRespo
 	for totalRead < 4 {
 		n, err := my.reader.Read(lengthBuf[totalRead:])
 		if err != nil {
+			logo.Error("[RPCClient.Call] failed to read length prefix: method=", method, ", socketPath=", my.socketPath, ", err=", err)
 			return nil, fmt.Errorf("failed to read length prefix: %w", err)
 		}
 		totalRead += n
@@ -130,6 +134,7 @@ func (my *RPCClient) Call(method string, params interface{}) (*protocol.RPCRespo
 	for totalRead < int(length) {
 		n, err := my.reader.Read(respData[totalRead:])
 		if err != nil {
+			logo.Error("[RPCClient.Call] failed to read response: method=", method, ", err=", err)
 			return nil, fmt.Errorf("failed to read response: %w", err)
 		}
 		totalRead += n
