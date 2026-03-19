@@ -53,7 +53,7 @@ github.com/lixianmin/got/loom
 github.com/lixianmin/got/osx
 github.com/lixianmin/got/std
 github.com/lixianmin/got/taskx
-# github.com/lixianmin/logo v0.0.0-20251208064508-967018198d48
+# github.com/lixianmin/logo v0.0.0-20260318121856-5bfbe8e81952
 ## explicit; go 1.22
 github.com/lixianmin/logo
 github.com/lixianmin/logo/tools

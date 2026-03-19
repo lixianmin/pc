@@ -33,8 +33,8 @@ github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/lixianmin/got v0.0.0-20241022084720-9b9e479e6a53 h1:c/zBypsKnG6LkHLQYm4IJjIjFF6H9d405Z+Zmu6SQt4=
 github.com/lixianmin/got v0.0.0-20241022084720-9b9e479e6a53/go.mod h1:n/0dsJ71jCvouGys29Z4u/JQP1UolyMe9zb1/Rw26Kc=
-github.com/lixianmin/logo v0.0.0-20251208064508-967018198d48 h1:BBeAhHOjsYT8gyfyWxCLI2O6qJZpPA9Q700GXxEuTls=
-github.com/lixianmin/logo v0.0.0-20251208064508-967018198d48/go.mod h1:e2TI3xGjKeD+3unMm10rD1AbIBRhQML1/Vkghmenlwk=
+github.com/lixianmin/logo v0.0.0-20260318121856-5bfbe8e81952 h1:FGmSIOZLFCorarUNj+Ec4JVtxK5jXo1KsLVbs7i7+SU=
+github.com/lixianmin/logo v0.0.0-20260318121856-5bfbe8e81952/go.mod h1:e2TI3xGjKeD+3unMm10rD1AbIBRhQML1/Vkghmenlwk=
 github.com/lucasb-eyer/go-colorful v1.3.0 h1:2/yBRLdWBZKrf7gB40FoiKfAWYQ0lqNcbuQwVHXptag=
 github.com/lucasb-eyer/go-colorful v1.3.0/go.mod h1:R4dSotOR9KMtayYi1e77YzuveK+i7ruzyGqttikkLy0=
 github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWEY=
