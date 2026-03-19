@@ -330,9 +330,20 @@ func (my *Engine) buildDynamicSystemPrompt() string {
 }
 
 func (my *Engine) getAvailableTools() []ToolInfo {
+	var tools []ToolInfo
+
+	// Add builtin tools
+	executor := NewToolExecutor(my.pluginManager)
+	for _, name := range executor.ListAvailableTools() {
+		tools = append(tools, ToolInfo{
+			Name:        name,
+			Description: fmt.Sprintf("%s tool", name),
+			Type:        "builtin",
+		})
+	}
+
 	if my.mockCaller != nil {
 		plugins := my.mockCaller.ListPlugins()
-		var tools []ToolInfo
 		for _, p := range plugins {
 			if p.Type == types.PluginTypeTool && p.Enabled {
 				tools = append(tools, ToolInfo{
@@ -346,11 +357,10 @@ func (my *Engine) getAvailableTools() []ToolInfo {
 	}
 
 	if my.pluginManager == nil {
-		return nil
+		return tools
 	}
 
 	plugins := my.pluginManager.ListPlugins()
-	var tools []ToolInfo
 	for _, p := range plugins {
 		if p.Type == types.PluginTypeTool && p.Enabled {
 			tools = append(tools, ToolInfo{
