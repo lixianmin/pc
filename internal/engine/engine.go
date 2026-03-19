@@ -332,9 +332,11 @@ func (my *Engine) buildDynamicSystemPrompt() string {
 func (my *Engine) getAvailableTools() []ToolInfo {
 	var tools []ToolInfo
 
-	// Add builtin tools
 	executor := NewToolExecutor(my.pluginManager)
-	for _, name := range executor.ListAvailableTools() {
+	toolNames := executor.ListAvailableTools()
+	logo.Info("[Engine.getAvailableTools] Found", len(toolNames), "tools:", toolNames)
+
+	for _, name := range toolNames {
 		tools = append(tools, ToolInfo{
 			Name:        name,
 			Description: fmt.Sprintf("%s tool", name),
