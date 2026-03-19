@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/lixianmin/logo"
+	"github.com/lixianmin/pc/internal/engine/builtin"
 	"github.com/lixianmin/pc/pkg/types"
 )
 
@@ -18,35 +19,50 @@ type PluginManager interface {
 
 // ToolExecutor executes tool calls by invoking tool plugins.
 type ToolExecutor struct {
-	pluginManager PluginManager
-	timeout       time.Duration
+	pluginManager   PluginManager
+	builtinRegistry *Registry
+	timeout         time.Duration
 }
 
 // NewToolExecutor creates a new tool executor.
 func NewToolExecutor(pm PluginManager) *ToolExecutor {
+	registry := NewRegistry()
+	registry.Register(builtin.NewBashTool())
+	registry.Register(builtin.NewReadTool())
+	registry.Register(builtin.NewWriteTool())
+	registry.Register(builtin.NewEditTool())
+	registry.Register(builtin.NewGlobTool())
+	registry.Register(builtin.NewGrepTool())
+
 	return &ToolExecutor{
-		pluginManager: pm,
-		timeout:       30 * time.Second, // Default timeout
+		pluginManager:   pm,
+		builtinRegistry: registry,
+		timeout:         30 * time.Second,
 	}
 }
 
 // SetTimeout sets the execution timeout for tool calls.
-func (e *ToolExecutor) SetTimeout(timeout time.Duration) {
-	e.timeout = timeout
+func (my *ToolExecutor) SetTimeout(timeout time.Duration) {
+	my.timeout = timeout
 }
 
 // Execute executes a single tool call.
-// It finds the corresponding tool plugin and invokes it.
-func (e *ToolExecutor) Execute(ctx context.Context, call ToolCall) ToolResult {
-	if e.pluginManager == nil {
+// It checks built-in tools first, then falls back to plugin tools.
+func (my *ToolExecutor) Execute(ctx context.Context, call ToolCall) ToolResult {
+	if my.builtinRegistry != nil {
+		if tool, ok := my.builtinRegistry.Get(call.Name); ok {
+			return my.executeBuiltin(ctx, call, tool)
+		}
+	}
+
+	if my.pluginManager == nil {
 		return ToolResult{
 			Name:  call.Name,
 			Error: fmt.Errorf("plugin manager not initialized"),
 		}
 	}
 
-	// Find the tool plugin
-	plugin, err := e.findToolPlugin(call.Name)
+	plugin, err := my.findToolPlugin(call.Name)
 	if err != nil {
 		return ToolResult{
 			Name:  call.Name,
@@ -54,14 +70,12 @@ func (e *ToolExecutor) Execute(ctx context.Context, call ToolCall) ToolResult {
 		}
 	}
 
-	// Create timeout context if not provided
 	if ctx == nil {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(context.Background(), e.timeout)
+		ctx, cancel = context.WithTimeout(context.Background(), my.timeout)
 		defer cancel()
 	}
 
-	// Execute the tool call
 	logo.Info("Executing tool:", call.Name, "params:", call.Params)
 
 	resultChan := make(chan struct {
@@ -70,7 +84,7 @@ func (e *ToolExecutor) Execute(ctx context.Context, call ToolCall) ToolResult {
 	}, 1)
 
 	go func() {
-		result, err := e.pluginManager.CallPlugin(plugin, "call", call.Params)
+		result, err := my.pluginManager.CallPlugin(plugin, "call", call.Params)
 		resultChan <- struct {
 			result any
 			err    error
@@ -90,25 +104,45 @@ func (e *ToolExecutor) Execute(ctx context.Context, call ToolCall) ToolResult {
 				Error: fmt.Errorf("tool execution failed: %w", res.err),
 			}
 		}
-		return e.formatResult(call.Name, res.result)
+		return my.formatResult(call.Name, res.result)
+	}
+}
+
+func (my *ToolExecutor) executeBuiltin(ctx context.Context, call ToolCall, tool BuiltinTool) ToolResult {
+	logo.Info("Executing builtin tool:", call.Name, "params:", call.Params)
+
+	result, err := tool.Execute(ctx, call.Params)
+	if err != nil {
+		return ToolResult{
+			Name:  call.Name,
+			Error: err,
+		}
+	}
+
+	return ToolResult{
+		Name:   call.Name,
+		Output: result,
 	}
 }
 
 // ExecuteMultiple executes multiple tool calls in sequence.
-func (e *ToolExecutor) ExecuteMultiple(ctx context.Context, calls []ToolCall) []ToolResult {
+func (my *ToolExecutor) ExecuteMultiple(ctx context.Context, calls []ToolCall) []ToolResult {
 	results := make([]ToolResult, 0, len(calls))
 
 	for _, call := range calls {
-		result := e.Execute(ctx, call)
+		result := my.Execute(ctx, call)
 		results = append(results, result)
 	}
 
 	return results
 }
 
-// findToolPlugin finds a tool plugin by name.
-func (e *ToolExecutor) findToolPlugin(name string) (*types.Plugin, error) {
-	plugins := e.pluginManager.ListPlugins()
+func (my *ToolExecutor) findToolPlugin(name string) (*types.Plugin, error) {
+	if my.pluginManager == nil {
+		return nil, fmt.Errorf("plugin manager not initialized")
+	}
+
+	plugins := my.pluginManager.ListPlugins()
 
 	for _, p := range plugins {
 		if p.Name == name && p.Type == types.PluginTypeTool && p.Enabled {
@@ -119,12 +153,9 @@ func (e *ToolExecutor) findToolPlugin(name string) (*types.Plugin, error) {
 	return nil, fmt.Errorf("tool plugin '%s' not found or not enabled", name)
 }
 
-// formatResult formats the plugin result into a ToolResult.
-func (e *ToolExecutor) formatResult(name string, result any) ToolResult {
-	// Try to extract output from result
+func (my *ToolExecutor) formatResult(name string, result any) ToolResult {
 	switch v := result.(type) {
 	case map[string]interface{}:
-		// Check for standard output fields
 		if output, ok := v["output"].(string); ok {
 			return ToolResult{
 				Name:   name,
@@ -143,7 +174,6 @@ func (e *ToolExecutor) formatResult(name string, result any) ToolResult {
 				Output: content,
 			}
 		}
-		// If no standard field, format the whole map
 		return ToolResult{
 			Name:   name,
 			Output: fmt.Sprintf("%v", v),
@@ -161,28 +191,36 @@ func (e *ToolExecutor) formatResult(name string, result any) ToolResult {
 	}
 }
 
-// IsToolAvailable checks if a tool plugin is available.
-func (e *ToolExecutor) IsToolAvailable(name string) bool {
-	if e.pluginManager == nil {
+func (my *ToolExecutor) IsToolAvailable(name string) bool {
+	if my.builtinRegistry != nil {
+		if _, ok := my.builtinRegistry.Get(name); ok {
+			return true
+		}
+	}
+
+	if my.pluginManager == nil {
 		return false
 	}
 
-	_, err := e.findToolPlugin(name)
+	_, err := my.findToolPlugin(name)
 	return err == nil
 }
 
-// ListAvailableTools returns a list of available tool names.
-func (e *ToolExecutor) ListAvailableTools() []string {
-	if e.pluginManager == nil {
-		return nil
-	}
-
-	plugins := e.pluginManager.ListPlugins()
+func (my *ToolExecutor) ListAvailableTools() []string {
 	var tools []string
 
-	for _, p := range plugins {
-		if p.Type == types.PluginTypeTool && p.Enabled {
-			tools = append(tools, p.Name)
+	if my.builtinRegistry != nil {
+		for name := range my.builtinRegistry.List() {
+			tools = append(tools, name)
+		}
+	}
+
+	if my.pluginManager != nil {
+		plugins := my.pluginManager.ListPlugins()
+		for _, p := range plugins {
+			if p.Type == types.PluginTypeTool && p.Enabled {
+				tools = append(tools, p.Name)
+			}
 		}
 	}
 

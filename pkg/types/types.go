@@ -1,5 +1,21 @@
 package types
 
+import "context"
+
+type ParamSchema struct {
+	Type        string `json:"type"`
+	Required    bool   `json:"required"`
+	Description string `json:"description"`
+	Default     any    `json:"default,omitempty"`
+}
+
+type BuiltinTool interface {
+	Name() string
+	Description() string
+	Parameters() map[string]ParamSchema
+	Execute(ctx context.Context, params map[string]any) (string, error)
+}
+
 // PluginType represents the type of a plugin.
 type PluginType string
 
@@ -48,12 +64,12 @@ func (my PluginType) IsValid() bool {
 
 // Plugin represents a loaded plugin with its metadata.
 type Plugin struct {
-	Name    string    `yaml:"name"`     // Plugin name
-	Type    PluginType `yaml:"type"`     // Plugin type (llm, search, channel, tool)
-	Enabled bool      `yaml:"enabled"`  // Whether the plugin is enabled
-	Version string    `yaml:"version"`  // Plugin version
-	Entry   string    `yaml:"entry"`   // Entry point executable path
-	Path    string    // Full path to the plugin directory
+	Name        string       `yaml:"name"`    // Plugin name
+	Type        PluginType   `yaml:"type"`    // Plugin type (llm, search, channel, tool)
+	Enabled     bool         `yaml:"enabled"` // Whether the plugin is enabled
+	Version     string       `yaml:"version"` // Plugin version
+	Entry       string       `yaml:"entry"`   // Entry point executable path
+	Path        string       // Full path to the plugin directory
 	Permissions []Permission `yaml:"permissions"` // Declared permissions
 }
 

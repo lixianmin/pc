@@ -199,9 +199,27 @@ func (my *RpcServer) handleRequest(ctx context.Context, req *protocol.RpcRequest
 
 func (my *RpcServer) sendError(conn net.Conn, id string, code int, message string) {
 	resp := protocol.NewRpcErrorResponse(id, code, message)
-	respData, _ := json.Marshal(resp)
-	respData = append(respData, '\n')
-	conn.Write(respData)
+	respData, err := json.Marshal(resp)
+	if err != nil {
+		logo.Error("Failed to marshal error response:", err)
+		return
+	}
+
+	respLength := int32(len(respData))
+	lengthBytes := []byte{
+		byte(respLength >> 24),
+		byte(respLength >> 16),
+		byte(respLength >> 8),
+		byte(respLength),
+	}
+	if _, err := conn.Write(lengthBytes); err != nil {
+		logo.Error("Failed to write error length prefix:", err)
+		return
+	}
+
+	if _, err := conn.Write(respData); err != nil {
+		logo.Error("Failed to write error response:", err)
+	}
 }
 
 func (my *RpcServer) handleProcessMessage(ctx context.Context, params json.RawMessage) (interface{}, error) {
