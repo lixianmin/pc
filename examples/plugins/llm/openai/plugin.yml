@@ -1,4 +1,4 @@
-name: glm-llm
+name: openai-llm
 type: llm
 enabled: true
 version: 1.0.0

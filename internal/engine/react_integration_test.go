@@ -200,7 +200,7 @@ func TestReActLoop_SingleToolCall(t *testing.T) {
 
 			ctx := context.Background()
 			sessionID := "test-react-" + tt.name
-			engine.CreateSession(sessionID)
+			engine.FetchSession(sessionID)
 
 			responseIndex := 0
 			engine.SetLLMCallback(func(ctx context.Context, session *Session, systemPrompt string) (string, error) {
@@ -292,7 +292,7 @@ func TestReActLoop_MultipleToolCalls(t *testing.T) {
 
 			ctx := context.Background()
 			sessionID := "test-react-multi-" + tt.name
-			engine.CreateSession(sessionID)
+			engine.FetchSession(sessionID)
 
 			responseIndex := 0
 			engine.SetLLMCallback(func(ctx context.Context, session *Session, systemPrompt string) (string, error) {
@@ -344,7 +344,7 @@ func TestReActLoop_MaxIterations(t *testing.T) {
 
 	ctx := context.Background()
 	sessionID := "test-max-iterations"
-	engine.CreateSession(sessionID)
+	engine.FetchSession(sessionID)
 
 	callCount := 0
 	engine.SetLLMCallback(func(ctx context.Context, session *Session, systemPrompt string) (string, error) {
@@ -420,7 +420,7 @@ func TestReActLoop_ToolExecutionError(t *testing.T) {
 
 			ctx := context.Background()
 			sessionID := "test-tool-error-" + tt.name
-			engine.CreateSession(sessionID)
+			engine.FetchSession(sessionID)
 
 			responseIndex := 0
 			engine.SetLLMCallback(func(ctx context.Context, session *Session, systemPrompt string) (string, error) {
@@ -454,7 +454,7 @@ func TestReActLoop_Timeout(t *testing.T) {
 
 	ctx := context.Background()
 	sessionID := "test-timeout"
-	engine.CreateSession(sessionID)
+	engine.FetchSession(sessionID)
 
 	responseIndex := 0
 	engine.SetLLMCallback(func(ctx context.Context, session *Session, systemPrompt string) (string, error) {

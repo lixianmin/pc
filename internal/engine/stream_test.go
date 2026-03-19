@@ -76,7 +76,7 @@ func TestEngine_ProcessMessageStream(t *testing.T) {
 			engine := NewEngine(nil)
 
 			if tt.sessionId != "nonexistent" && tt.sessionId != "" {
-				engine.CreateSession(tt.sessionId)
+				engine.FetchSession(tt.sessionId)
 			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -108,7 +108,7 @@ func TestEngine_ProcessMessageStream(t *testing.T) {
 
 func TestEngine_ProcessMessageStream_Echo(t *testing.T) {
 	engine := NewEngine(nil)
-	engine.CreateSession("test-echo")
+	engine.FetchSession("test-echo")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

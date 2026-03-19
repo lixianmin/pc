@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/lixianmin/logo"
@@ -23,6 +24,7 @@ type Engine struct {
 	pluginManager *plugin.PluginManager
 	mockCaller    PluginCaller
 	sessions      map[string]*Session
+	mu            sync.RWMutex
 	llmPlugin     *types.Plugin
 	systemPrompt  string
 	maxIterations int
@@ -85,7 +87,10 @@ func (my *Engine) ProcessMessage(ctx context.Context, sessionId, message string)
 		return "", fmt.Errorf("message cannot be empty")
 	}
 
+	my.mu.RLock()
 	session, exists := my.sessions[sessionId]
+	my.mu.RUnlock()
+
 	if !exists {
 		return "", fmt.Errorf("session not found: %s", sessionId)
 	}
@@ -328,24 +333,35 @@ type ToolInfo struct {
 	Type        string
 }
 
-// CreateSession creates a new session.
-func (my *Engine) CreateSession(sessionId string) error {
+// FetchSession returns the session if exists, otherwise creates a new one.
+func (my *Engine) FetchSession(sessionId string) *Session {
 	if sessionId == "" {
-		return fmt.Errorf("session ID cannot be empty")
+		return nil
 	}
-	my.sessions[sessionId] = NewSession(sessionId)
-	return nil
+
+	my.mu.Lock()
+	defer my.mu.Unlock()
+
+	session, exists := my.sessions[sessionId]
+	if !exists {
+		session = NewSession(sessionId)
+		my.sessions[sessionId] = session
+	}
+	return session
 }
 
 // CloseSession closes a session.
 func (my *Engine) CloseSession(sessionId string) error {
+	my.mu.Lock()
+	defer my.mu.Unlock()
 	delete(my.sessions, sessionId)
 	return nil
 }
 
 // Close closes the engine.
 func (my *Engine) Close() error {
-	// Clear all sessions
+	my.mu.Lock()
+	defer my.mu.Unlock()
 	for key := range my.sessions {
 		delete(my.sessions, key)
 	}

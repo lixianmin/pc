@@ -159,7 +159,7 @@ func (my *RpcClient) Call(method protocol.RpcMethod, params any) (*protocol.RpcR
 // ProcessMessage sends a message to be processed.
 func (my *RpcClient) ProcessMessage(sessionID, message string) (string, error) {
 	params := &protocol.ProcessMessageParams{
-		SessionID: sessionID,
+		SessionId: sessionID,
 		Message:   message,
 	}
 
@@ -187,7 +187,7 @@ func (my *RpcClient) ProcessMessage(sessionID, message string) (string, error) {
 
 func (my *RpcClient) ProcessMessageStream(sessionID, message string) ([]protocol.ProcessMessageStreamChunk, error) {
 	params := &protocol.ProcessMessageParams{
-		SessionID: sessionID,
+		SessionId: sessionID,
 		Message:   message,
 	}
 

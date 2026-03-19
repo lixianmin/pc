@@ -126,7 +126,7 @@ func (my *RpcResponse) IsError() bool {
 
 // RPCMessage represents a user message for ProcessMessage.
 type ProcessMessageParams struct {
-	SessionID string `json:"sessionId"`
+	SessionId string `json:"sessionId"`
 	Message   string `json:"message"`
 }
 

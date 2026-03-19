@@ -162,9 +162,7 @@ func (my *PluginManager) ensurePluginStarted(plugin *types.Plugin) (*protocol.St
 	logo.Info("Starting plugin:", plugin.Name, "path:", entryPath)
 	cmd := exec.Command(entryPath)
 
-	my.mu.RLock()
 	timeout := my.llmTimeout
-	my.mu.RUnlock()
 
 	logo.Info("Creating protocol with timeout:", timeout)
 	proto := protocol.NewStdioProtocolWithTimeout(cmd, timeout)
@@ -228,15 +226,17 @@ func (my *PluginManager) CallPlugin(plugin *types.Plugin, method string, params 
 	}
 
 	my.mu.Lock()
-	defer my.mu.Unlock()
+	timeout := my.llmTimeout
+	my.mu.Unlock()
 
-	// Ensure plugin is started
-	proto, err := my.ensurePluginStarted(plugin)
+	proto, err := my.ensurePluginStartedWithTimeout(plugin, timeout)
 	if err != nil {
 		return nil, err
 	}
 
-	// Call the method
+	my.mu.Lock()
+	defer my.mu.Unlock()
+
 	logo.Debug("Calling plugin:", plugin.Name, "method:", method)
 	return proto.Call(method, params)
 }

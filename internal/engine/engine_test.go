@@ -24,30 +24,30 @@ func TestNewEngine(t *testing.T) {
 	}
 }
 
-func TestCreateSession(t *testing.T) {
+func TestFetchSession(t *testing.T) {
 	tests := []struct {
 		name      string
 		sessionId string
-		wantErr   bool
+		wantNil   bool
 	}{
 		{
-			name:      "create session with valid ID",
+			name:      "fetch session with valid ID",
 			sessionId: "test-session-1",
-			wantErr:   false,
+			wantNil:   false,
 		},
 		{
-			name:      "create session with empty ID",
+			name:      "fetch session with empty ID",
 			sessionId: "",
-			wantErr:   true,
+			wantNil:   true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e := NewEngine(nil)
-			err := e.CreateSession(tt.sessionId)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("CreateSession() error = %v, wantErr %v", err, tt.wantErr)
+			session := e.FetchSession(tt.sessionId)
+			if (session == nil) != tt.wantNil {
+				t.Errorf("FetchSession() session = %v, wantNil %v", session, tt.wantNil)
 			}
 		})
 	}
@@ -75,7 +75,7 @@ func TestCloseSession(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			e := NewEngine(nil)
 			if !tt.wantErr && tt.sessionId != "non-existent" {
-				_ = e.CreateSession(tt.sessionId)
+				_ = e.FetchSession(tt.sessionId)
 			}
 			err := e.CloseSession(tt.sessionId)
 			if (err != nil) != tt.wantErr {
@@ -118,7 +118,7 @@ func TestProcessMessage(t *testing.T) {
 			ctx := context.Background()
 
 			if tt.sessionId != "" {
-				_ = e.CreateSession(tt.sessionId)
+				_ = e.FetchSession(tt.sessionId)
 			}
 
 			resp, err := e.ProcessMessage(ctx, tt.sessionId, tt.message)
@@ -134,13 +134,13 @@ func TestProcessMessage(t *testing.T) {
 
 func TestProcessMessageWithContext(t *testing.T) {
 	tests := []struct {
-		name          string
-		sessionId     string
-		messages      []struct {
+		name      string
+		sessionId string
+		messages  []struct {
 			role    string
 			content string
 		}
-		finalMessage  string
+		finalMessage   string
 		wantContextLen int
 	}{
 		{
@@ -162,7 +162,7 @@ func TestProcessMessageWithContext(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			e := NewEngine(nil)
 			ctx := context.Background()
-			_ = e.CreateSession(tt.sessionId)
+			_ = e.FetchSession(tt.sessionId)
 
 			// Add historical messages
 			session := e.sessions[tt.sessionId]

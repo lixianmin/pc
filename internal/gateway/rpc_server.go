@@ -210,7 +210,7 @@ func (my *RpcServer) handleProcessMessage(ctx context.Context, params json.RawMe
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
 
-	if req.SessionID == "" {
+	if req.SessionId == "" {
 		return nil, fmt.Errorf("sessionId is required")
 	}
 
@@ -218,12 +218,11 @@ func (my *RpcServer) handleProcessMessage(ctx context.Context, params json.RawMe
 		return nil, fmt.Errorf("message is required")
 	}
 
-	logo.Info("[RPC] handleProcessMessage: sessionId=", req.SessionID, ", message=", req.Message)
+	logo.Info("[RPC] handleProcessMessage: sessionId=", req.SessionId, ", message=", req.Message)
 
-	if err := my.engine.CreateSession(req.SessionID); err != nil {
-	}
+	my.engine.FetchSession(req.SessionId)
 
-	response, err := my.engine.ProcessMessage(ctx, req.SessionID, req.Message)
+	response, err := my.engine.ProcessMessage(ctx, req.SessionId, req.Message)
 	if err != nil {
 		logo.Error("[RPC] handleProcessMessage error:", err)
 		return nil, err
@@ -239,7 +238,7 @@ func (my *RpcServer) handleProcessMessageStream(ctx context.Context, params json
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
 
-	if req.SessionID == "" {
+	if req.SessionId == "" {
 		return nil, fmt.Errorf("sessionId is required")
 	}
 
@@ -247,10 +246,9 @@ func (my *RpcServer) handleProcessMessageStream(ctx context.Context, params json
 		return nil, fmt.Errorf("message is required")
 	}
 
-	if err := my.engine.CreateSession(req.SessionID); err != nil {
-	}
+	my.engine.FetchSession(req.SessionId)
 
-	streamCh := my.engine.ProcessMessageStream(ctx, req.SessionID, req.Message)
+	streamCh := my.engine.ProcessMessageStream(ctx, req.SessionId, req.Message)
 
 	var chunks []protocol.ProcessMessageStreamChunk
 	for chunk := range streamCh {

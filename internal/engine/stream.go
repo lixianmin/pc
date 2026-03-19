@@ -53,7 +53,10 @@ func (my *Engine) ProcessMessageStream(ctx context.Context, sessionId, message s
 			return
 		}
 
+		my.mu.RLock()
 		session, exists := my.sessions[sessionId]
+		my.mu.RUnlock()
+
 		if !exists {
 			ch <- NewStreamError(fmt.Errorf("session not found: %s", sessionId))
 			return

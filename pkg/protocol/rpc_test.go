@@ -146,7 +146,7 @@ func TestRPCRequest_Marshal(t *testing.T) {
 
 func TestProcessMessageParams(t *testing.T) {
 	params := ProcessMessageParams{
-		SessionID: "session-123",
+		SessionId: "session-123",
 		Message:   "Hello",
 	}
 
@@ -160,8 +160,8 @@ func TestProcessMessageParams(t *testing.T) {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
 
-	if decoded.SessionID != params.SessionID {
-		t.Errorf("SessionID = %q, want %q", decoded.SessionID, params.SessionID)
+	if decoded.SessionId != params.SessionId {
+		t.Errorf("SessionID = %q, want %q", decoded.SessionId, params.SessionId)
 	}
 
 	if decoded.Message != params.Message {

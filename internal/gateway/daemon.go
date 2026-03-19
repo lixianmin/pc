@@ -197,7 +197,7 @@ func (my *Daemon) Run() error {
 		eng.SetLLMPlugin(llmPlugins[0])
 	}
 
-	eng.CreateSession("default")
+	eng.FetchSession("default")
 
 	server := NewRPCServer(my.socketPath, eng, pm)
 	if err := server.Start(); err != nil {
