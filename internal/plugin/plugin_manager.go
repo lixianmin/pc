@@ -226,15 +226,11 @@ func (my *PluginManager) CallPlugin(plugin *types.Plugin, method string, params 
 	}
 
 	my.mu.Lock()
-	timeout := my.llmTimeout
-	my.mu.Unlock()
-
-	proto, err := my.ensurePluginStartedWithTimeout(plugin, timeout)
+	proto, err := my.ensurePluginStarted(plugin)
 	if err != nil {
+		my.mu.Unlock()
 		return nil, err
 	}
-
-	my.mu.Lock()
 	defer my.mu.Unlock()
 
 	logo.Debug("Calling plugin:", plugin.Name, "method:", method)

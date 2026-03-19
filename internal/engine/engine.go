@@ -9,6 +9,7 @@ import (
 
 	"github.com/lixianmin/logo"
 	"github.com/lixianmin/pc/internal/plugin"
+	"github.com/lixianmin/pc/internal/task"
 	"github.com/lixianmin/pc/pkg/types"
 )
 
@@ -30,6 +31,11 @@ type Engine struct {
 	maxIterations int
 	toolTimeout   time.Duration
 	llmCallback   llmCallback
+
+	// Task management
+	taskManager *task.Manager
+	decomposer  *task.Decomposer
+	taskEnabled bool
 }
 
 // NewEngine creates a new core engine.
@@ -39,6 +45,8 @@ func NewEngine(pm *plugin.PluginManager) *Engine {
 		sessions:      make(map[string]*Session),
 		maxIterations: 10,
 		toolTimeout:   30 * time.Second,
+		taskManager:   task.NewManager(""),
+		decomposer:    task.NewDecomposer(),
 	}
 }
 
@@ -77,6 +85,16 @@ func (my *Engine) SetSystemPrompt(prompt string) {
 	my.systemPrompt = prompt
 }
 
+// SetTaskEnabled enables or disables task decomposition.
+func (my *Engine) SetTaskEnabled(enabled bool) {
+	my.taskEnabled = enabled
+}
+
+// GetTaskManager returns the task manager.
+func (my *Engine) GetTaskManager() *task.Manager {
+	return my.taskManager
+}
+
 // ProcessMessage processes an incoming message with ReAct loop.
 func (my *Engine) ProcessMessage(ctx context.Context, sessionId, message string) (string, error) {
 	if sessionId == "" {
@@ -96,6 +114,20 @@ func (my *Engine) ProcessMessage(ctx context.Context, sessionId, message string)
 	}
 
 	logo.Info("[Session:", sessionId, "] User:", message)
+
+	// Check for task decomposition trigger
+	if my.taskEnabled && my.isGoalMessage(message) {
+		response, err := my.handleGoalDecomposition(ctx, sessionId, message)
+		if err != nil {
+			return "", err
+		}
+		if response != "" {
+			if err := session.AddMessage("assistant", response); err != nil {
+				return "", fmt.Errorf("failed to save assistant response: %w", err)
+			}
+			return response, nil
+		}
+	}
 
 	if err := session.AddMessage("user", message); err != nil {
 		return "", fmt.Errorf("failed to save user message: %w", err)
@@ -366,4 +398,68 @@ func (my *Engine) Close() error {
 		delete(my.sessions, key)
 	}
 	return nil
+}
+
+// isGoalMessage checks if the message is a goal decomposition request.
+func (my *Engine) isGoalMessage(message string) bool {
+	if strings.HasPrefix(message, "/task ") {
+		return true
+	}
+
+	goalPrefixes := []string{"我想", "我要", "请帮我", "帮我"}
+	for _, prefix := range goalPrefixes {
+		if strings.HasPrefix(message, prefix) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// handleGoalDecomposition handles goal decomposition and task creation.
+func (my *Engine) handleGoalDecomposition(ctx context.Context, sessionId string, message string) (string, error) {
+	var goal string
+	var err error
+
+	if strings.HasPrefix(message, "/task ") {
+		goal, err = my.decomposer.ParseGoal(strings.TrimPrefix(message, "/task "))
+	} else {
+		goal, err = my.decomposer.ParseGoal(message)
+	}
+
+	if err != nil {
+		return "", fmt.Errorf("failed to parse goal: %w", err)
+	}
+
+	if goal == "" {
+		return "", fmt.Errorf("goal cannot be empty")
+	}
+
+	steps, err := my.decomposer.Decompose(goal)
+	if err != nil {
+		return "", fmt.Errorf("failed to decompose goal: %w", err)
+	}
+
+	newTask, err := my.taskManager.AddTask(goal)
+	if err != nil {
+		return "", fmt.Errorf("failed to create task: %w", err)
+	}
+
+	for _, step := range steps {
+		if err := newTask.AddStep(step); err != nil {
+			logo.Warn("Failed to add step:", step, err)
+		}
+	}
+
+	logo.Info("[Session:", sessionId, "] Created task:", goal, "with", len(steps), "steps")
+
+	var responseBuilder strings.Builder
+	responseBuilder.WriteString("已为您创建任务：\n\n")
+	responseBuilder.WriteString(fmt.Sprintf("**%s**\n\n", goal))
+	responseBuilder.WriteString("步骤：\n")
+	for i, step := range steps {
+		responseBuilder.WriteString(fmt.Sprintf("%d. %s\n", i+1, step))
+	}
+
+	return responseBuilder.String(), nil
 }

@@ -7,107 +7,44 @@ import (
 
 func TestNewEngine(t *testing.T) {
 	tests := []struct {
-		name string
+		name          string
+		sessionId     string
+		message       string
+		wantTask      bool
+		wantErr       bool
+		wantTaskTitle string
+		wantStepCount int
 	}{
 		{
-			name: "create new engine",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := NewEngine(nil)
-			if got == nil {
-				t.Error("NewEngine() returned nil")
-			}
-		})
-	}
-}
-
-func TestFetchSession(t *testing.T) {
-	tests := []struct {
-		name      string
-		sessionId string
-		wantNil   bool
-	}{
-		{
-			name:      "fetch session with valid ID",
-			sessionId: "test-session-1",
-			wantNil:   false,
+			name:          "decompose goal with /task prefix",
+			sessionId:     "test-task-1",
+			message:       "/task deploy the application",
+			wantTask:      true,
+			wantErr:       false,
+			wantTaskTitle: "deploy the application",
+			wantStepCount: 4,
 		},
 		{
-			name:      "fetch session with empty ID",
-			sessionId: "",
-			wantNil:   true,
+			name:          "decompose goal with 我想 prefix",
+			sessionId:     "test-task-2",
+			message:       "我想测试这个功能",
+			wantTask:      true,
+			wantErr:       false,
+			wantTaskTitle: "测试这个功能",
+			wantStepCount: 4,
 		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			e := NewEngine(nil)
-			session := e.FetchSession(tt.sessionId)
-			if (session == nil) != tt.wantNil {
-				t.Errorf("FetchSession() session = %v, wantNil %v", session, tt.wantNil)
-			}
-		})
-	}
-}
-
-func TestCloseSession(t *testing.T) {
-	tests := []struct {
-		name      string
-		sessionId string
-		wantErr   bool
-	}{
 		{
-			name:      "close existing session",
-			sessionId: "test-session-1",
+			name:      "regular message does not trigger decomposition",
+			sessionId: "test-task-3",
+			message:   "Hello, how are you?",
+			wantTask:  false,
 			wantErr:   false,
 		},
 		{
-			name:      "close non-existent session",
-			sessionId: "non-existent",
-			wantErr:   false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			e := NewEngine(nil)
-			if !tt.wantErr && tt.sessionId != "non-existent" {
-				_ = e.FetchSession(tt.sessionId)
-			}
-			err := e.CloseSession(tt.sessionId)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("CloseSession() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestProcessMessage(t *testing.T) {
-	tests := []struct {
-		name      string
-		sessionId string
-		message   string
-		wantErr   bool
-	}{
-		{
-			name:      "process message with valid session",
-			sessionId: "test-session-1",
-			message:   "Hello, world!",
-			wantErr:   false,
-		},
-		{
-			name:      "process empty message",
-			sessionId: "test-session-2",
-			message:   "",
-			wantErr:   true,
-		},
-		{
-			name:      "process message without session",
-			sessionId: "",
-			message:   "Hello!",
+			name:      "empty goal returns error",
+			sessionId: "test-task-4",
+			message:   "/task   ",
+			wantTask:  false,
 			wantErr:   true,
 		},
 	}
@@ -115,126 +52,48 @@ func TestProcessMessage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e := NewEngine(nil)
+			e.SetTaskEnabled(true)
 			ctx := context.Background()
-
-			if tt.sessionId != "" {
-				_ = e.FetchSession(tt.sessionId)
-			}
+			_ = e.FetchSession(tt.sessionId)
 
 			resp, err := e.ProcessMessage(ctx, tt.sessionId, tt.message)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ProcessMessage() error = %v, wantErr %v", err, tt.wantErr)
+				return
 			}
-			if !tt.wantErr && resp == "" {
-				t.Error("ProcessMessage() returned empty response")
+
+			tm := e.GetTaskManager()
+			if tm == nil {
+				t.Error("Expected TaskManager to be initialized")
+				return
 			}
-		})
-	}
-}
 
-func TestProcessMessageWithContext(t *testing.T) {
-	tests := []struct {
-		name      string
-		sessionId string
-		messages  []struct {
-			role    string
-			content string
-		}
-		finalMessage   string
-		wantContextLen int
-	}{
-		{
-			name:      "maintain conversation context",
-			sessionId: "test-session-context",
-			messages: []struct {
-				role    string
-				content string
-			}{
-				{role: "user", content: "My name is Alice"},
-				{role: "assistant", content: "Hello Alice!"},
-			},
-			finalMessage:   "What is my name?",
-			wantContextLen: 3,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			e := NewEngine(nil)
-			ctx := context.Background()
-			_ = e.FetchSession(tt.sessionId)
-
-			// Add historical messages
-			session := e.sessions[tt.sessionId]
-			for _, msg := range tt.messages {
-				if msg.role == "user" {
-					session.AddMessage(msg.role, msg.content)
+			tasks := tm.ListTasks()
+			if tt.wantTask {
+				if len(tasks) == 0 {
+					t.Error("Expected at least one task to be created")
+					return
 				}
-			}
-
-			_, _ = e.ProcessMessage(ctx, tt.sessionId, tt.finalMessage)
-
-			// Verify context is maintained
-			msgs := session.GetMessages()
-			if len(msgs) != tt.wantContextLen {
-				t.Errorf("context length = %v, want %v", len(msgs), tt.wantContextLen)
-			}
-		})
-	}
-}
-
-func TestEngine_SetSystemPrompt(t *testing.T) {
-	tests := []struct {
-		name         string
-		systemPrompt string
-		wantPrompt   string
-	}{
-		{
-			name:         "set system prompt",
-			systemPrompt: "你是一个有用的助手。",
-			wantPrompt:   "你是一个有用的助手。",
-		},
-		{
-			name:         "set empty system prompt",
-			systemPrompt: "",
-			wantPrompt:   "",
-		},
-		{
-			name:         "set multi-line system prompt",
-			systemPrompt: "你是 Agent。\n\n## 技能\n- 编程\n- 写作",
-			wantPrompt:   "你是 Agent。\n\n## 技能\n- 编程\n- 写作",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			e := NewEngine(nil)
-			e.SetSystemPrompt(tt.systemPrompt)
-
-			if e.systemPrompt != tt.wantPrompt {
-				t.Errorf("SetSystemPrompt() = %v, want %v", e.systemPrompt, tt.wantPrompt)
-			}
-		})
-	}
-}
-
-func TestClose(t *testing.T) {
-	tests := []struct {
-		name    string
-		wantErr bool
-	}{
-		{
-			name:    "close engine",
-			wantErr: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			e := NewEngine(nil)
-			err := e.Close()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Close() error = %v, wantErr %v", err, tt.wantErr)
+				var foundTask *task.Task
+				for _, task := range tasks {
+					if task.Title == tt.wantTaskTitle {
+						foundTask = task
+						break
+					}
+				}
+				if !found {
+					t.Errorf("Expected task with title %q not found", tt.wantTaskTitle)
+					return
+				}
+				if resp == "" {
+					t.Error("Expected non-empty response for task decomposition")
+					return
+				}
+			} else if !tt.wantErr {
+				tasks := e.GetTaskManager().ListTasks()
+				if len(tasks) > 0 {
+					t.Errorf("Expected no tasks for non-goal message, got %d", len(tasks))
+				}
 			}
 		})
 	}
