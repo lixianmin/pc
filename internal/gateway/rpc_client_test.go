@@ -15,7 +15,7 @@ func TestRPCClient_Connect(t *testing.T) {
 	tmpDir := t.TempDir()
 	socketPath := filepath.Join(tmpDir, "test.sock")
 
-	client := NewRPCClient(socketPath)
+	client := NewRpcClient(socketPath)
 
 	// Try to connect when server is not running
 	err := client.Connect()
@@ -28,7 +28,7 @@ func TestRPCClient_Call_NotConnected(t *testing.T) {
 	tmpDir := t.TempDir()
 	socketPath := filepath.Join(tmpDir, "test.sock")
 
-	client := NewRPCClient(socketPath)
+	client := NewRpcClient(socketPath)
 
 	_, err := client.Call("test", nil)
 	if err == nil {
@@ -40,7 +40,7 @@ func TestRPCClient_SetTimeout(t *testing.T) {
 	tmpDir := t.TempDir()
 	socketPath := filepath.Join(tmpDir, "test.sock")
 
-	client := NewRPCClient(socketPath)
+	client := NewRpcClient(socketPath)
 
 	// Default timeout should be 120 seconds (2 minutes)
 	if client.timeout != 120*time.Second {
@@ -96,7 +96,7 @@ func TestRPCServer_StartStop(t *testing.T) {
 
 func TestNewRPCClient(t *testing.T) {
 	socketPath := "/tmp/test.sock"
-	client := NewRPCClient(socketPath)
+	client := NewRpcClient(socketPath)
 
 	if client == nil {
 		t.Fatal("NewRPCClient() returned nil")

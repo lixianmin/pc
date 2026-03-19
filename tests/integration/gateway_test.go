@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lixianmin/pc/internal/gateway"
 	"github.com/lixianmin/pc/internal/engine"
+	"github.com/lixianmin/pc/internal/gateway"
 	"github.com/lixianmin/pc/internal/plugin"
 )
 
@@ -42,7 +42,7 @@ func TestGatewayStartup(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Create RPC client
-	client := gateway.NewRPCClient(socketPath)
+	client := gateway.NewRpcClient(socketPath)
 	if err := client.Connect(); err != nil {
 		t.Fatalf("Failed to connect to RPC server: %v", err)
 	}
@@ -153,7 +153,7 @@ func TestMessageRouting(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Connect client
-	client := gateway.NewRPCClient(socketPath)
+	client := gateway.NewRpcClient(socketPath)
 	if err := client.Connect(); err != nil {
 		t.Fatalf("Failed to connect: %v", err)
 	}
@@ -198,7 +198,7 @@ func TestRPCClientServerCommunication(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	client := gateway.NewRPCClient(socketPath)
+	client := gateway.NewRpcClient(socketPath)
 	if err := client.Connect(); err != nil {
 		t.Fatalf("Failed to connect: %v", err)
 	}

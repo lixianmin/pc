@@ -20,8 +20,8 @@ type RpcClient struct {
 	timeout    time.Duration
 }
 
-// NewRPCClient creates a new RPC client.
-func NewRPCClient(socketPath string) *RpcClient {
+// NewRpcClient creates a new RPC client.
+func NewRpcClient(socketPath string) *RpcClient {
 	return &RpcClient{
 		socketPath: socketPath,
 		timeout:    120 * time.Second,
@@ -37,7 +37,7 @@ func (my *RpcClient) SetTimeout(timeout time.Duration) {
 func (my *RpcClient) Connect() error {
 	conn, err := net.DialTimeout("unix", my.socketPath, my.timeout)
 	if err != nil {
-		logo.Error("[RPCClient.Connect] failed to connect to gateway: socketPath=", my.socketPath, ", err=", err)
+		logo.Error("[RpcClient.Connect] failed to connect to gateway: socketPath=", my.socketPath, ", err=", err)
 		return fmt.Errorf("failed to connect to gateway: %w", err)
 	}
 
@@ -95,13 +95,13 @@ func (my *RpcClient) Call(method string, params interface{}) (*protocol.RpcRespo
 		byte(length),
 	}
 	if _, err := my.conn.Write(lengthBytes); err != nil {
-		logo.Error("[RPCClient.Call] failed to write length prefix: method=", method, ", err=", err)
+		logo.Error("[RpcClient.Call] failed to write length prefix: method=", method, ", err=", err)
 		return nil, fmt.Errorf("failed to write length prefix: %w", err)
 	}
 
 	// Write request data
 	if _, err := my.conn.Write(reqData); err != nil {
-		logo.Error("[RPCClient.Call] failed to send request: method=", method, ", err=", err)
+		logo.Error("[RpcClient.Call] failed to send request: method=", method, ", err=", err)
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 
@@ -116,7 +116,7 @@ func (my *RpcClient) Call(method string, params interface{}) (*protocol.RpcRespo
 	for totalRead < 4 {
 		n, err := my.reader.Read(lengthBuf[totalRead:])
 		if err != nil {
-			logo.Error("[RPCClient.Call] failed to read length prefix: method=", method, ", socketPath=", my.socketPath, ", err=", err)
+			logo.Error("[RpcClient.Call] failed to read length prefix: method=", method, ", socketPath=", my.socketPath, ", err=", err)
 			return nil, fmt.Errorf("failed to read length prefix: %w", err)
 		}
 		totalRead += n
@@ -134,7 +134,7 @@ func (my *RpcClient) Call(method string, params interface{}) (*protocol.RpcRespo
 	for totalRead < int(length) {
 		n, err := my.reader.Read(respData[totalRead:])
 		if err != nil {
-			logo.Error("[RPCClient.Call] failed to read response: method=", method, ", err=", err)
+			logo.Error("[RpcClient.Call] failed to read response: method=", method, ", err=", err)
 			return nil, fmt.Errorf("failed to read response: %w", err)
 		}
 		totalRead += n

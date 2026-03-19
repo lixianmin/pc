@@ -62,7 +62,7 @@ func TestProcessMessageStream(t *testing.T) {
 
 			time.Sleep(100 * time.Millisecond)
 
-			client := gateway.NewRPCClient(socketPath)
+			client := gateway.NewRpcClient(socketPath)
 			if err := client.Connect(); err != nil {
 				t.Fatalf("Failed to connect: %v", err)
 			}
@@ -115,7 +115,7 @@ func TestProcessMessageStreamWithSession(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	client := gateway.NewRPCClient(socketPath)
+	client := gateway.NewRpcClient(socketPath)
 	if err := client.Connect(); err != nil {
 		t.Fatalf("Failed to connect: %v", err)
 	}
@@ -166,7 +166,7 @@ func TestProcessMessageStreamSequential(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	client := gateway.NewRPCClient(socketPath)
+	client := gateway.NewRpcClient(socketPath)
 	if err := client.Connect(); err != nil {
 		t.Fatalf("Failed to connect: %v", err)
 	}
