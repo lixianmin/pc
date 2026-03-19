@@ -18,7 +18,7 @@ func Init(level int, logDir string) {
 	var fileHook = logo.NewRollingFileHook(
 		logo.WithHookFlag(logo.FlagDate|logo.FlagTime|logo.FlagLevel),
 		logo.WithDirName(logDir),
-		logo.WithFileNamePrefix("pc"),
+		// logo.WithFileNamePrefix("pc"),
 		logo.WithMaxFileSize(10*1024*1024),
 	)
 
