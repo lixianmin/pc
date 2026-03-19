@@ -278,8 +278,20 @@ func (my *RpcServer) handleGetStatus(ctx context.Context, params json.RawMessage
 }
 
 func (my *RpcServer) handleListSkills(ctx context.Context, params json.RawMessage) (interface{}, error) {
+	var skills []protocol.SkillInfo
+
+	if my.engine != nil {
+		engineSkills := my.engine.ListSkills()
+		for _, s := range engineSkills {
+			skills = append(skills, protocol.SkillInfo{
+				Name:        s.Name,
+				Description: s.Description,
+			})
+		}
+	}
+
 	return &protocol.ListSkillsResult{
-		Skills: []protocol.SkillInfo{},
+		Skills: skills,
 	}, nil
 }
 
