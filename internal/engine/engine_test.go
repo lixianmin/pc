@@ -3,9 +3,11 @@ package engine
 import (
 	"context"
 	"testing"
+
+	"github.com/lixianmin/pc/internal/task"
 )
 
-func TestNewEngine(t *testing.T) {
+func TestEngine_TaskDecomposition(t *testing.T) {
 	tests := []struct {
 		name          string
 		sessionId     string
@@ -75,22 +77,24 @@ func TestNewEngine(t *testing.T) {
 					return
 				}
 				var foundTask *task.Task
-				for _, task := range tasks {
-					if task.Title == tt.wantTaskTitle {
-						foundTask = task
+				for _, tk := range tasks {
+					if tk.Title == tt.wantTaskTitle {
+						foundTask = tk
 						break
 					}
 				}
-				if !found {
+				if foundTask == nil {
 					t.Errorf("Expected task with title %q not found", tt.wantTaskTitle)
 					return
+				}
+				if len(foundTask.Steps) != tt.wantStepCount {
+					t.Errorf("Task steps = %v, want %v", len(foundTask.Steps), tt.wantStepCount)
 				}
 				if resp == "" {
 					t.Error("Expected non-empty response for task decomposition")
 					return
 				}
 			} else if !tt.wantErr {
-				tasks := e.GetTaskManager().ListTasks()
 				if len(tasks) > 0 {
 					t.Errorf("Expected no tasks for non-goal message, got %d", len(tasks))
 				}

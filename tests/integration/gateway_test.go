@@ -161,9 +161,7 @@ func TestMessageRouting(t *testing.T) {
 
 	// Create session and send message
 	sessionID := "test-session"
-	if err := eng.CreateSession(sessionID); err != nil {
-		t.Fatalf("Failed to create session: %v", err)
-	}
+	_ = eng.FetchSession(sessionID)
 
 	response, err := client.ProcessMessage(sessionID, "Hello")
 	if err != nil {
