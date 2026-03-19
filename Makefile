@@ -11,16 +11,19 @@ build:
 	@echo "Building $(BINARY_NAME)..."
 	go build $(LDFLAGS) -o $(BINARY_NAME) ./cmd/pc
 
+PLUGIN_DIR=$(HOME)/.pc/plugins/llm/openai
+
 build-plugins:
 	@echo "Building plugins..."
+	@mkdir -p $(PLUGIN_DIR)/bin
 	@cd examples/plugins/llm/openai/cmd/openai-llm && \
 		if ! grep -q "github.com/lixianmin/pc" go.mod 2>/dev/null; then \
 			echo "require github.com/lixianmin/pc v0.0.0" >> go.mod && \
 			echo "replace github.com/lixianmin/pc => ../../../../../../" >> go.mod; \
 		fi && \
 		go mod tidy && \
-		go build -o ../../../../../../bin/openai-llm .
-	@echo "Plugins built successfully"
+		go build -o $(PLUGIN_DIR)/bin/openai-llm .
+	@echo "Plugins built to $(PLUGIN_DIR)/bin/"
 
 test:
 	@echo "Running tests..."
@@ -34,6 +37,7 @@ test-coverage: test
 clean:
 	@echo "Cleaning..."
 	@rm -f $(BINARY_NAME)
+	@rm -rf bin/
 	@rm -f coverage.out coverage.html
 
 run: build

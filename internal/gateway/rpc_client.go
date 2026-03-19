@@ -55,13 +55,13 @@ func (my *RpcClient) Close() error {
 }
 
 // Call makes an RPC call.
-func (my *RpcClient) Call(method string, params interface{}) (*protocol.RpcResponse, error) {
+func (my *RpcClient) Call(method protocol.RpcMethod, params any) (*protocol.RpcResponse, error) {
 	if my.conn == nil {
 		return nil, fmt.Errorf("not connected")
 	}
 
 	// Generate request ID
-	requestID := ulid.Make().String()
+	var requestId = ulid.Make().String()
 
 	// Marshal params
 	var paramsJson []byte
@@ -74,14 +74,14 @@ func (my *RpcClient) Call(method string, params interface{}) (*protocol.RpcRespo
 	}
 
 	// Create request
-	req := &protocol.RpcRequest{
-		ID:     requestID,
+	var request = &protocol.RpcRequest{
+		ID:     requestId,
 		Method: protocol.RpcMethod(method),
 		Params: paramsJson,
 	}
 
 	// Send request (with length prefix)
-	reqData, err := json.Marshal(req)
+	reqData, err := json.Marshal(request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
@@ -163,7 +163,7 @@ func (my *RpcClient) ProcessMessage(sessionID, message string) (string, error) {
 		Message:   message,
 	}
 
-	resp, err := my.Call(string(protocol.RpcMethodProcessMessage), params)
+	resp, err := my.Call((protocol.RpcMethodProcessMessage), params)
 	if err != nil {
 		return "", err
 	}
@@ -191,7 +191,7 @@ func (my *RpcClient) ProcessMessageStream(sessionID, message string) ([]protocol
 		Message:   message,
 	}
 
-	resp, err := my.Call(string(protocol.RpcMethodProcessMessageStream), params)
+	resp, err := my.Call((protocol.RpcMethodProcessMessageStream), params)
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +233,7 @@ func (my *RpcClient) ProcessMessageStream(sessionID, message string) ([]protocol
 }
 
 func (my *RpcClient) GetStatus() (*protocol.GatewayStatus, error) {
-	resp, err := my.Call(string(protocol.RpcMethodGetStatus), nil)
+	resp, err := my.Call((protocol.RpcMethodGetStatus), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +257,7 @@ func (my *RpcClient) GetStatus() (*protocol.GatewayStatus, error) {
 
 // ListSkills lists all available skills.
 func (my *RpcClient) ListSkills() ([]protocol.SkillInfo, error) {
-	resp, err := my.Call(string(protocol.RpcMethodListSkills), nil)
+	resp, err := my.Call((protocol.RpcMethodListSkills), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +286,7 @@ func (my *RpcClient) ExecuteSkill(name string, params map[string]interface{}) (i
 		Params: params,
 	}
 
-	resp, err := my.Call(string(protocol.RpcMethodExecuteSkill), reqParams)
+	resp, err := my.Call((protocol.RpcMethodExecuteSkill), reqParams)
 	if err != nil {
 		return nil, err
 	}
@@ -315,7 +315,7 @@ func (my *RpcClient) ListTasks(status string) ([]protocol.TaskInfo, error) {
 		params.Status = status
 	}
 
-	resp, err := my.Call(string(protocol.RpcMethodListTasks), params)
+	resp, err := my.Call((protocol.RpcMethodListTasks), params)
 	if err != nil {
 		return nil, err
 	}
@@ -344,7 +344,7 @@ func (my *RpcClient) AddTask(title, description string) (string, error) {
 		Description: description,
 	}
 
-	resp, err := my.Call(string(protocol.RpcMethodAddTask), params)
+	resp, err := my.Call((protocol.RpcMethodAddTask), params)
 	if err != nil {
 		return "", err
 	}
@@ -372,7 +372,7 @@ func (my *RpcClient) CompleteTask(id string) error {
 		ID: id,
 	}
 
-	resp, err := my.Call(string(protocol.RpcMethodCompleteTask), params)
+	resp, err := my.Call((protocol.RpcMethodCompleteTask), params)
 	if err != nil {
 		return err
 	}
@@ -390,7 +390,7 @@ func (my *RpcClient) DeleteTask(id string) error {
 		ID: id,
 	}
 
-	resp, err := my.Call(string(protocol.RpcMethodDeleteTask), params)
+	resp, err := my.Call(protocol.RpcMethodDeleteTask, params)
 	if err != nil {
 		return err
 	}

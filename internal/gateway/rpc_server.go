@@ -84,15 +84,15 @@ func (my *RpcServer) Stop() error {
 	return nil
 }
 
-func (my *RpcServer) acceptConnections(later loom.Later) {
+func (my *RpcServer) acceptConnections(_ loom.Later) {
 	for {
-		conn, err := my.listener.Accept()
+		var conn, err = my.listener.Accept()
 		if err != nil {
 			if netErr, ok := err.(net.Error); ok && netErr.Temporary() {
 				logo.Warn("Temporary accept error:", err)
 				continue
 			}
-			logo.Info("RPC server stopped accepting connections")
+			logo.Info("Rpc server stopped accepting connections")
 			return
 		}
 
