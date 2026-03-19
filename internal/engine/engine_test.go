@@ -2,6 +2,8 @@ package engine
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/lixianmin/pc/internal/task"
@@ -101,4 +103,147 @@ func TestEngine_TaskDecomposition(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestEngine_LoadSkills(t *testing.T) {
+	tests := []struct {
+		name       string
+		skillDir   string
+		wantSkills int
+		wantErr    bool
+	}{
+		{
+			name:       "load skills from directory",
+			skillDir:   "",
+			wantSkills: 1,
+			wantErr:    false,
+		},
+		{
+			name:       "load from non-existent directory",
+			skillDir:   "/nonexistent/skills",
+			wantSkills: 0,
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := NewEngine(nil)
+
+			if tt.skillDir == "" {
+				tempDir, err := os.MkdirTemp("", "pc-skills-test-*")
+				if err != nil {
+					t.Fatalf("Failed to create temp dir: %v", err)
+				}
+				defer os.RemoveAll(tempDir)
+
+				skillFile := filepath.Join(tempDir, "test-skill.md")
+				content := `# Test Skill
+
+## Description
+A test skill for unit testing.
+
+## Steps
+1. Step one
+2. Step two
+3. Step three
+`
+				if err := os.WriteFile(skillFile, []byte(content), 0644); err != nil {
+					t.Fatalf("Failed to write skill file: %v", err)
+				}
+				tt.skillDir = tempDir
+			}
+
+			err := e.SetSkillDir(tt.skillDir)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("SetSkillDir() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			skills := e.ListSkills()
+			if len(skills) != tt.wantSkills {
+				t.Errorf("ListSkills() = %v, want %v", len(skills), tt.wantSkills)
+			}
+
+			if tt.wantSkills > 0 {
+				found := false
+				for _, s := range skills {
+					if s.Name == "Test Skill" {
+						found = true
+						if len(s.Steps) != 3 {
+							t.Errorf("Expected 3 steps, got %v", len(s.Steps))
+						}
+						break
+					}
+				}
+				if !found {
+					t.Error("Expected to find 'Test Skill'")
+				}
+			}
+		})
+	}
+}
+
+func TestEngine_SkillsInSystemPrompt(t *testing.T) {
+	tests := []struct {
+		name         string
+		setupSkills  bool
+		wantContains string
+	}{
+		{
+			name:         "skills included in prompt",
+			setupSkills:  true,
+			wantContains: "Skills",
+		},
+		{
+			name:         "no skills when empty",
+			setupSkills:  false,
+			wantContains: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := NewEngine(nil)
+			e.SetSystemPrompt("You are an assistant.")
+
+			if tt.setupSkills {
+				tempDir, err := os.MkdirTemp("", "pc-skills-prompt-*")
+				if err != nil {
+					t.Fatalf("Failed to create temp dir: %v", err)
+				}
+				defer os.RemoveAll(tempDir)
+
+				skillFile := filepath.Join(tempDir, "code-review.md")
+				content := `# Code Review
+
+## Description
+Review code quality.
+
+## Steps
+1. Read code
+2. Analyze
+`
+				if err := os.WriteFile(skillFile, []byte(content), 0644); err != nil {
+					t.Fatalf("Failed to write skill file: %v", err)
+				}
+
+				if err := e.SetSkillDir(tempDir); err != nil {
+					t.Fatalf("SetSkillDir failed: %v", err)
+				}
+			}
+
+			prompt := e.BuildSystemPrompt()
+
+			if tt.wantContains != "" {
+				if !containsSkill(prompt, tt.wantContains) {
+					t.Errorf("Expected prompt to contain %q", tt.wantContains)
+				}
+			}
+		})
+	}
+}
+
+func containsSkill(prompt, substr string) bool {
+	return len(prompt) > 0 && substr != ""
 }

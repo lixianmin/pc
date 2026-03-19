@@ -9,6 +9,7 @@ import (
 
 	"github.com/lixianmin/logo"
 	"github.com/lixianmin/pc/internal/plugin"
+	"github.com/lixianmin/pc/internal/skill"
 	"github.com/lixianmin/pc/internal/task"
 	"github.com/lixianmin/pc/pkg/types"
 )
@@ -36,6 +37,9 @@ type Engine struct {
 	taskManager *task.Manager
 	decomposer  *task.Decomposer
 	taskEnabled bool
+
+	// Skill management
+	skillManager *skill.SkillManager
 }
 
 // NewEngine creates a new core engine.
@@ -85,6 +89,11 @@ func (my *Engine) SetSystemPrompt(prompt string) {
 	my.systemPrompt = prompt
 }
 
+// BuildSystemPrompt builds the dynamic system prompt with tools and skills.
+func (my *Engine) BuildSystemPrompt() string {
+	return my.buildDynamicSystemPrompt()
+}
+
 // SetTaskEnabled enables or disables task decomposition.
 func (my *Engine) SetTaskEnabled(enabled bool) {
 	my.taskEnabled = enabled
@@ -93,6 +102,29 @@ func (my *Engine) SetTaskEnabled(enabled bool) {
 // GetTaskManager returns the task manager.
 func (my *Engine) GetTaskManager() *task.Manager {
 	return my.taskManager
+}
+
+// SetSkillDir sets the skill directory and loads skills.
+func (my *Engine) SetSkillDir(dir string) error {
+	my.skillManager = skill.NewSkillManager()
+	_, err := my.skillManager.LoadSkills(dir)
+	return err
+}
+
+// ListSkills returns all loaded skills.
+func (my *Engine) ListSkills() []skill.Skill {
+	if my.skillManager == nil {
+		return nil
+	}
+	return my.skillManager.ListSkills()
+}
+
+// GetSkill returns a skill by name.
+func (my *Engine) GetSkill(name string) (*skill.Skill, error) {
+	if my.skillManager == nil {
+		return nil, fmt.Errorf("skill manager not initialized")
+	}
+	return my.skillManager.GetSkill(name)
 }
 
 // ProcessMessage processes an incoming message with ReAct loop.
@@ -289,6 +321,11 @@ func (my *Engine) buildDynamicSystemPrompt() string {
 		parts = append(parts, "", my.buildToolGuide(availableTools))
 	}
 
+	availableSkills := my.ListSkills()
+	if len(availableSkills) > 0 {
+		parts = append(parts, "", my.buildSkillGuide(availableSkills))
+	}
+
 	return strings.Join(parts, "\n")
 }
 
@@ -355,6 +392,30 @@ func (my *Engine) buildToolGuide(tools []ToolInfo) string {
 	parts = append(parts, "2. 行动：调用工具")
 	parts = append(parts, "3. 观察：接收工具结果")
 	parts = append(parts, "4. 回复：基于结果回答用户")
+
+	return strings.Join(parts, "\n")
+}
+
+func (my *Engine) buildSkillGuide(skills []skill.Skill) string {
+	var parts []string
+
+	parts = append(parts, "## 技能使用指南")
+	parts = append(parts, "")
+	parts = append(parts, "技能是由多个步骤组成的复合能力，当需要执行复杂任务时可以参考。")
+	parts = append(parts, "")
+
+	parts = append(parts, "### 可用技能")
+	for _, s := range skills {
+		description := s.Description
+		if s.Description == "" {
+			description = "复合任务"
+		}
+		parts = append(parts, fmt.Sprintf("- **%s**: %s", s.Name, description))
+	}
+
+	parts = append(parts, "")
+	parts = append(parts, "### 使用方式")
+	parts = append(parts, "当需要执行复杂任务时，可以参考技能中的步骤来指导你的操作。")
 
 	return strings.Join(parts, "\n")
 }
