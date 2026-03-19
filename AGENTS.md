@@ -65,6 +65,20 @@ make deps               # Download and tidy dependencies
 - Use `go fmt` for formatting (run via `make fmt`)
 - No code comments unless explicitly requested
 - Tabs for indentation (Go standard)
+- **Variable Declaration**: Prefer `var` over `:=` for explicit type clarity
+
+Example:
+```go
+// Preferred
+var name string = "example"
+var count int = 10
+var items []string = make([]string, 0)
+
+// Avoid when type should be explicit
+name := "example"
+count := 10
+items := []string{}
+```
 
 ### Imports Organization
 Organize imports in two groups, separated by blank lines:

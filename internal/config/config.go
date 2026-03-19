@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/lixianmin/logo"
 	"gopkg.in/yaml.v3"
 )
 
@@ -262,6 +263,19 @@ func (my *Config) GetPluginsDir() string {
 // GetLogLevel returns the log level.
 func (my *Config) GetLogLevel() LogLevel {
 	return my.Log.Level
+}
+
+func (my *Config) GetLogoLevel() int {
+	switch my.Log.Level {
+	case DebugLevel:
+		return logo.LevelDebug
+	case WarnLevel:
+		return logo.LevelWarn
+	case ErrorLevel:
+		return logo.LevelError
+	default:
+		return logo.LevelInfo
+	}
 }
 
 // GetLogOutput returns the log output destination.

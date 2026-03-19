@@ -30,7 +30,7 @@ type Model struct {
 	// State
 	messages     []Message
 	history      *History
-	rpcClient    *gateway.RPCClient
+	rpcClient    *gateway.RpcClient
 	sessionID    string
 	status       string
 	width        int
@@ -96,7 +96,7 @@ func DefaultStyles() *Styles {
 }
 
 // NewModel creates a new TUI model.
-func NewModel(rpcClient *gateway.RPCClient) *Model {
+func NewModel(rpcClient *gateway.RpcClient) *Model {
 	ta := textarea.New()
 	ta.Placeholder = "Type a message or /command..."
 	ta.SetWidth(80)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/lixianmin/pc/internal/engine"
 	"github.com/lixianmin/pc/internal/plugin"
+	"github.com/lixianmin/pc/pkg/protocol"
 )
 
 func TestRPCClient_Connect(t *testing.T) {
@@ -131,14 +132,14 @@ func TestNewRPCServer(t *testing.T) {
 		t.Error("engine not set correctly")
 	}
 
-	if server.pluginMgr != pluginMgr {
+	if server.pluginManager != pluginMgr {
 		t.Error("pluginMgr not set correctly")
 	}
 
 	// Check handlers are registered
 	expectedHandlers := []string{"ProcessMessage", "GetStatus", "ListSkills", "ExecuteSkill", "ListTasks", "AddTask", "CompleteTask"}
 	for _, method := range expectedHandlers {
-		if _, ok := server.handlers[method]; !ok {
+		if _, ok := server.handlers[protocol.RpcMethod(method)]; !ok {
 			t.Errorf("Handler for %s not registered", method)
 		}
 	}

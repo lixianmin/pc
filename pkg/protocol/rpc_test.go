@@ -6,7 +6,7 @@ import (
 )
 
 func TestNewRPCError(t *testing.T) {
-	err := NewRPCError(-32700, "parse error")
+	err := NewRpcError(-32700, "parse error")
 
 	if err.Code != -32700 {
 		t.Errorf("Code = %d, want -32700", err.Code)
@@ -24,7 +24,7 @@ func TestNewRPCError(t *testing.T) {
 
 func TestNewRPCResponse(t *testing.T) {
 	result := map[string]string{"key": "value"}
-	resp := NewRPCResponse("req-123", result)
+	resp := NewRpcResponse("req-123", result)
 
 	if resp.ID != "req-123" {
 		t.Errorf("ID = %q, want 'req-123'", resp.ID)
@@ -40,7 +40,7 @@ func TestNewRPCResponse(t *testing.T) {
 }
 
 func TestNewRPCErrorResponse(t *testing.T) {
-	resp := NewRPCErrorResponse("req-123", -32601, "method not found")
+	resp := NewRpcErrorResponse("req-123", -32601, "method not found")
 
 	if resp.ID != "req-123" {
 		t.Errorf("ID = %q, want 'req-123'", resp.ID)
@@ -66,17 +66,17 @@ func TestNewRPCErrorResponse(t *testing.T) {
 func TestRPCResponse_IsSuccess(t *testing.T) {
 	tests := []struct {
 		name     string
-		resp     *RPCResponse
+		resp     *RpcResponse
 		expected bool
 	}{
 		{
 			name:     "success response",
-			resp:     NewRPCResponse("1", "result"),
+			resp:     NewRpcResponse("1", "result"),
 			expected: true,
 		},
 		{
 			name:     "error response",
-			resp:     NewRPCErrorResponse("1", -1, "error"),
+			resp:     NewRpcErrorResponse("1", -1, "error"),
 			expected: false,
 		},
 	}
@@ -93,17 +93,17 @@ func TestRPCResponse_IsSuccess(t *testing.T) {
 func TestRPCResponse_IsError(t *testing.T) {
 	tests := []struct {
 		name     string
-		resp     *RPCResponse
+		resp     *RpcResponse
 		expected bool
 	}{
 		{
 			name:     "success response",
-			resp:     NewRPCResponse("1", "result"),
+			resp:     NewRpcResponse("1", "result"),
 			expected: false,
 		},
 		{
 			name:     "error response",
-			resp:     NewRPCErrorResponse("1", -1, "error"),
+			resp:     NewRpcErrorResponse("1", -1, "error"),
 			expected: true,
 		},
 	}
@@ -119,7 +119,7 @@ func TestRPCResponse_IsError(t *testing.T) {
 
 func TestRPCRequest_Marshal(t *testing.T) {
 	params := json.RawMessage(`{"key":"value"}`)
-	req := &RPCRequest{
+	req := &RpcRequest{
 		ID:     "req-1",
 		Method: "TestMethod",
 		Params: params,
@@ -130,7 +130,7 @@ func TestRPCRequest_Marshal(t *testing.T) {
 		t.Fatalf("Marshal error: %v", err)
 	}
 
-	var decoded RPCRequest
+	var decoded RpcRequest
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
@@ -423,7 +423,7 @@ func TestRPCError_UnmarshalJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var err RPCError
+			var err RpcError
 			if unmarshalErr := json.Unmarshal([]byte(tt.json), &err); unmarshalErr != nil {
 				t.Fatalf("Unmarshal error: %v", unmarshalErr)
 			}
@@ -441,20 +441,20 @@ func TestRPCError_UnmarshalJSON(t *testing.T) {
 func TestRPCError_UnmarshalJSON_InvalidCode(t *testing.T) {
 	// Test with invalid code type - should default to internal error
 	jsonData := `{"code":{},"message":"unknown error"}`
-	var err RPCError
+	var err RpcError
 	if unmarshalErr := json.Unmarshal([]byte(jsonData), &err); unmarshalErr != nil {
 		t.Fatalf("Unmarshal error: %v", unmarshalErr)
 	}
 
-	if err.Code != RPCErrorCodeInternalError {
-		t.Errorf("Code = %d, want RPCErrorCodeInternalError (%d)", err.Code, RPCErrorCodeInternalError)
+	if err.Code != RpcErrorCodeInternalError {
+		t.Errorf("Code = %d, want RPCErrorCodeInternalError (%d)", err.Code, RpcErrorCodeInternalError)
 	}
 }
 
 func TestRPCErrorResponse_WithStringCode(t *testing.T) {
 	// Test full response unmarshal with string code
 	jsonData := `{"id":"123","error":{"code":"-32600","message":"invalid request"}}`
-	var resp RPCResponse
+	var resp RpcResponse
 	if err := json.Unmarshal([]byte(jsonData), &resp); err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
@@ -476,7 +476,7 @@ func TestRPCErrorResponse_WithStringCode(t *testing.T) {
 func TestRPCErrorResponse_WithIntCode(t *testing.T) {
 	// Test full response unmarshal with int code
 	jsonData := `{"id":"456","error":{"code":-32603,"message":"internal error"}}`
-	var resp RPCResponse
+	var resp RpcResponse
 	if err := json.Unmarshal([]byte(jsonData), &resp); err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
 	}

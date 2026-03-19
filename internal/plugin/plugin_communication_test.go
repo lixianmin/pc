@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/lixianmin/pc/pkg/protocol"
-	"github.com/lixianmin/pc/pkg/types"
 )
 
 func TestPluginCommunication(t *testing.T) {
@@ -96,77 +95,6 @@ func TestPluginFullCommunicationFlow(t *testing.T) {
 	})
 	if err != nil {
 		t.Errorf("Complete failed: %v", err)
-	} else {
-		t.Logf("Complete result: %+v", completeResult)
-	}
-}
-
-package plugin
-
-import (
-	"encoding/json"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"testing"
-	"time"
-
-	"github.com/lixianmin/pc/pkg/protocol"
-	"github.com/lixianmin/pc/pkg/types"
-	"gopkg.in/yaml.v3"
-)
-
-	pluginDir := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(pluginPath))))
-	t.Logf("Plugin directory: %s", pluginDir)
-
-	pm, err := NewPluginManager(pluginDir)
-	if err != nil {
-		t.Fatalf("NewPluginManager() error = %v", err)
-	}
-
-	plugins, err := pm.Discover()
-	if err != nil {
-		t.Fatalf("Discover() error = %v", err)
-	}
-
-	if len(plugins) == 0 {
-		t.Fatalf("No plugins discovered. Plugin directory: %s", pluginDir)
-	}
-
-	var llmPlugin *types.Plugin
-	for _, p := range plugins {
-		t.Logf("  - %s (%s) at %s", p.Name, p.Type, p.Path)
-		if p.Type == types.PluginTypeLLM {
-			llmPlugin = p
-		}
-	}
-
-	if llmPlugin == nil {
-		t.Fatal("No LLM plugin found")
-	}
-
-	t.Logf("Found LLM plugin: %s at %s", llmPlugin.Name, llmPlugin.Path)
-
-	pm.SetLLMTimeout(10 * time.Second)
-
-	result, err := pm.CallPlugin(llmPlugin, "initialize", map[string]any{
-		"api_key":  "test-key",
-		"model":    "gpt-4o-mini",
-		"base_url": "https://api.openai.com/v1",
-	})
-	if err != nil {
-		t.Errorf("CallPlugin(initialize) error = %v", err)
-	} else {
-		t.Logf("Initialize result: %+v", result)
-	}
-
-	completeResult, err := pm.CallPlugin(llmPlugin, "complete", map[string]any{
-		"messages": []map[string]string{
-			{"role": "user", "content": "Hello"},
-		},
-	})
-	if err != nil {
-		t.Errorf("CallPlugin(complete) error = %v", err)
 	} else {
 		t.Logf("Complete result: %+v", completeResult)
 	}

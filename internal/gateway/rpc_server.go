@@ -16,22 +16,22 @@ import (
 	"github.com/lixianmin/pc/pkg/protocol"
 )
 
-type RPCHandler func(ctx context.Context, params json.RawMessage) (interface{}, error)
+type RpcHandler func(ctx context.Context, params json.RawMessage) (interface{}, error)
 
-type RPCServer struct {
-	socketPath string
-	listener   net.Listener
-	handlers   map[string]RPCHandler
-	engine     *engine.Engine
-	pluginMgr  *plugin.PluginManager
+type RpcServer struct {
+	socketPath    string
+	listener      net.Listener
+	handlers      map[protocol.RpcMethod]RpcHandler
+	engine        *engine.Engine
+	pluginManager *plugin.PluginManager
 }
 
-func NewRPCServer(socketPath string, eng *engine.Engine, pluginMgr *plugin.PluginManager) *RPCServer {
-	server := &RPCServer{
-		socketPath: socketPath,
-		handlers:   make(map[string]RPCHandler),
-		engine:     eng,
-		pluginMgr:  pluginMgr,
+func NewRPCServer(socketPath string, engine *engine.Engine, pluginManager *plugin.PluginManager) *RpcServer {
+	server := &RpcServer{
+		socketPath:    socketPath,
+		handlers:      make(map[protocol.RpcMethod]RpcHandler),
+		engine:        engine,
+		pluginManager: pluginManager,
 	}
 
 	server.registerHandlers()
@@ -39,19 +39,19 @@ func NewRPCServer(socketPath string, eng *engine.Engine, pluginMgr *plugin.Plugi
 	return server
 }
 
-func (my *RPCServer) registerHandlers() {
-	my.handlers[string(protocol.RPCMethodProcessMessage)] = my.handleProcessMessage
-	my.handlers[string(protocol.RPCMethodProcessMessageStream)] = my.handleProcessMessageStream
-	my.handlers[string(protocol.RPCMethodGetStatus)] = my.handleGetStatus
-	my.handlers[string(protocol.RPCMethodListSkills)] = my.handleListSkills
-	my.handlers[string(protocol.RPCMethodExecuteSkill)] = my.handleExecuteSkill
-	my.handlers[string(protocol.RPCMethodListTasks)] = my.handleListTasks
-	my.handlers[string(protocol.RPCMethodAddTask)] = my.handleAddTask
-	my.handlers[string(protocol.RPCMethodCompleteTask)] = my.handleCompleteTask
-	my.handlers[string(protocol.RPCMethodDeleteTask)] = my.handleDeleteTask
+func (my *RpcServer) registerHandlers() {
+	my.handlers[protocol.RpcMethodProcessMessage] = my.handleProcessMessage
+	my.handlers[protocol.RpcMethodProcessMessageStream] = my.handleProcessMessageStream
+	my.handlers[protocol.RpcMethodGetStatus] = my.handleGetStatus
+	my.handlers[protocol.RpcMethodListSkills] = my.handleListSkills
+	my.handlers[protocol.RpcMethodExecuteSkill] = my.handleExecuteSkill
+	my.handlers[protocol.RpcMethodListTasks] = my.handleListTasks
+	my.handlers[protocol.RpcMethodAddTask] = my.handleAddTask
+	my.handlers[protocol.RpcMethodCompleteTask] = my.handleCompleteTask
+	my.handlers[protocol.RpcMethodDeleteTask] = my.handleDeleteTask
 }
 
-func (my *RPCServer) Start() error {
+func (my *RpcServer) Start() error {
 	if err := os.RemoveAll(my.socketPath); err != nil {
 		return fmt.Errorf("failed to remove existing socket: %w", err)
 	}
@@ -77,14 +77,14 @@ func (my *RPCServer) Start() error {
 	return nil
 }
 
-func (my *RPCServer) Stop() error {
+func (my *RpcServer) Stop() error {
 	if my.listener != nil {
 		return my.listener.Close()
 	}
 	return nil
 }
 
-func (my *RPCServer) acceptConnections(later loom.Later) {
+func (my *RpcServer) acceptConnections(later loom.Later) {
 	for {
 		conn, err := my.listener.Accept()
 		if err != nil {
@@ -102,7 +102,7 @@ func (my *RPCServer) acceptConnections(later loom.Later) {
 	}
 }
 
-func (my *RPCServer) handleConnection(conn net.Conn) {
+func (my *RpcServer) handleConnection(conn net.Conn) {
 	defer conn.Close()
 
 	reader := bufio.NewReader(conn)
@@ -134,10 +134,10 @@ func (my *RPCServer) handleConnection(conn net.Conn) {
 			totalRead += n
 		}
 
-		var req protocol.RPCRequest
+		var req protocol.RpcRequest
 		if err := json.Unmarshal(reqData, &req); err != nil {
 			logo.Error("Failed to parse request:", err)
-			my.sendError(conn, "", protocol.RPCErrorCodeParseError, "parse error")
+			my.sendError(conn, "", protocol.RpcErrorCodeParseError, "parse error")
 			continue
 		}
 
@@ -171,40 +171,40 @@ func (my *RPCServer) handleConnection(conn net.Conn) {
 	}
 }
 
-func (my *RPCServer) handleRequest(ctx context.Context, req *protocol.RPCRequest) *protocol.RPCResponse {
+func (my *RpcServer) handleRequest(ctx context.Context, req *protocol.RpcRequest) *protocol.RpcResponse {
 	if req.ID == "" {
 		logo.Error("RPC request missing ID")
-		return protocol.NewRPCErrorResponse("", protocol.RPCErrorCodeInvalidRequest, "missing request id")
+		return protocol.NewRpcErrorResponse("", protocol.RpcErrorCodeInvalidRequest, "missing request id")
 	}
 
 	if req.Method == "" {
 		logo.Error("RPC request missing method, ID:", req.ID)
-		return protocol.NewRPCErrorResponse(req.ID, protocol.RPCErrorCodeInvalidRequest, "missing method")
+		return protocol.NewRpcErrorResponse(req.ID, protocol.RpcErrorCodeInvalidRequest, "missing method")
 	}
 
 	handler, ok := my.handlers[req.Method]
 	if !ok {
 		logo.Error("RPC method not found:", req.Method, "ID:", req.ID)
-		return protocol.NewRPCErrorResponse(req.ID, protocol.RPCErrorCodeMethodNotFound, "method not found: "+req.Method)
+		return protocol.NewRpcErrorResponse(req.ID, protocol.RpcErrorCodeMethodNotFound, "method not found: "+string(req.Method))
 	}
 
 	result, err := handler(ctx, req.Params)
 	if err != nil {
 		logo.Error("RPC handler error for method:", req.Method, ", error:", err)
-		return protocol.NewRPCErrorResponse(req.ID, protocol.RPCErrorCodeInternalError, err.Error())
+		return protocol.NewRpcErrorResponse(req.ID, protocol.RpcErrorCodeInternalError, err.Error())
 	}
 
-	return protocol.NewRPCResponse(req.ID, result)
+	return protocol.NewRpcResponse(req.ID, result)
 }
 
-func (my *RPCServer) sendError(conn net.Conn, id string, code int, message string) {
-	resp := protocol.NewRPCErrorResponse(id, code, message)
+func (my *RpcServer) sendError(conn net.Conn, id string, code int, message string) {
+	resp := protocol.NewRpcErrorResponse(id, code, message)
 	respData, _ := json.Marshal(resp)
 	respData = append(respData, '\n')
 	conn.Write(respData)
 }
 
-func (my *RPCServer) handleProcessMessage(ctx context.Context, params json.RawMessage) (interface{}, error) {
+func (my *RpcServer) handleProcessMessage(ctx context.Context, params json.RawMessage) (interface{}, error) {
 	var req protocol.ProcessMessageParams
 	if err := json.Unmarshal(params, &req); err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
@@ -233,7 +233,7 @@ func (my *RPCServer) handleProcessMessage(ctx context.Context, params json.RawMe
 	return &protocol.ProcessMessageResult{Response: response}, nil
 }
 
-func (my *RPCServer) handleProcessMessageStream(ctx context.Context, params json.RawMessage) (interface{}, error) {
+func (my *RpcServer) handleProcessMessageStream(ctx context.Context, params json.RawMessage) (interface{}, error) {
 	var req protocol.ProcessMessageParams
 	if err := json.Unmarshal(params, &req); err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
@@ -268,8 +268,8 @@ func (my *RPCServer) handleProcessMessageStream(ctx context.Context, params json
 	return map[string]any{"chunks": chunks}, nil
 }
 
-func (my *RPCServer) handleGetStatus(ctx context.Context, params json.RawMessage) (interface{}, error) {
-	plugins := my.pluginMgr.ListPlugins()
+func (my *RpcServer) handleGetStatus(ctx context.Context, params json.RawMessage) (interface{}, error) {
+	plugins := my.pluginManager.ListPlugins()
 
 	return &protocol.GatewayStatus{
 		Running:     true,
@@ -279,13 +279,13 @@ func (my *RPCServer) handleGetStatus(ctx context.Context, params json.RawMessage
 	}, nil
 }
 
-func (my *RPCServer) handleListSkills(ctx context.Context, params json.RawMessage) (interface{}, error) {
+func (my *RpcServer) handleListSkills(ctx context.Context, params json.RawMessage) (interface{}, error) {
 	return &protocol.ListSkillsResult{
 		Skills: []protocol.SkillInfo{},
 	}, nil
 }
 
-func (my *RPCServer) handleExecuteSkill(ctx context.Context, params json.RawMessage) (interface{}, error) {
+func (my *RpcServer) handleExecuteSkill(ctx context.Context, params json.RawMessage) (interface{}, error) {
 	var req protocol.ExecuteSkillParams
 	if err := json.Unmarshal(params, &req); err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
@@ -300,13 +300,13 @@ func (my *RPCServer) handleExecuteSkill(ctx context.Context, params json.RawMess
 	}, nil
 }
 
-func (my *RPCServer) handleListTasks(ctx context.Context, params json.RawMessage) (interface{}, error) {
+func (my *RpcServer) handleListTasks(ctx context.Context, params json.RawMessage) (interface{}, error) {
 	return &protocol.ListTasksResult{
 		Tasks: []protocol.TaskInfo{},
 	}, nil
 }
 
-func (my *RPCServer) handleAddTask(ctx context.Context, params json.RawMessage) (interface{}, error) {
+func (my *RpcServer) handleAddTask(ctx context.Context, params json.RawMessage) (interface{}, error) {
 	var req protocol.AddTaskParams
 	if err := json.Unmarshal(params, &req); err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
@@ -321,7 +321,7 @@ func (my *RPCServer) handleAddTask(ctx context.Context, params json.RawMessage) 
 	}, nil
 }
 
-func (my *RPCServer) handleCompleteTask(ctx context.Context, params json.RawMessage) (interface{}, error) {
+func (my *RpcServer) handleCompleteTask(ctx context.Context, params json.RawMessage) (interface{}, error) {
 	var req protocol.CompleteTaskParams
 	if err := json.Unmarshal(params, &req); err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
@@ -336,7 +336,7 @@ func (my *RPCServer) handleCompleteTask(ctx context.Context, params json.RawMess
 	}, nil
 }
 
-func (my *RPCServer) handleDeleteTask(ctx context.Context, params json.RawMessage) (interface{}, error) {
+func (my *RpcServer) handleDeleteTask(ctx context.Context, params json.RawMessage) (interface{}, error) {
 	var req protocol.DeleteTaskParams
 	if err := json.Unmarshal(params, &req); err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)

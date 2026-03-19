@@ -12,8 +12,8 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
-// RPCClient represents an RPC client for communicating with the gateway.
-type RPCClient struct {
+// RpcClient represents an RPC client for communicating with the gateway.
+type RpcClient struct {
 	socketPath string
 	conn       net.Conn
 	reader     *bufio.Reader
@@ -21,20 +21,20 @@ type RPCClient struct {
 }
 
 // NewRPCClient creates a new RPC client.
-func NewRPCClient(socketPath string) *RPCClient {
-	return &RPCClient{
+func NewRPCClient(socketPath string) *RpcClient {
+	return &RpcClient{
 		socketPath: socketPath,
 		timeout:    120 * time.Second,
 	}
 }
 
 // SetTimeout sets the request timeout.
-func (my *RPCClient) SetTimeout(timeout time.Duration) {
+func (my *RpcClient) SetTimeout(timeout time.Duration) {
 	my.timeout = timeout
 }
 
 // Connect connects to the RPC server.
-func (my *RPCClient) Connect() error {
+func (my *RpcClient) Connect() error {
 	conn, err := net.DialTimeout("unix", my.socketPath, my.timeout)
 	if err != nil {
 		logo.Error("[RPCClient.Connect] failed to connect to gateway: socketPath=", my.socketPath, ", err=", err)
@@ -47,7 +47,7 @@ func (my *RPCClient) Connect() error {
 }
 
 // Close closes the connection.
-func (my *RPCClient) Close() error {
+func (my *RpcClient) Close() error {
 	if my.conn != nil {
 		return my.conn.Close()
 	}
@@ -55,7 +55,7 @@ func (my *RPCClient) Close() error {
 }
 
 // Call makes an RPC call.
-func (my *RPCClient) Call(method string, params interface{}) (*protocol.RPCResponse, error) {
+func (my *RpcClient) Call(method string, params interface{}) (*protocol.RpcResponse, error) {
 	if my.conn == nil {
 		return nil, fmt.Errorf("not connected")
 	}
@@ -64,20 +64,20 @@ func (my *RPCClient) Call(method string, params interface{}) (*protocol.RPCRespo
 	requestID := ulid.Make().String()
 
 	// Marshal params
-	var paramsJSON []byte
+	var paramsJson []byte
 	if params != nil {
 		var err error
-		paramsJSON, err = json.Marshal(params)
+		paramsJson, err = json.Marshal(params)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal params: %w", err)
 		}
 	}
 
 	// Create request
-	req := &protocol.RPCRequest{
+	req := &protocol.RpcRequest{
 		ID:     requestID,
-		Method: method,
-		Params: paramsJSON,
+		Method: protocol.RpcMethod(method),
+		Params: paramsJson,
 	}
 
 	// Send request (with length prefix)
@@ -146,7 +146,7 @@ func (my *RPCClient) Call(method string, params interface{}) (*protocol.RPCRespo
 	}
 
 	// Unmarshal response
-	var resp protocol.RPCResponse
+	var resp protocol.RpcResponse
 	if err := json.Unmarshal(respData, &resp); err != nil {
 		logo.Error("Failed to unmarshal response:", err)
 		logo.Error("Raw response data:", string(respData))
@@ -157,13 +157,13 @@ func (my *RPCClient) Call(method string, params interface{}) (*protocol.RPCRespo
 }
 
 // ProcessMessage sends a message to be processed.
-func (my *RPCClient) ProcessMessage(sessionID, message string) (string, error) {
+func (my *RpcClient) ProcessMessage(sessionID, message string) (string, error) {
 	params := &protocol.ProcessMessageParams{
 		SessionID: sessionID,
 		Message:   message,
 	}
 
-	resp, err := my.Call(string(protocol.RPCMethodProcessMessage), params)
+	resp, err := my.Call(string(protocol.RpcMethodProcessMessage), params)
 	if err != nil {
 		return "", err
 	}
@@ -185,13 +185,13 @@ func (my *RPCClient) ProcessMessage(sessionID, message string) (string, error) {
 	return result.Response, nil
 }
 
-func (my *RPCClient) ProcessMessageStream(sessionID, message string) ([]protocol.ProcessMessageStreamChunk, error) {
+func (my *RpcClient) ProcessMessageStream(sessionID, message string) ([]protocol.ProcessMessageStreamChunk, error) {
 	params := &protocol.ProcessMessageParams{
 		SessionID: sessionID,
 		Message:   message,
 	}
 
-	resp, err := my.Call(string(protocol.RPCMethodProcessMessageStream), params)
+	resp, err := my.Call(string(protocol.RpcMethodProcessMessageStream), params)
 	if err != nil {
 		return nil, err
 	}
@@ -232,8 +232,8 @@ func (my *RPCClient) ProcessMessageStream(sessionID, message string) ([]protocol
 	return chunks, nil
 }
 
-func (my *RPCClient) GetStatus() (*protocol.GatewayStatus, error) {
-	resp, err := my.Call(string(protocol.RPCMethodGetStatus), nil)
+func (my *RpcClient) GetStatus() (*protocol.GatewayStatus, error) {
+	resp, err := my.Call(string(protocol.RpcMethodGetStatus), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -256,8 +256,8 @@ func (my *RPCClient) GetStatus() (*protocol.GatewayStatus, error) {
 }
 
 // ListSkills lists all available skills.
-func (my *RPCClient) ListSkills() ([]protocol.SkillInfo, error) {
-	resp, err := my.Call(string(protocol.RPCMethodListSkills), nil)
+func (my *RpcClient) ListSkills() ([]protocol.SkillInfo, error) {
+	resp, err := my.Call(string(protocol.RpcMethodListSkills), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -280,13 +280,13 @@ func (my *RPCClient) ListSkills() ([]protocol.SkillInfo, error) {
 }
 
 // ExecuteSkill executes a skill.
-func (my *RPCClient) ExecuteSkill(name string, params map[string]interface{}) (interface{}, error) {
+func (my *RpcClient) ExecuteSkill(name string, params map[string]interface{}) (interface{}, error) {
 	reqParams := &protocol.ExecuteSkillParams{
 		Name:   name,
 		Params: params,
 	}
 
-	resp, err := my.Call(string(protocol.RPCMethodExecuteSkill), reqParams)
+	resp, err := my.Call(string(protocol.RpcMethodExecuteSkill), reqParams)
 	if err != nil {
 		return nil, err
 	}
@@ -309,13 +309,13 @@ func (my *RPCClient) ExecuteSkill(name string, params map[string]interface{}) (i
 }
 
 // ListTasks lists tasks.
-func (my *RPCClient) ListTasks(status string) ([]protocol.TaskInfo, error) {
+func (my *RpcClient) ListTasks(status string) ([]protocol.TaskInfo, error) {
 	params := &protocol.ListTasksParams{}
 	if status != "" {
 		params.Status = status
 	}
 
-	resp, err := my.Call(string(protocol.RPCMethodListTasks), params)
+	resp, err := my.Call(string(protocol.RpcMethodListTasks), params)
 	if err != nil {
 		return nil, err
 	}
@@ -338,13 +338,13 @@ func (my *RPCClient) ListTasks(status string) ([]protocol.TaskInfo, error) {
 }
 
 // AddTask adds a new task.
-func (my *RPCClient) AddTask(title, description string) (string, error) {
+func (my *RpcClient) AddTask(title, description string) (string, error) {
 	params := &protocol.AddTaskParams{
 		Title:       title,
 		Description: description,
 	}
 
-	resp, err := my.Call(string(protocol.RPCMethodAddTask), params)
+	resp, err := my.Call(string(protocol.RpcMethodAddTask), params)
 	if err != nil {
 		return "", err
 	}
@@ -367,12 +367,12 @@ func (my *RPCClient) AddTask(title, description string) (string, error) {
 }
 
 // CompleteTask completes a task.
-func (my *RPCClient) CompleteTask(id string) error {
+func (my *RpcClient) CompleteTask(id string) error {
 	params := &protocol.CompleteTaskParams{
 		ID: id,
 	}
 
-	resp, err := my.Call(string(protocol.RPCMethodCompleteTask), params)
+	resp, err := my.Call(string(protocol.RpcMethodCompleteTask), params)
 	if err != nil {
 		return err
 	}
@@ -385,12 +385,12 @@ func (my *RPCClient) CompleteTask(id string) error {
 }
 
 // DeleteTask deletes a task.
-func (my *RPCClient) DeleteTask(id string) error {
+func (my *RpcClient) DeleteTask(id string) error {
 	params := &protocol.DeleteTaskParams{
 		ID: id,
 	}
 
-	resp, err := my.Call(string(protocol.RPCMethodDeleteTask), params)
+	resp, err := my.Call(string(protocol.RpcMethodDeleteTask), params)
 	if err != nil {
 		return err
 	}

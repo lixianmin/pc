@@ -5,52 +5,52 @@ import (
 	"fmt"
 )
 
-// RPCMethod represents available RPC methods.
-type RPCMethod string
+// RpcMethod represents available RPC methods.
+type RpcMethod string
 
 const (
-	// RPCMethodProcessMessage processes a user message.
-	RPCMethodProcessMessage RPCMethod = "ProcessMessage"
-	// RPCMethodProcessMessageStream processes a user message with streaming.
-	RPCMethodProcessMessageStream RPCMethod = "ProcessMessageStream"
-	// RPCMethodGetStatus returns the gateway status.
-	RPCMethodGetStatus RPCMethod = "GetStatus"
-	// RPCMethodListSkills lists all available skills.
-	RPCMethodListSkills RPCMethod = "ListSkills"
-	// RPCMethodExecuteSkill executes a skill.
-	RPCMethodExecuteSkill RPCMethod = "ExecuteSkill"
-	// RPCMethodListTasks lists tasks.
-	RPCMethodListTasks RPCMethod = "ListTasks"
-	// RPCMethodAddTask adds a new task.
-	RPCMethodAddTask RPCMethod = "AddTask"
-	// RPCMethodCompleteTask completes a task.
-	RPCMethodCompleteTask RPCMethod = "CompleteTask"
-	// RPCMethodDeleteTask deletes a task.
-	RPCMethodDeleteTask RPCMethod = "DeleteTask"
+	// RpcMethodProcessMessage processes a user message.
+	RpcMethodProcessMessage RpcMethod = "ProcessMessage"
+	// RpcMethodProcessMessageStream processes a user message with streaming.
+	RpcMethodProcessMessageStream RpcMethod = "ProcessMessageStream"
+	// RpcMethodGetStatus returns the gateway status.
+	RpcMethodGetStatus RpcMethod = "GetStatus"
+	// RpcMethodListSkills lists all available skills.
+	RpcMethodListSkills RpcMethod = "ListSkills"
+	// RpcMethodExecuteSkill executes a skill.
+	RpcMethodExecuteSkill RpcMethod = "ExecuteSkill"
+	// RpcMethodListTasks lists tasks.
+	RpcMethodListTasks RpcMethod = "ListTasks"
+	// RpcMethodAddTask adds a new task.
+	RpcMethodAddTask RpcMethod = "AddTask"
+	// RpcMethodCompleteTask completes a task.
+	RpcMethodCompleteTask RpcMethod = "CompleteTask"
+	// RpcMethodDeleteTask deletes a task.
+	RpcMethodDeleteTask RpcMethod = "DeleteTask"
 )
 
-// RPCRequest represents an RPC request.
-type RPCRequest struct {
+// RpcRequest represents an RPC request.
+type RpcRequest struct {
 	ID     string          `json:"id"`
-	Method string          `json:"method"`
+	Method RpcMethod       `json:"method"`
 	Params json.RawMessage `json:"params,omitempty"`
 }
 
-// RPCResponse represents an RPC response.
-type RPCResponse struct {
-	ID     string      `json:"id"`
-	Result interface{} `json:"result,omitempty"`
-	Error  *RPCError   `json:"error,omitempty"`
+// RpcResponse represents an RPC response.
+type RpcResponse struct {
+	ID     string    `json:"id"`
+	Result any       `json:"result,omitempty"`
+	Error  *RpcError `json:"error,omitempty"`
 }
 
-// RPCError represents an RPC error.
-type RPCError struct {
+// RpcError represents an RPC error.
+type RpcError struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling to handle both string and int codes.
-func (my *RPCError) UnmarshalJSON(data []byte) error {
+func (my *RpcError) UnmarshalJSON(data []byte) error {
 	var raw struct {
 		Code    interface{} `json:"code"`
 		Message string      `json:"message"`
@@ -65,10 +65,10 @@ func (my *RPCError) UnmarshalJSON(data []byte) error {
 	case string:
 		// Try to parse as int
 		if _, err := fmt.Sscanf(v, "%d", &my.Code); err != nil {
-			my.Code = RPCErrorCodeInternalError
+			my.Code = RpcErrorCodeInternalError
 		}
 	default:
-		my.Code = RPCErrorCodeInternalError
+		my.Code = RpcErrorCodeInternalError
 	}
 
 	my.Message = raw.Message
@@ -76,51 +76,51 @@ func (my *RPCError) UnmarshalJSON(data []byte) error {
 }
 
 // Error implements the error interface.
-func (my *RPCError) Error() string {
+func (my *RpcError) Error() string {
 	return fmt.Sprintf("RPC error %d: %s", my.Code, my.Message)
 }
 
 // RPC error codes.
 const (
-	RPCErrorCodeParseError     = -32700
-	RPCErrorCodeInvalidRequest = -32600
-	RPCErrorCodeMethodNotFound = -32601
-	RPCErrorCodeInvalidParams  = -32602
-	RPCErrorCodeInternalError  = -32603
-	RPCErrorCodeServerError    = -32000
+	RpcErrorCodeParseError     = -32700
+	RpcErrorCodeInvalidRequest = -32600
+	RpcErrorCodeMethodNotFound = -32601
+	RpcErrorCodeInvalidParams  = -32602
+	RpcErrorCodeInternalError  = -32603
+	RpcErrorCodeServerError    = -32000
 )
 
-// NewRPCError creates a new RPC error.
-func NewRPCError(code int, message string) *RPCError {
-	return &RPCError{
+// NewRpcError creates a new RPC error.
+func NewRpcError(code int, message string) *RpcError {
+	return &RpcError{
 		Code:    code,
 		Message: message,
 	}
 }
 
-// NewRPCResponse creates a new successful RPC response.
-func NewRPCResponse(id string, result interface{}) *RPCResponse {
-	return &RPCResponse{
+// NewRpcResponse creates a new successful RPC response.
+func NewRpcResponse(id string, result interface{}) *RpcResponse {
+	return &RpcResponse{
 		ID:     id,
 		Result: result,
 	}
 }
 
-// NewRPCErrorResponse creates a new error RPC response.
-func NewRPCErrorResponse(id string, code int, message string) *RPCResponse {
-	return &RPCResponse{
+// NewRpcErrorResponse creates a new error RPC response.
+func NewRpcErrorResponse(id string, code int, message string) *RpcResponse {
+	return &RpcResponse{
 		ID:    id,
-		Error: NewRPCError(code, message),
+		Error: NewRpcError(code, message),
 	}
 }
 
 // IsSuccess returns true if the response is successful.
-func (my *RPCResponse) IsSuccess() bool {
+func (my *RpcResponse) IsSuccess() bool {
 	return my.Error == nil
 }
 
 // IsError returns true if the response is an error.
-func (my *RPCResponse) IsError() bool {
+func (my *RpcResponse) IsError() bool {
 	return my.Error != nil
 }
 
@@ -164,13 +164,13 @@ type SkillInfo struct {
 
 // ExecuteSkillParams represents parameters for ExecuteSkill.
 type ExecuteSkillParams struct {
-	Name   string                 `json:"name"`
-	Params map[string]interface{} `json:"params,omitempty"`
+	Name   string         `json:"name"`
+	Params map[string]any `json:"params,omitempty"`
 }
 
 // ExecuteSkillResult represents the result of ExecuteSkill.
 type ExecuteSkillResult struct {
-	Result interface{} `json:"result"`
+	Result any `json:"result"`
 }
 
 // ListTasksParams represents parameters for ListTasks.
