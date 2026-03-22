@@ -7,9 +7,10 @@ This file provides essential information for AI coding agents working in this re
 Aligned with [00.constitution.md](./notes/00.constitution.md):
 
 1. **Spec is Source of Truth** - All architecture and code serve spec.md (spec.md → arch.md → tasks.md)
-2. **Test-First Imperative** - All features start with failing unit tests (Red-Green-Refactor)
-3. **Less is More** - No unnecessary abstractions, no unnecessary dependencies (Library-First)
-4. **Code Readability First** - Code's primary purpose is to be understood by humans (no global mutable state)
+2. **Less is More** - No unnecessary abstractions, no unnecessary dependencies (Library-First)
+3. **Code Readability First** - Code's primary purpose is to be understood by humans (no global mutable state)
+
+> **Note:** TDD (Test-First) is enforced by Superpowers `test-driven-development` skill - automatically applied for all features and bugfixes.
 
 ## Documentation Index
 
@@ -153,10 +154,7 @@ func (my *Engine) ProcessMessage(ctx context.Context, sessionId, message string)
 
 ## Testing Requirements
 
-### Test-First Development (TDD)
-- **Mandatory**: All features start with a failing test (Red-Green-Refactor)
-- No production code without a test
-- Tests written before implementation
+> **TDD enforced by Superpowers:** The `test-driven-development` skill automatically applies Red-Green-Refactor for all features and bugfixes.
 
 ### Table-Driven Tests
 - **Required**: Use table-driven test pattern for all unit tests
@@ -286,14 +284,13 @@ logo.Error("[Session:", sessionId, "] Error:", err)
 
 Based on `notes/04.lesson.md`:
 
-1. **Writing code before tests** - Violates constitution Article 2
-2. **Using JSON instead of YAML** - Project uses YAML for all configs
-3. **Unused imports** - Always clean up after refactoring
-4. **Direct slice comparison** - Slices are not comparable in Go
-5. **Over-engineering abstractions** - Follow "less is more" principle
-6. **Mock-heavy tests** - Prefer integration tests with real dependencies
-7. **Nil pointer dereference** - Check logger initialization before use
-8. **Code not integrated to main flow** - Ensure features work in production
+1. **Using JSON instead of YAML** - Project uses YAML for all configs
+2. **Unused imports** - Always clean up after refactoring
+3. **Direct slice comparison** - Slices are not comparable in Go
+4. **Over-engineering abstractions** - Follow "less is more" principle
+5. **Mock-heavy tests** - Prefer integration tests with real dependencies
+6. **Nil pointer dereference** - Check logger initialization before use
+7. **Code not integrated to main flow** - Ensure features work in production
 
 ## Commit Message Format
 
@@ -317,4 +314,4 @@ docs(arch): update plugin protocol specification
 - **Receiver**: Always `my`
 - **Logging**: `github.com/lixianmin/logo`
 - **Goroutines**: Always use `loom.Go()`
-- **Tests**: Table-driven, test-first (TDD)
+- **Tests**: Table-driven (TDD via Superpowers)
