@@ -12,3 +12,7 @@ make build-plugins
 
 echo "Starting pc..."
 ./pc gateway start
+
+
+sleep 1
+./pc tui

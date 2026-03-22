@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/lixianmin/logo"
+	"github.com/lixianmin/pc/internal/debug"
 	"github.com/lixianmin/pc/internal/plugin"
 	"github.com/lixianmin/pc/internal/skill"
 	"github.com/lixianmin/pc/internal/task"
@@ -23,15 +24,16 @@ type llmCallback func(ctx context.Context, session *Session, systemPrompt string
 
 // Engine is the core engine implementation.
 type Engine struct {
-	pluginManager *plugin.PluginManager
-	mockCaller    PluginCaller
-	sessions      map[string]*Session
-	mu            sync.RWMutex
-	llmPlugin     *types.Plugin
-	systemPrompt  string
-	maxIterations int
-	toolTimeout   time.Duration
-	llmCallback   llmCallback
+	pluginManager  *plugin.PluginManager
+	mockCaller     PluginCaller
+	sessions       map[string]*Session
+	mu             sync.RWMutex
+	llmPlugin      *types.Plugin
+	systemPrompt   string
+	maxIterations  int
+	toolTimeout    time.Duration
+	llmCallback    llmCallback
+	promptRecorder *debug.PromptRecorder
 
 	// Task management
 	taskManager *task.Manager
@@ -67,6 +69,11 @@ func NewEngineWithMock(caller PluginCaller) *Engine {
 // SetLLMCallback sets a custom LLM callback for testing.
 func (my *Engine) SetLLMCallback(cb llmCallback) {
 	my.llmCallback = cb
+}
+
+// SetPromptRecorder sets the prompt recorder for debugging.
+func (my *Engine) SetPromptRecorder(recorder *debug.PromptRecorder) {
+	my.promptRecorder = recorder
 }
 
 // SetMaxIterations sets the maximum ReAct loop iterations.
@@ -247,7 +254,7 @@ func (my *Engine) reactLoop(ctx context.Context, session *Session, initialMessag
 
 // callLLM calls the LLM plugin to generate a response.
 func (my *Engine) callLLM(ctx context.Context, session *Session, message string) (string, error) {
-	logo.Info("[Engine.callLLM] Starting LLM call, message length:", len(message))
+	startTime := time.Now()
 
 	var history = session.GetMessages()
 
@@ -277,6 +284,11 @@ func (my *Engine) callLLM(ctx context.Context, session *Session, message string)
 		"content": message,
 	})
 
+	var requestId string
+	if my.promptRecorder != nil {
+		requestId, _ = my.promptRecorder.Record(session.Id, messages)
+	}
+
 	if my.llmCallback != nil {
 		return my.llmCallback(ctx, session, systemPrompt)
 	}
@@ -284,8 +296,6 @@ func (my *Engine) callLLM(ctx context.Context, session *Session, message string)
 	params := map[string]any{
 		"messages": messages,
 	}
-
-	logo.Info("[Engine.callLLM] Calling plugin manager with", len(messages), "messages")
 
 	result, err := my.pluginManager.CallPlugin(my.llmPlugin, "complete", params)
 	if err != nil {
@@ -305,7 +315,18 @@ func (my *Engine) callLLM(ctx context.Context, session *Session, message string)
 		return "", fmt.Errorf("LLM response missing content")
 	}
 
-	logo.Info("[Engine.callLLM] LLM call completed, response length:", len(content))
+	elapsed := time.Since(startTime)
+	var totalChars int
+	for _, m := range messages {
+		totalChars += len(m["content"])
+	}
+
+	if requestId != "" {
+		logo.Info("[LLM] req=", requestId, " tokens=", totalChars, " time=", elapsed)
+	} else {
+		logo.Info("[Engine.callLLM] LLM call completed, response length:", len(content))
+	}
+
 	return content, nil
 }
 
@@ -332,16 +353,34 @@ func (my *Engine) buildDynamicSystemPrompt() string {
 func (my *Engine) getAvailableTools() []ToolInfo {
 	var tools []ToolInfo
 
-	executor := NewToolExecutor(my.pluginManager)
-	toolNames := executor.ListAvailableTools()
-	logo.Info("[Engine.getAvailableTools] Found", len(toolNames), "tools:", toolNames)
+	if my.pluginManager == nil && my.mockCaller == nil {
+		return tools
+	}
 
-	for _, name := range toolNames {
-		tools = append(tools, ToolInfo{
-			Name:        name,
-			Description: fmt.Sprintf("%s tool", name),
-			Type:        "builtin",
-		})
+	if my.pluginManager != nil {
+		executor := NewToolExecutor(my.pluginManager)
+		toolNames := executor.ListAvailableTools()
+		logo.Info("[Engine.getAvailableTools] Found", len(toolNames), "tools:", toolNames)
+
+		for _, name := range toolNames {
+			tools = append(tools, ToolInfo{
+				Name:        name,
+				Description: fmt.Sprintf("%s tool", name),
+				Type:        "builtin",
+			})
+		}
+
+		plugins := my.pluginManager.ListPlugins()
+		for _, p := range plugins {
+			if p.Type == types.PluginTypeTool && p.Enabled {
+				tools = append(tools, ToolInfo{
+					Name:        p.Name,
+					Description: fmt.Sprintf("%s tool", p.Name),
+					Type:        string(p.Type),
+				})
+			}
+		}
+		return tools
 	}
 
 	if my.mockCaller != nil {
@@ -355,23 +394,8 @@ func (my *Engine) getAvailableTools() []ToolInfo {
 				})
 			}
 		}
-		return tools
 	}
 
-	if my.pluginManager == nil {
-		return tools
-	}
-
-	plugins := my.pluginManager.ListPlugins()
-	for _, p := range plugins {
-		if p.Type == types.PluginTypeTool && p.Enabled {
-			tools = append(tools, ToolInfo{
-				Name:        p.Name,
-				Description: fmt.Sprintf("%s tool", p.Name),
-				Type:        string(p.Type),
-			})
-		}
-	}
 	return tools
 }
 

@@ -9,6 +9,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/lixianmin/logo"
+	"github.com/lixianmin/pc/internal/config"
+	"github.com/lixianmin/pc/internal/debug"
 	"github.com/lixianmin/pc/internal/engine"
 	"github.com/lixianmin/pc/internal/plugin"
 	"github.com/lixianmin/pc/pkg/types"
@@ -185,12 +188,23 @@ func (my *Daemon) Run() error {
 	pcDir := filepath.Dir(my.pidfile.path)
 	pluginsDir := filepath.Join(pcDir, "plugins")
 
+	cfg, err := config.Load(filepath.Join(pcDir, "config.yml"))
+	if err != nil {
+		logo.Warn("Failed to load config, using defaults:", err)
+		cfg = config.DefaultConfig()
+	}
+
 	pm, err := plugin.NewPluginManager(pluginsDir)
 	if err != nil {
 		return fmt.Errorf("failed to create plugin manager: %w", err)
 	}
 
 	eng := engine.NewEngine(pm)
+
+	if cfg.GetPromptsDir() != "" {
+		recorder := debug.NewPromptRecorder(cfg.GetPromptsDir(), cfg.GetMaxPromptFiles())
+		eng.SetPromptRecorder(recorder)
+	}
 
 	llmPlugins := pm.GetPluginsByType(types.PluginTypeLLM)
 	if len(llmPlugins) > 0 {

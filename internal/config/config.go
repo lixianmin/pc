@@ -45,6 +45,12 @@ type LogConfig struct {
 	Output string   `yaml:"output"` // Output destination (stdout, file, or path)
 }
 
+// DebugConfig holds debug configuration.
+type DebugConfig struct {
+	PromptsDir     string `yaml:"prompts_dir,omitempty"`      // Directory to save LLM prompts (empty to disable)
+	MaxPromptFiles int    `yaml:"max_prompt_files,omitempty"` // Maximum number of prompt files to keep (default: 100)
+}
+
 // AgentConfig holds agent-specific configuration.
 // Deprecated: Agent configuration is now loaded from agent.md file specified by AgentPath.
 type AgentConfig struct {
@@ -63,6 +69,7 @@ type Config struct {
 	LLMTimeout   int                `yaml:"llm_timeout,omitempty"`   // LLM request timeout in seconds (default: 120)
 	SystemPrompt SystemPromptConfig `yaml:"system_prompt,omitempty"` // Deprecated: Use AgentPath instead
 	Agent        AgentConfig        `yaml:"agent,omitempty"`         // Deprecated: Use agent.md file instead
+	Debug        DebugConfig        `yaml:"debug,omitempty"`         // Debug configuration
 }
 
 // DefaultConfig returns a default configuration.
@@ -76,6 +83,10 @@ func DefaultConfig() *Config {
 		Log: LogConfig{
 			Level:  InfoLevel,
 			Output: "stdout",
+		},
+		Debug: DebugConfig{
+			PromptsDir:     "",
+			MaxPromptFiles: 100,
 		},
 	}
 }
@@ -93,6 +104,7 @@ func Load(path string) (*Config, error) {
 		cfg.SkillsDir = expandPath(cfg.SkillsDir)
 		cfg.PluginsDir = expandPath(cfg.PluginsDir)
 		cfg.AgentPath = expandPath(cfg.AgentPath)
+		cfg.Debug.PromptsDir = expandPath(cfg.Debug.PromptsDir)
 		return cfg, nil
 	}
 
@@ -115,6 +127,7 @@ func Load(path string) (*Config, error) {
 	cfg.SkillsDir = expandPath(cfg.SkillsDir)
 	cfg.PluginsDir = expandPath(cfg.PluginsDir)
 	cfg.AgentPath = expandPath(cfg.AgentPath)
+	cfg.Debug.PromptsDir = expandPath(cfg.Debug.PromptsDir)
 
 	return cfg, nil
 }
@@ -207,6 +220,11 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("PC_SYSTEM_PROMPT_FILE"); v != "" {
 		cfg.SystemPrompt.File = v
 	}
+
+	// Debug prompts dir
+	if v := os.Getenv("PC_DEBUG_PROMPTS_DIR"); v != "" {
+		cfg.Debug.PromptsDir = v
+	}
 }
 
 // expandPath expands a path with ~ to the user's home directory.
@@ -294,4 +312,17 @@ func (my *Config) GetLLMTimeout() int {
 		return 120
 	}
 	return my.LLMTimeout
+}
+
+// GetPromptsDir returns the debug prompts directory.
+func (my *Config) GetPromptsDir() string {
+	return my.Debug.PromptsDir
+}
+
+// GetMaxPromptFiles returns the maximum number of prompt files to keep.
+func (my *Config) GetMaxPromptFiles() int {
+	if my.Debug.MaxPromptFiles <= 0 {
+		return 100
+	}
+	return my.Debug.MaxPromptFiles
 }
