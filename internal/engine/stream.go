@@ -7,6 +7,7 @@ import (
 
 	"github.com/lixianmin/got/loom"
 	"github.com/lixianmin/logo"
+	"github.com/lixianmin/pc/internal/llm"
 )
 
 type StreamChunk struct {
@@ -104,6 +105,52 @@ func (my *Engine) ProcessMessageStream(ctx context.Context, sessionId, message s
 }
 
 func (my *Engine) callLLMStream(ctx context.Context, session *Session, message string) (<-chan string, error) {
+	// TEMP: 根据 useBAML 切换调用方式，阶段 3 删除 if 分支
+	if my.useBAML {
+		return my.callLLMStreamViaBAML(ctx, session, message)
+	}
+	return my.callLLMStreamViaPlugin(ctx, session, message)
+}
+
+func (my *Engine) callLLMStreamViaBAML(ctx context.Context, session *Session, message string) (<-chan string, error) {
+	history := session.GetMessages()
+	systemPrompt := my.buildDynamicSystemPrompt()
+
+	var messages []llm.Message
+	for _, msg := range history {
+		messages = append(messages, llm.Message{
+			Role:    msg.Role,
+			Content: msg.Content,
+		})
+	}
+	messages = append(messages, llm.Message{
+		Role:    "user",
+		Content: message,
+	})
+
+	stream := my.llmClient.StreamChat(ctx, messages, systemPrompt)
+
+	ch := make(chan string, 100)
+	go func() {
+		defer close(ch)
+		for chunk := range stream {
+			if chunk.Error != nil {
+				logo.Error("[Engine.callLLMStreamViaBAML] Stream error:", chunk.Error)
+				return
+			}
+			if chunk.Done {
+				return
+			}
+			if chunk.Content != "" {
+				ch <- chunk.Content
+			}
+		}
+	}()
+
+	return ch, nil
+}
+
+func (my *Engine) callLLMStreamViaPlugin(ctx context.Context, session *Session, message string) (<-chan string, error) {
 	if my.llmCallback != nil {
 		ch := make(chan string)
 		go func() {
