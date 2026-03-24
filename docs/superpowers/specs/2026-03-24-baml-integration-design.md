@@ -310,36 +310,332 @@ func (e *Executor) Execute(name string, params map[string]any) (any, error) {
 }
 ```
 
+## 迁移原则
+
+### 每步可验证
+
+每个迁移步骤必须：
+1. **有明确的验证方法** - 如何确认这一步成功
+2. **可独立验证** - 不依赖后续步骤
+3. **可回滚** - 如果失败，可以安全回退
+
+### 临时代码规范
+
+迁移过程中允许写临时验证代码，但必须：
+1. **标记清晰** - 使用 `// TODO(temp):` 或 `// TEMP:` 注释
+2. **有删除计划** - 在哪个阶段删除
+3. **最后清理** - 迁移完成后统一删除
+
+### 验证检查点
+
+| 阶段 | 验证命令 | 期望结果 |
+|-----|---------|---------|
+| 阶段 1.1 安装 BAML | `baml-cli version` | 显示版本号 |
+| 阶段 1.2 创建 .baml | `baml-cli generate` | 生成 baml_client/ |
+| 阶段 1.3 单元测试 | `go test ./internal/llm/` | 测试通过 |
+| 阶段 1.4 集成测试 | `pc tui` + 发送消息 | 正常响应 |
+| 阶段 2.1 Tool 迁移 | `go test ./internal/tool/` | 测试通过 |
+| 阶段 2.2 ReAct 测试 | `pc tui` + 工具调用 | 工具执行成功 |
+| 阶段 3 清理 | `make test` | 全部测试通过 |
+
+---
+
 ## 迁移步骤
 
 ### 阶段 1：引入 BAML，替换 LLM 调用
 
-1. 安装 BAML CLI 和 Go runtime
-2. 创建 `baml_src/` 目录和基础 `.baml` 文件
-3. 生成 `baml_client/`
-4. 修改 `Engine.callLLM()` 使用 BAML
-5. 修改 `Engine.callLLMStream()` 使用 BAML streaming
-6. 测试验证
-7. 删除 `examples/plugins/llm/`
+#### 步骤 1.1：安装 BAML CLI
+
+```bash
+go install github.com/boundaryml/baml/baml-cli@latest
+baml-cli init
+```
+
+**验证**：
+```bash
+baml-cli version
+# 期望：显示版本号
+```
+
+**回滚**：
+```bash
+rm -rf baml_src/
+go clean -cache
+```
+
+---
+
+#### 步骤 1.2：创建 .baml 文件
+
+创建 `baml_src/` 目录和基础文件：
+- `clients.baml` - LLM client 配置
+- `chat.baml` - 对话 function
+- `generator.baml` - 代码生成配置
+
+**验证**：
+```bash
+baml-cli generate
+# 期望：生成 baml_client/ 目录，无错误
+ls baml_client/
+# 期望：看到 client.go, types.go 等文件
+```
+
+**回滚**：
+```bash
+rm -rf baml_src/ baml_client/
+```
+
+---
+
+#### 步骤 1.3：创建 LLM 封装层
+
+创建 `internal/llm/client.go`，封装 BAML 调用。
+
+**验证**：
+```bash
+go test ./internal/llm/ -v
+# 期望：测试通过（需要设置 OPENAI_API_KEY）
+```
+
+**临时代码**（标记 `// TEMP:`）：
+```go
+// TEMP: 验证 BAML 调用是否正常，阶段 3 删除
+func TestBAMLConnection(t *testing.T) {
+    ctx := context.Background()
+    result, err := b.Chat(ctx, []types.Message{{Role: "user", Content: "Hello"}}, "You are helpful.")
+    if err != nil {
+        t.Fatalf("BAML call failed: %v", err)
+    }
+    t.Logf("Response: %s", result)
+}
+```
+
+**回滚**：
+```bash
+rm -rf internal/llm/
+git checkout internal/engine/engine.go
+```
+
+---
+
+#### 步骤 1.4：Engine 集成 BAML
+
+修改 `Engine.callLLM()` 使用 BAML，保留旧代码作为注释。
+
+**验证**：
+```bash
+# 启动 gateway
+./pc gateway start
+
+# 启动 TUI 发送消息
+./pc tui
+# 输入：Hello
+# 期望：收到正常响应
+
+# 检查日志
+tail -f ~/.pc/logs/pc.log
+# 期望：看到 BAML 调用日志，无错误
+```
+
+**回滚**：
+```bash
+git checkout internal/engine/engine.go
+git checkout internal/engine/stream.go
+./pc gateway restart
+```
+
+---
+
+#### 步骤 1.5：流式输出集成
+
+修改 `Engine.callLLMStream()` 使用 BAML streaming。
+
+**验证**：
+```bash
+./pc tui
+# 输入：Tell me a long story
+# 期望：看到流式输出，逐字显示
+```
+
+**回滚**：
+```bash
+git checkout internal/engine/stream.go
+./pc gateway restart
+```
+
+---
+
+#### 步骤 1.6：删除 LLM 插件
+
+确认 BAML 工作正常后，删除 LLM 插件目录。
+
+**验证**：
+```bash
+./pc tui
+# 输入：Hello
+# 期望：正常响应
+
+make test
+# 期望：所有测试通过
+```
+
+**回滚**：
+```bash
+git checkout examples/plugins/llm/
+```
+
+---
 
 ### 阶段 2：内置 Tool
 
-1. 创建 `internal/tool/` 目录
-2. 从 `examples/plugins/tool/` 迁移代码到 `internal/tool/`
-3. 创建 `Executor` 统一接口
-4. 修改 `Engine.executeToolCall()` 使用内置 Executor
-5. 测试验证
-6. 删除 `examples/plugins/tool/`
+#### 步骤 2.1：创建 Tool 目录结构
+
+创建 `internal/tool/` 目录。
+
+**验证**：
+```bash
+ls internal/tool/
+# 期望：看到 executor.go, shell.go, file.go 等
+```
+
+---
+
+#### 步骤 2.2：迁移 Shell Tool
+
+从 `examples/plugins/tool/shell/` 迁移代码。
+
+**验证**：
+```bash
+go test ./internal/tool/ -run TestShell -v
+# 期望：测试通过
+```
+
+**临时代码**：
+```go
+// TEMP: 验证 shell 工具，阶段 3 删除
+func TestShellExecute(t *testing.T) {
+    shell := NewShellTool(DefaultShellConfig)
+    result, err := shell.Execute(map[string]any{"command": "echo hello"})
+    if err != nil {
+        t.Fatalf("Shell execute failed: %v", err)
+    }
+    t.Logf("Result: %+v", result)
+}
+```
+
+---
+
+#### 步骤 2.3：迁移其他 Tool
+
+依次迁移 file, http, search, note 工具。
+
+**验证**：
+```bash
+go test ./internal/tool/ -v
+# 期望：所有工具测试通过
+```
+
+---
+
+#### 步骤 2.4：Engine 集成 Tool Executor
+
+修改 `Engine.executeToolCall()` 使用内置 Executor。
+
+**验证**：
+```bash
+./pc tui
+# 输入：List files in current directory
+# 期望：Agent 调用 shell 工具，返回结果
+```
+
+**临时代码**：
+```go
+// TEMP: 记录工具调用，阶段 3 删除
+logo.Info("[TEMP] Tool called:", name, "params:", params)
+```
+
+---
+
+#### 步骤 2.5：删除 Tool 插件
+
+确认内置 Tool 工作正常后，删除 Tool 插件目录。
+
+**验证**：
+```bash
+./pc tui
+# 测试各种工具调用
+make test
+# 期望：所有测试通过
+```
+
+---
 
 ### 阶段 3：清理
 
-1. 清理 `PluginManager` 中 LLM/Tool 相关代码
-2. 更新 `Makefile`：移除 LLM/Tool 插件构建，添加 BAML generate
-3. 更新文档：
-   - 更新 `notes/02.arch.md` 反映新架构
-   - 创建 `docs/superpowers/archive/` 目录
-   - 归档已完成的 plans 和过时的 specs
-4. 删除 `examples/plugins/llm/` 和 `examples/plugins/tool/`
+#### 步骤 3.1：清理临时代码
+
+删除所有 `// TEMP:` 标记的代码。
+
+```bash
+# 查找临时代码
+grep -r "// TEMP:" internal/
+grep -r "// TODO(temp):" internal/
+
+# 确认后删除
+```
+
+**验证**：
+```bash
+# 确认没有临时代码
+grep -r "// TEMP:" internal/ && echo "ERROR: temp code found" || echo "OK"
+make test
+```
+
+---
+
+#### 步骤 3.2：清理 PluginManager
+
+移除 PluginManager 中 LLM/Tool 相关代码。
+
+**验证**：
+```bash
+make test
+./pc gateway restart
+./pc tui
+# 完整功能测试
+```
+
+---
+
+#### 步骤 3.3：更新 Makefile
+
+更新 Makefile 添加 BAML generate，移除 LLM/Tool 插件构建。
+
+**验证**：
+```bash
+make clean
+make all
+# 期望：构建成功
+
+./pc gateway restart
+./pc tui
+# 期望：功能正常
+```
+
+---
+
+#### 步骤 3.4：更新文档
+
+1. 更新 `notes/02.arch.md`
+2. 创建 `docs/superpowers/archive/`
+3. 移动归档文档
+
+**验证**：
+```bash
+# 检查文档一致性
+cat notes/02.arch.md | grep -i "baml"
+# 期望：包含 BAML 相关描述
+```
 
 ### 文档归档清单
 
