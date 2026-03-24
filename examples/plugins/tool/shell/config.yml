@@ -1,7 +1,0 @@
-timeout: 30s
-confirm_dangerous: true
-allowed_commands: []
-blocked_commands:
-  - "rm -rf /"
-  - "mkfs"
-  - "dd if="

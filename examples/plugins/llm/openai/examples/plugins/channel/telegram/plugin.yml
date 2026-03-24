@@ -1,5 +1,0 @@
-name: telegram-bot
-type: channel
-enabled: true
-version: 1.0.0
-entry: ./bin/telegram-bot

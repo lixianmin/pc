@@ -1,5 +1,0 @@
-name: note
-type: tool
-enabled: true
-version: 1.0.0
-entry: ./bin/note-tool
