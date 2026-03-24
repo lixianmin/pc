@@ -226,10 +226,10 @@ func TestAgentManager_UpdateAgentName(t *testing.T) {
 
 func TestAgentManager_SaveState(t *testing.T) {
 	tests := []struct {
-		name       string
-		setupFunc  func() (*Manager, string, error)
-		cleanup    func(string)
-		wantErr    bool
+		name      string
+		setupFunc func() (*Manager, string, error)
+		cleanup   func(string)
+		wantErr   bool
 	}{
 		{
 			name: "save state creates file",
@@ -340,10 +340,10 @@ func TestAgentManager_SaveState(t *testing.T) {
 
 func TestAgentManager_LoadState(t *testing.T) {
 	tests := []struct {
-		name       string
-		setupFunc  func() (*Manager, string, error)
-		wantErr    bool
-		validate   func(*testing.T, *Manager)
+		name      string
+		setupFunc func() (*Manager, string, error)
+		wantErr   bool
+		validate  func(*testing.T, *Manager)
 	}{
 		{
 			name: "load non-existent state file",
@@ -396,11 +396,11 @@ func TestAgentManager_LoadState(t *testing.T) {
 
 func TestAgentManager_LoadAgentsMd(t *testing.T) {
 	tests := []struct {
-		name         string
+		name            string
 		agentsMdContent string
-		createFile   bool
-		wantErr      bool
-		validate     func(*testing.T, *Manager)
+		createFile      bool
+		wantErr         bool
+		validate        func(*testing.T, *Manager)
 	}{
 		{
 			name: "load valid agents.md",
@@ -433,10 +433,10 @@ func TestAgentManager_LoadAgentsMd(t *testing.T) {
 			},
 		},
 		{
-			name:         "load non-existent agents.md",
+			name:            "load non-existent agents.md",
 			agentsMdContent: "",
-			createFile:   false,
-			wantErr:      false, // Should not error, just skip
+			createFile:      false,
+			wantErr:         false, // Should not error, just skip
 			validate: func(t *testing.T, mgr *Manager) {
 				cfg := mgr.GetAgentsMdConfig()
 				if cfg != nil {
@@ -497,11 +497,11 @@ func TestAgentManager_LoadAgentsMd(t *testing.T) {
 
 func TestAgentManager_GetSystemPromptBase(t *testing.T) {
 	tests := []struct {
-		name         string
+		name            string
 		agentsMdContent string
-		createAgentsMd bool
-		configName   string
-		wantContains []string
+		createAgentsMd  bool
+		configName      string
+		wantContains    []string
 	}{
 		{
 			name: "with agents.md loaded",

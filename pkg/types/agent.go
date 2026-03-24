@@ -39,10 +39,10 @@ type Message struct {
 
 // MemoryItem represents an item in long-term memory.
 type MemoryItem struct {
-	Key      string `json:"key"`        // Memory key
-	Value    any    `json:"value"`      // Memory value
-	UpdateAt int64  `json:"update_at"`  // Last update time (Unix milliseconds)
-	ExpiresAt int64 `json:"expires_at"` // Expiration time (0 means never expires, Unix milliseconds)
+	Key       string `json:"key"`        // Memory key
+	Value     any    `json:"value"`      // Memory value
+	UpdateAt  int64  `json:"update_at"`  // Last update time (Unix milliseconds)
+	ExpiresAt int64  `json:"expires_at"` // Expiration time (0 means never expires, Unix milliseconds)
 }
 
 // Skill represents an agent skill.

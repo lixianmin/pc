@@ -9,6 +9,7 @@ all: fmt vet test build build-plugins
 generate:
 	@echo "Generating BAML client..."
 	@$(shell go env GOPATH)/bin/baml-cli generate 2>/dev/null || echo "baml-cli not found, skipping BAML generation"
+	@$(shell go env GOPATH)/bin/goimports -w baml_client/ 2>/dev/null || echo "goimports not found, skipping import fix"
 
 build: generate
 	@echo "Building $(BINARY_NAME)..."

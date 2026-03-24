@@ -313,10 +313,10 @@ func TestTaskExecutor_GetProgress(t *testing.T) {
 
 func TestTaskExecutor_ExecuteWithTimeout(t *testing.T) {
 	tests := []struct {
-		name        string
-		timeout     time.Duration
+		name         string
+		timeout      time.Duration
 		executorFunc func() StepExecutor
-		wantErr     bool
+		wantErr      bool
 	}{
 		{
 			name:    "complete before timeout",

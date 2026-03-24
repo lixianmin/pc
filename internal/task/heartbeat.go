@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -59,6 +60,7 @@ func (my *HeartbeatTask) parseSchedule() time.Duration {
 
 // HeartbeatScheduler manages periodic tasks
 type HeartbeatScheduler struct {
+	mu      sync.Mutex
 	tasks   []HeartbeatTask
 	running bool
 	stopCh  chan struct{}
@@ -152,6 +154,8 @@ func (my *HeartbeatScheduler) parseMarkdown(content string) ([]HeartbeatTask, er
 
 // Start starts the scheduler
 func (my *HeartbeatScheduler) Start(ctx context.Context) error {
+	my.mu.Lock()
+	defer my.mu.Unlock()
 	if my.running {
 		return fmt.Errorf("scheduler already running")
 	}
@@ -169,10 +173,14 @@ func (my *HeartbeatScheduler) run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			my.mu.Lock()
 			my.running = false
+			my.mu.Unlock()
 			return
 		case <-my.stopCh:
+			my.mu.Lock()
 			my.running = false
+			my.mu.Unlock()
 			return
 		case <-ticker.C:
 			my.checkAndRunTasks()
@@ -199,9 +207,11 @@ func (my *HeartbeatScheduler) executeTask(task *HeartbeatTask) {
 
 // Stop stops the scheduler
 func (my *HeartbeatScheduler) Stop() {
+	my.mu.Lock()
+	defer my.mu.Unlock()
 	if my.running {
+		my.running = false
 		close(my.stopCh)
-		my.stopCh = make(chan struct{})
 	}
 }
 

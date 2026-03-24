@@ -53,61 +53,31 @@ func TestPluginManager_DiscoverPlugins(t *testing.T) {
 				tmpDir := t.TempDir()
 				pluginsDir := filepath.Join(tmpDir, "plugins")
 
-				// Create test plugin structure
-				llmDir := filepath.Join(pluginsDir, "llm", "openai")
-				if err := os.MkdirAll(llmDir, 0755); err != nil {
-					t.Fatalf("setup failed: %v", err)
-				}
-
-				// Create plugin.yml
-				pluginYml := `name: openai-llm
-type: llm
-enabled: true
-version: 1.0.0
-entry: ./bin/openai-llm
-`
-				if err := os.WriteFile(filepath.Join(llmDir, "plugin.yml"), []byte(pluginYml), 0644); err != nil {
-					t.Fatalf("setup failed: %v", err)
-				}
-
-				return pluginsDir
-			},
-			wantCount: 1,
-			wantErr:   false,
-		},
-		{
-			name: "discover with multiple plugins",
-			setupFunc: func() string {
-				tmpDir := t.TempDir()
-				pluginsDir := filepath.Join(tmpDir, "plugins")
-
-				// Create first plugin
-				llmDir := filepath.Join(pluginsDir, "llm", "openai")
-				if err := os.MkdirAll(llmDir, 0755); err != nil {
-					t.Fatalf("setup failed: %v", err)
-				}
-				pluginYml1 := `name: openai-llm
-type: llm
-enabled: true
-version: 1.0.0
-entry: ./bin/openai-llm
-`
-				if err := os.WriteFile(filepath.Join(llmDir, "plugin.yml"), []byte(pluginYml1), 0644); err != nil {
-					t.Fatalf("setup failed: %v", err)
-				}
-
-				// Create second plugin
 				channelDir := filepath.Join(pluginsDir, "channel", "telegram")
 				if err := os.MkdirAll(channelDir, 0755); err != nil {
 					t.Fatalf("setup failed: %v", err)
 				}
-				pluginYml2 := `name: telegram-bot
+				pluginYml := `name: telegram-bot
 type: channel
 enabled: true
 version: 1.0.0
 entry: ./bin/telegram-bot
 `
-				if err := os.WriteFile(filepath.Join(channelDir, "plugin.yml"), []byte(pluginYml2), 0644); err != nil {
+				if err := os.WriteFile(filepath.Join(channelDir, "plugin.yml"), []byte(pluginYml), 0644); err != nil {
+					t.Fatalf("setup failed: %v", err)
+				}
+
+				channelDir2 := filepath.Join(pluginsDir, "channel", "discord")
+				if err := os.MkdirAll(channelDir2, 0755); err != nil {
+					t.Fatalf("setup failed: %v", err)
+				}
+				pluginYml2 := `name: discord-bot
+type: channel
+enabled: true
+version: 1.0.0
+entry: ./bin/discord-bot
+`
+				if err := os.WriteFile(filepath.Join(channelDir2, "plugin.yml"), []byte(pluginYml2), 0644); err != nil {
 					t.Fatalf("setup failed: %v", err)
 				}
 
@@ -122,16 +92,15 @@ entry: ./bin/telegram-bot
 				tmpDir := t.TempDir()
 				pluginsDir := filepath.Join(tmpDir, "plugins")
 
-				llmDir := filepath.Join(pluginsDir, "llm", "openai")
-				if err := os.MkdirAll(llmDir, 0755); err != nil {
+				channelDir := filepath.Join(pluginsDir, "channel", "telegram")
+				if err := os.MkdirAll(channelDir, 0755); err != nil {
 					t.Fatalf("setup failed: %v", err)
 				}
 
-				// Invalid plugin.yml (missing required fields)
-				pluginYml := `name: openai-llm
+				pluginYml := `name: telegram-bot
 enabled: true
 `
-				if err := os.WriteFile(filepath.Join(llmDir, "plugin.yml"), []byte(pluginYml), 0644); err != nil {
+				if err := os.WriteFile(filepath.Join(channelDir, "plugin.yml"), []byte(pluginYml), 0644); err != nil {
 					t.Fatalf("setup failed: %v", err)
 				}
 
@@ -181,18 +150,6 @@ func TestPluginManager_LoadPlugin(t *testing.T) {
 		wantErr   bool
 	}{
 		{
-			name: "load valid LLM plugin",
-			pluginYml: `name: openai-llm
-type: llm
-enabled: true
-version: 1.0.0
-entry: ./bin/openai-llm
-`,
-			wantName: "openai-llm",
-			wantType: types.PluginTypeLLM,
-			wantErr:  false,
-		},
-		{
 			name: "load valid Channel plugin",
 			pluginYml: `name: telegram-bot
 type: channel
@@ -205,47 +162,26 @@ entry: ./bin/telegram-bot
 			wantErr:  false,
 		},
 		{
-			name: "load valid Tool plugin",
-			pluginYml: `name: linux-shell
-type: tool
-enabled: true
-version: 1.0.0
-entry: ./bin/shell
-`,
-			wantName: "linux-shell",
-			wantType: types.PluginTypeTool,
-			wantErr:  false,
-		},
-		{
-			name: "load plugin with missing type",
-			pluginYml: `name: test-plugin
+			name: "load plugin with missing name",
+			pluginYml: `type: channel
 enabled: true
 version: 1.0.0
 entry: ./bin/test
 `,
-			wantName: "test-plugin",
-			wantType: types.PluginTypeTool, // default
-			wantErr:  false,
-		},
-		{
-			name:      "load plugin with invalid YAML",
-			pluginYml: `invalid yaml: [unclosed`,
-			wantName:  "",
-			wantType:  "",
-			wantErr:   true,
+			wantName: "",
+			wantType: types.PluginTypeChannel,
+			wantErr:  true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
-			pluginDir := filepath.Join(tmpDir, "plugin")
-
+			pluginDir := filepath.Join(tmpDir, "test-plugin")
 			if err := os.MkdirAll(pluginDir, 0755); err != nil {
 				t.Fatalf("setup failed: %v", err)
 			}
 
-			// Write plugin.yml
 			if err := os.WriteFile(filepath.Join(pluginDir, "plugin.yml"), []byte(tt.pluginYml), 0644); err != nil {
 				t.Fatalf("setup failed: %v", err)
 			}
@@ -264,11 +200,14 @@ entry: ./bin/test
 			if !tt.wantErr {
 				if plugin == nil {
 					t.Error("LoadPlugin() returned nil plugin for valid config")
+					return
 				}
-				if plugin != nil && plugin.Name != tt.wantName {
+
+				if plugin.Name != tt.wantName {
 					t.Errorf("LoadPlugin() name = %v, want %v", plugin.Name, tt.wantName)
 				}
-				if plugin != nil && plugin.Type != tt.wantType {
+
+				if plugin.Type != tt.wantType {
 					t.Errorf("LoadPlugin() type = %v, want %v", plugin.Type, tt.wantType)
 				}
 			}

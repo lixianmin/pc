@@ -20,11 +20,11 @@ type LLMAnalyzer interface {
 
 // Suggestion represents a code improvement suggestion
 type Suggestion struct {
-	Type        string `json:"type"`
-	Line        int    `json:"line"`
-	Message     string `json:"message"`
-	Suggestion  string `json:"suggestion"`
-	Confidence  float64 `json:"confidence"`
+	Type       string  `json:"type"`
+	Line       int     `json:"line"`
+	Message    string  `json:"message"`
+	Suggestion string  `json:"suggestion"`
+	Confidence float64 `json:"confidence"`
 }
 
 // NewCodeAnalyzer creates a new code analyzer

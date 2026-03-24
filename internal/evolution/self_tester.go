@@ -15,12 +15,12 @@ type SelfTester struct {
 
 // TestResult represents a test result
 type TestResult struct {
-	Passed   bool     `json:"passed"`
-	Package  string   `json:"package"`
-	Tests    int      `json:"tests"`
-	Failures int      `json:"failures"`
-	Errors   int      `json:"errors"`
-	Output   string   `json:"output"`
+	Passed   bool   `json:"passed"`
+	Package  string `json:"package"`
+	Tests    int    `json:"tests"`
+	Failures int    `json:"failures"`
+	Errors   int    `json:"errors"`
+	Output   string `json:"output"`
 }
 
 // NewSelfTester creates a new self tester

@@ -44,9 +44,7 @@ type Engine struct {
 	// Skill management
 	skillManager *skill.SkillManager
 
-	// TEMP: BAML integration - 阶段 3 删除 useBAML
 	llmClient *llm.Client
-	useBAML   bool
 }
 
 // NewEngine creates a new core engine.
@@ -59,7 +57,6 @@ func NewEngine(pm *plugin.PluginManager) *Engine {
 		taskManager:   task.NewManager(""),
 		decomposer:    task.NewDecomposer(),
 		llmClient:     llm.NewClient(),
-		useBAML:       false, // TEMP: 默认使用插件，阶段 3 改为 true
 	}
 }
 
@@ -101,12 +98,6 @@ func (my *Engine) SetLLMPlugin(p *types.Plugin) {
 // SetSystemPrompt sets the complete system prompt for LLM calls.
 func (my *Engine) SetSystemPrompt(prompt string) {
 	my.systemPrompt = prompt
-}
-
-// SetUseBAML enables or disables BAML for LLM calls.
-// TEMP: 阶段 3 删除此方法，useBAML 默认为 true
-func (my *Engine) SetUseBAML(useBAML bool) {
-	my.useBAML = useBAML
 }
 
 // BuildSystemPrompt builds the dynamic system prompt with tools and skills.
@@ -186,7 +177,7 @@ func (my *Engine) ProcessMessage(ctx context.Context, sessionId, message string)
 	}
 
 	var response string
-	hasLLM := (my.pluginManager != nil && my.llmPlugin != nil) || (my.llmCallback != nil)
+	hasLLM := my.llmClient != nil || my.llmCallback != nil || (my.pluginManager != nil && my.llmPlugin != nil)
 	if hasLLM {
 		logo.Info("[Session:", sessionId, "] Starting ReAct loop")
 		resp, err := my.reactLoop(ctx, session, message)
@@ -265,13 +256,16 @@ func (my *Engine) reactLoop(ctx context.Context, session *Session, initialMessag
 	return "", fmt.Errorf("exceeded maximum iterations (%d)", my.maxIterations)
 }
 
-// callLLM calls the LLM plugin to generate a response.
+// callLLM calls the LLM via BAML to generate a response.
 func (my *Engine) callLLM(ctx context.Context, session *Session, message string) (string, error) {
-	// TEMP: 根据 useBAML 切换调用方式，阶段 3 删除 if 分支
-	if my.useBAML {
-		return my.callLLMViaBAML(ctx, session, message)
+	if my.llmCallback != nil {
+		systemPrompt := my.buildDynamicSystemPrompt()
+		if my.systemPrompt != "" {
+			systemPrompt = my.systemPrompt + "\n\n" + systemPrompt
+		}
+		return my.llmCallback(ctx, session, systemPrompt)
 	}
-	return my.callLLMViaPlugin(ctx, session, message)
+	return my.callLLMViaBAML(ctx, session, message)
 }
 
 // callLLMViaBAML 使用 BAML 调用 LLM

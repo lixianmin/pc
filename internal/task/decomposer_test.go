@@ -37,34 +37,34 @@ func TestNewDecomposer(t *testing.T) {
 
 func TestDecomposer_ParseGoal(t *testing.T) {
 	tests := []struct {
-		name       string
-		input      string
-		wantGoal   string
-		wantErr    bool
+		name     string
+		input    string
+		wantGoal string
+		wantErr  bool
 	}{
 		{
-			name:       "parse valid goal",
-			input:      "Deploy v1.0.0 to production",
-			wantGoal:   "Deploy v1.0.0 to production",
-			wantErr:    false,
+			name:     "parse valid goal",
+			input:    "Deploy v1.0.0 to production",
+			wantGoal: "Deploy v1.0.0 to production",
+			wantErr:  false,
 		},
 		{
-			name:       "parse empty input",
-			input:      "",
-			wantGoal:   "",
-			wantErr:    true,
+			name:     "parse empty input",
+			input:    "",
+			wantGoal: "",
+			wantErr:  true,
 		},
 		{
-			name:       "parse whitespace input",
-			input:      "   ",
-			wantGoal:   "",
-			wantErr:    true,
+			name:     "parse whitespace input",
+			input:    "   ",
+			wantGoal: "",
+			wantErr:  true,
 		},
 		{
-			name:       "parse goal with prefix",
-			input:      "我的目标是：学习Go语言",
-			wantGoal:   "学习Go语言",
-			wantErr:    false,
+			name:     "parse goal with prefix",
+			input:    "我的目标是：学习Go语言",
+			wantGoal: "学习Go语言",
+			wantErr:  false,
 		},
 	}
 

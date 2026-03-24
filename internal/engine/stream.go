@@ -105,11 +105,7 @@ func (my *Engine) ProcessMessageStream(ctx context.Context, sessionId, message s
 }
 
 func (my *Engine) callLLMStream(ctx context.Context, session *Session, message string) (<-chan string, error) {
-	// TEMP: 根据 useBAML 切换调用方式，阶段 3 删除 if 分支
-	if my.useBAML {
-		return my.callLLMStreamViaBAML(ctx, session, message)
-	}
-	return my.callLLMStreamViaPlugin(ctx, session, message)
+	return my.callLLMStreamViaBAML(ctx, session, message)
 }
 
 func (my *Engine) callLLMStreamViaBAML(ctx context.Context, session *Session, message string) (<-chan string, error) {

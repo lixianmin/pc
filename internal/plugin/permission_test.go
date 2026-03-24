@@ -8,10 +8,10 @@ import (
 
 func TestParsePermissions(t *testing.T) {
 	tests := []struct {
-		name         string
-		permissions  string
-		wantCount    int
-		wantTypes    []types.PermissionType
+		name        string
+		permissions string
+		wantCount   int
+		wantTypes   []types.PermissionType
 	}{
 		{
 			name:        "parse single permission",
@@ -77,32 +77,32 @@ func TestCheckPermission(t *testing.T) {
 		result      bool
 	}{
 		{
-			name:        "all permissions granted",
+			name: "all permissions granted",
 			pluginPerms: []types.Permission{
 				{Type: types.PermissionNetwork},
 				{Type: types.PermissionFilesystem},
 				{Type: types.PermissionSystem},
 			},
 			required: []types.PermissionType{types.PermissionNetwork, types.PermissionFilesystem},
-			result:      true,
+			result:   true,
 		},
 		{
-			name:        "missing required permission",
+			name: "missing required permission",
 			pluginPerms: []types.Permission{
 				{Type: types.PermissionNetwork},
 			},
 			required: []types.PermissionType{types.PermissionNetwork, types.PermissionFilesystem},
-			result:      false,
+			result:   false,
 		},
 		{
-			name:        "extra permission granted",
+			name: "extra permission granted",
 			pluginPerms: []types.Permission{
 				{Type: types.PermissionNetwork},
 				{Type: types.PermissionFilesystem},
 				{Type: types.PermissionSystem},
 			},
 			required: []types.PermissionType{types.PermissionNetwork},
-			result:      true,
+			result:   true,
 		},
 		{
 			name:        "no permissions required",
@@ -125,22 +125,22 @@ func TestCheckPermission(t *testing.T) {
 
 func TestFormatPermissionError(t *testing.T) {
 	tests := []struct {
-		name          string
-		permissions   []types.Permission
-		required      []types.PermissionType
-		pluginName    string
+		name        string
+		permissions []types.Permission
+		required    []types.PermissionType
+		pluginName  string
 	}{
 		{
-			name:     "missing network permission",
+			name:        "missing network permission",
 			permissions: []types.Permission{{Type: types.PermissionFilesystem}},
-			required:  []types.PermissionType{types.PermissionNetwork},
-			pluginName: "test-plugin",
+			required:    []types.PermissionType{types.PermissionNetwork},
+			pluginName:  "test-plugin",
 		},
 		{
-			name:     "multiple missing permissions",
+			name:        "multiple missing permissions",
 			permissions: []types.Permission{{Type: types.PermissionFilesystem}},
-			required: []types.PermissionType{types.PermissionNetwork, types.PermissionSystem},
-			pluginName: "test-plugin",
+			required:    []types.PermissionType{types.PermissionNetwork, types.PermissionSystem},
+			pluginName:  "test-plugin",
 		},
 	}
 

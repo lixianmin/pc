@@ -49,7 +49,7 @@ func TestCompleteCommand_Task(t *testing.T) {
 		expected string
 	}{
 		{"/ta", "/task"},
-		{"/task ", "/task list"}, // Auto-completes to first subcommand
+		{"/task ", "/task list"},  // Auto-completes to first subcommand
 		{"/task l", "/task list"}, // Complete subcommand
 	}
 

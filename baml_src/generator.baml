@@ -3,7 +3,7 @@
 
 generator go {
   output_type go
-  output_dir "../baml_client"
+  output_dir ".."
   version "0.220.0"
-  client_package_name "github.com/lixianmin/pc/baml_client"
+  client_package_name "github.com/lixianmin/pc"
 }

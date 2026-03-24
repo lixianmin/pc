@@ -126,16 +126,16 @@ func TestParseInput_WithFile(t *testing.T) {
 	provider := NewMockSkillProvider()
 
 	tests := []struct {
-		name           string
-		input          string
-		wantFileCount  int
-		wantFileName   string
+		name            string
+		input           string
+		wantFileCount   int
+		wantFileName    string
 		wantFileContent string
 	}{
 		{
-			name:           "reference existing file",
-			input:          "Check " + testFile,
-			wantFileCount:  0, // File without @ doesn't count
+			name:          "reference existing file",
+			input:         "Check " + testFile,
+			wantFileCount: 0, // File without @ doesn't count
 		},
 	}
 
@@ -252,10 +252,10 @@ func TestReadFileContent(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		path     string
-		want     string
-		wantErr  bool
+		name    string
+		path    string
+		want    string
+		wantErr bool
 	}{
 		{
 			name:    "read existing file",

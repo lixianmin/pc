@@ -57,6 +57,9 @@ func TestEngine_TaskDecomposition(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			e := NewEngine(nil)
 			e.SetTaskEnabled(true)
+			e.SetLLMCallback(func(ctx context.Context, session *Session, systemPrompt string) (string, error) {
+				return "Mock LLM response", nil
+			})
 			ctx := context.Background()
 			_ = e.FetchSession(tt.sessionId)
 

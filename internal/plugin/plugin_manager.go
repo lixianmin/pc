@@ -55,10 +55,7 @@ func (my *PluginManager) Discover() ([]*types.Plugin, error) {
 
 	// Scan for plugin types
 	pluginTypes := []string{
-		string(types.PluginTypeLLM),
-		string(types.PluginTypeSearch),
 		string(types.PluginTypeChannel),
-		string(types.PluginTypeTool),
 	}
 
 	for _, pType := range pluginTypes {

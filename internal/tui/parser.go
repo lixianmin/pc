@@ -9,17 +9,17 @@ import (
 
 // ParsedInput represents the result of parsing user input.
 type ParsedInput struct {
-	Original  string       // Original input
-	CleanText string       // Text without @ references
-	Refs      []Reference  // List of references found
+	Original  string      // Original input
+	CleanText string      // Text without @ references
+	Refs      []Reference // List of references found
 }
 
 // Reference represents a reference in the input (@skillname or @filepath).
 type Reference struct {
-	Type     string // "skill" or "file"
-	Raw      string // Raw text (e.g., "@skillname")
-	Name     string // Name without @ (e.g., "skillname")
-	Content  string // Content to inject
+	Type    string // "skill" or "file"
+	Raw     string // Raw text (e.g., "@skillname")
+	Name    string // Name without @ (e.g., "skillname")
+	Content string // Content to inject
 }
 
 // ParseInput parses user input and extracts @ references.

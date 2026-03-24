@@ -9,17 +9,17 @@ import (
 
 // ExecutionStep represents a step in skill execution.
 type ExecutionStep struct {
-	Type     string       `json:"type"`     // "action", "condition", "loop"
-	Command  string       `json:"command,omitempty"`
-	Condition string       `json:"condition,omitempty"`
-	Loop     *LoopConfig  `json:"loop,omitempty"`
-	Steps    []ExecutionStep `json:"steps,omitempty"`
+	Type      string          `json:"type"` // "action", "condition", "loop"
+	Command   string          `json:"command,omitempty"`
+	Condition string          `json:"condition,omitempty"`
+	Loop      *LoopConfig     `json:"loop,omitempty"`
+	Steps     []ExecutionStep `json:"steps,omitempty"`
 }
 
 // LoopConfig represents loop configuration.
 type LoopConfig struct {
-	Type     string `json:"type"`     // "repeat", "while"
-	Count    int    `json:"count,omitempty"`
+	Type      string `json:"type"` // "repeat", "while"
+	Count     int    `json:"count,omitempty"`
 	Condition string `json:"condition,omitempty"`
 }
 
@@ -86,15 +86,15 @@ func (my *Engine) ExecuteStep(step ExecutionStep, context map[string]any) (map[s
 		return map[string]any{
 			"type":    "action",
 			"command": step.Command,
-			"result": fmt.Sprintf("executed: %s", step.Command),
+			"result":  fmt.Sprintf("executed: %s", step.Command),
 		}, nil
 	case "condition":
 		if step.Condition == "" {
 			return nil, fmt.Errorf("condition step requires condition")
 		}
 		return map[string]any{
-			"type":       "condition",
-			"condition":  step.Condition,
+			"type":      "condition",
+			"condition": step.Condition,
 			"evaluated": true,
 		}, nil
 	case "loop":
@@ -143,9 +143,9 @@ func (my *Engine) executeLoop(loop LoopConfig, steps []ExecutionStep, context ma
 	}
 
 	return map[string]any{
-		"type":       "loop",
-		"loopType":  loop.Type,
-		"results":    results,
+		"type":     "loop",
+		"loopType": loop.Type,
+		"results":  results,
 	}, nil
 }
 

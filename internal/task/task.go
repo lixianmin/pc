@@ -24,9 +24,9 @@ const (
 
 // Step represents a step in a task.
 type Step struct {
-	Title   string `json:"title"`
-	Done    bool   `json:"done"`
-	Order   int    `json:"order"`
+	Title string `json:"title"`
+	Done  bool   `json:"done"`
+	Order int    `json:"order"`
 }
 
 // Task represents a task in the task list.

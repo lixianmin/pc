@@ -29,16 +29,16 @@ func TestNewHeartbeatScheduler(t *testing.T) {
 
 func TestHeartbeatTask_IsDue(t *testing.T) {
 	tests := []struct {
-		name      string
-		task      HeartbeatTask
-		now       time.Time
-		wantDue   bool
+		name    string
+		task    HeartbeatTask
+		now     time.Time
+		wantDue bool
 	}{
 		{
 			name: "task is due",
 			task: HeartbeatTask{
-				Schedule:    "0 * * * *",
-				LastRun:     time.Now().Add(-2 * time.Hour).UnixMilli(),
+				Schedule: "0 * * * *",
+				LastRun:  time.Now().Add(-2 * time.Hour).UnixMilli(),
 			},
 			now:     time.Now(),
 			wantDue: true,
@@ -46,8 +46,8 @@ func TestHeartbeatTask_IsDue(t *testing.T) {
 		{
 			name: "task not due",
 			task: HeartbeatTask{
-				Schedule:    "0 0 * * *",
-				LastRun:     time.Now().Add(-1 * time.Hour).UnixMilli(),
+				Schedule: "0 0 * * *",
+				LastRun:  time.Now().Add(-1 * time.Hour).UnixMilli(),
 			},
 			now:     time.Now(),
 			wantDue: false,
@@ -198,10 +198,10 @@ func TestHeartbeatScheduler_RemoveTask(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:     "remove non-existent task",
-			taskName: "NonExistent",
+			name:      "remove non-existent task",
+			taskName:  "NonExistent",
 			setupFunc: func(s *HeartbeatScheduler) {},
-			wantErr:  true,
+			wantErr:   true,
 		},
 	}
 

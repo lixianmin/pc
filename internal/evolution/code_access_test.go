@@ -8,9 +8,9 @@ import (
 
 func TestNewCodeAccessor(t *testing.T) {
 	tests := []struct {
-		name        string
-		setupFunc   func() (string, []string)
-		wantErr     bool
+		name      string
+		setupFunc func() (string, []string)
+		wantErr   bool
 	}{
 		{
 			name: "create valid accessor",
@@ -104,10 +104,10 @@ func TestCodeAccessor_ScanDirectory(t *testing.T) {
 
 func TestCodeAccessor_ReadFile(t *testing.T) {
 	tests := []struct {
-		name      string
-		fileName  string
-		content   string
-		wantErr   bool
+		name     string
+		fileName string
+		content  string
+		wantErr  bool
 	}{
 		{
 			name:     "read existing file",

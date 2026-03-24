@@ -15,11 +15,11 @@ type CodeModifier struct {
 
 // Modification represents a code modification
 type Modification struct {
-	FilePath    string `json:"file_path"`
-	OldContent  string `json:"old_content"`
-	NewContent  string `json:"new_content"`
-	LineStart   int    `json:"line_start"`
-	LineEnd     int    `json:"line_end"`
+	FilePath   string `json:"file_path"`
+	OldContent string `json:"old_content"`
+	NewContent string `json:"new_content"`
+	LineStart  int    `json:"line_start"`
+	LineEnd    int    `json:"line_end"`
 }
 
 // NewCodeModifier creates a new code modifier

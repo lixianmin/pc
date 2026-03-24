@@ -38,7 +38,7 @@ func (s *SecurityChecker) CheckToolCall(call ToolCall) error {
 		return err
 	}
 
-	if call.Name == "shell" {
+	if call.Name == "bash" {
 		if err := s.checkShellCommand(call.Params); err != nil {
 			return err
 		}
@@ -161,7 +161,7 @@ func (s *SecurityChecker) NeedsConfirmation(call ToolCall) bool {
 		return false
 	}
 
-	if call.Name == "shell" {
+	if call.Name == "bash" {
 		if command, ok := call.Params["command"].(string); ok {
 			return s.isDangerousCommand(command) || s.isPotentiallyDestructive(command)
 		}

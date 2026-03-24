@@ -150,9 +150,9 @@ func TestSkillJSON(t *testing.T) {
 
 func TestTaskJSON(t *testing.T) {
 	task := Task{
-		ID:           "task-001",
-		Title:        "Test Task",
-		State:        TaskStateInProgress,
+		ID:         "task-001",
+		Title:      "Test Task",
+		State:      TaskStateInProgress,
 		CreateAt:   1234567890000,
 		UpdateAt:   1234567891000,
 		CompleteAt: 0,
@@ -297,7 +297,7 @@ func TestMemoryJSON(t *testing.T) {
 			{
 				Key:       "user_name",
 				Value:     "Alice",
-				UpdateAt: 1234567890000,
+				UpdateAt:  1234567890000,
 				ExpiresAt: 0,
 			},
 		},
@@ -427,7 +427,7 @@ func TestMemoryItemJSON(t *testing.T) {
 	item := MemoryItem{
 		Key:       "test_key",
 		Value:     "test_value",
-		UpdateAt: 1234567890000,
+		UpdateAt:  1234567890000,
 		ExpiresAt: 12345678900,
 	}
 

@@ -8,12 +8,12 @@ import (
 
 func TestLoadAgentsMd(t *testing.T) {
 	tests := []struct {
-		name         string
-		content      string
-		expectError  bool
-		expectName   string
-		expectPersonality []string
-		expectProfession  string
+		name               string
+		content            string
+		expectError        bool
+		expectName         string
+		expectPersonality  []string
+		expectProfession   string
 		expectInstructions string
 	}{
 		{
@@ -34,10 +34,10 @@ func TestLoadAgentsMd(t *testing.T) {
 2. 代码使用中文注释
 3. 主动提供帮助
 `,
-			expectError:  false,
-			expectName:   "PersonalClaw",
-			expectPersonality: []string{"友好", "专业", "高效"},
-			expectProfession:  "通用助手，擅长编程和数据分析",
+			expectError:        false,
+			expectName:         "PersonalClaw",
+			expectPersonality:  []string{"友好", "专业", "高效"},
+			expectProfession:   "通用助手，擅长编程和数据分析",
 			expectInstructions: "你是一个有用的 AI 助手。请遵循以下原则：\n1. 回答简洁明了\n2. 代码使用中文注释\n3. 主动提供帮助",
 		},
 		{
@@ -45,15 +45,15 @@ func TestLoadAgentsMd(t *testing.T) {
 			content: `# SimpleAgent
 
 `,
-			expectError:  false,
-			expectName:   "SimpleAgent",
-			expectPersonality: nil,
-			expectProfession:  "",
+			expectError:        false,
+			expectName:         "SimpleAgent",
+			expectPersonality:  nil,
+			expectProfession:   "",
 			expectInstructions: "",
 		},
 		{
-			name: "空文件",
-			content: ``,
+			name:        "空文件",
+			content:     ``,
 			expectError: true,
 		},
 		{
@@ -87,10 +87,10 @@ func TestLoadAgentsMd(t *testing.T) {
 - 具体位置
 - 改进建议
 `,
-			expectError:  false,
-			expectName:   "CodeReviewAgent",
-			expectPersonality: []string{"严谨", "细致"},
-			expectProfession:  "代码审查专家，专注于 Go 和 Python 代码质量",
+			expectError:        false,
+			expectName:         "CodeReviewAgent",
+			expectPersonality:  []string{"严谨", "细致"},
+			expectProfession:   "代码审查专家，专注于 Go 和 Python 代码质量",
 			expectInstructions: "你的职责是审查代码并提供改进建议：\n\n### 审查重点\n1. 代码安全性\n2. 性能优化\n3. 可读性\n\n### 输出格式\n- 问题等级：[高/中/低]\n- 具体位置\n- 改进建议",
 		},
 	}
@@ -169,9 +169,9 @@ func TestAgentsMdConfig_ToSystemPrompt(t *testing.T) {
 		{
 			name: "完整配置",
 			config: AgentsMdConfig{
-				Name:        "TestAgent",
-				Personality: []string{"友好", "专业"},
-				Profession:  "测试专家",
+				Name:         "TestAgent",
+				Personality:  []string{"友好", "专业"},
+				Profession:   "测试专家",
 				Instructions: "请认真测试",
 			},
 			expected: `你是 TestAgent。
@@ -196,8 +196,8 @@ func TestAgentsMdConfig_ToSystemPrompt(t *testing.T) {
 		{
 			name: "没有性格",
 			config: AgentsMdConfig{
-				Name:       "NoTraitAgent",
-				Profession: "专业助手",
+				Name:         "NoTraitAgent",
+				Profession:   "专业助手",
 				Instructions: "帮助用户",
 			},
 			expected: `你是 NoTraitAgent。

@@ -40,11 +40,11 @@ func TestNewDecisionEngine(t *testing.T) {
 
 func TestDecisionEngine_Decide(t *testing.T) {
 	tests := []struct {
-		name        string
-		context     Context
-		wantAction  ActionType
-		wantTool    string
-		wantErr     bool
+		name       string
+		context    Context
+		wantAction ActionType
+		wantTool   string
+		wantErr    bool
 	}{
 		{
 			name: "decide to respond directly",
@@ -201,11 +201,11 @@ func TestDecisionEngine_SelectSkill(t *testing.T) {
 
 func TestDecisionEngine_CalculateConfidence(t *testing.T) {
 	tests := []struct {
-		name            string
-		context         Context
-		decision        Decision
-		wantConfidence  float64
-		wantThreshold   float64
+		name           string
+		context        Context
+		decision       Decision
+		wantConfidence float64
+		wantThreshold  float64
 	}{
 		{
 			name: "high confidence for direct response",
@@ -340,12 +340,12 @@ func TestDecisionEngine_DecideWithLLM(t *testing.T) {
 
 func TestExtractJSON(t *testing.T) {
 	tests := []struct {
-		name string
+		name  string
 		input string
-		want string
+		want  string
 	}{
 		{
-			name: "JSON in markdown code block",
+			name:  "JSON in markdown code block",
 			input: "```json\n{\"action\": \"respond\"}\n```",
 			want:  `{"action": "respond"}`,
 		},

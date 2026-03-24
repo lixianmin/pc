@@ -197,6 +197,47 @@ func TestProcessMessage(t *testing.T) {
 - Use real dependencies when possible
 - Integration test files: `*_integration_test.go` or in `tests/` directory
 
+### BAML Tests
+- **Convention**: BAML tests are written in the same `.baml` files alongside function definitions
+- Use `test` keyword to define test cases
+- Test different clients with `@client(ClientName)` annotation
+
+Example:
+```baml
+function Chat(messages: Message[], system_prompt: string) -> string {
+  client "Gpt4o"
+  prompt #"
+    {{ _.role("system") }}
+    {{ system_prompt }}
+    {% for msg in messages %}
+    {{ _.role(msg.role) }}
+    {{ msg.content }}
+    {% endfor %}
+  "#
+}
+
+test ChatBasic {
+  functions [Chat]
+  args {
+    messages [
+      { role: "user", content: "Hello" }
+    ]
+    system_prompt: "You are a helpful assistant."
+  }
+}
+
+test ChatWithGLM4 {
+  functions [Chat]
+  args {
+    messages [
+      { role: "user", content: "What is 2+2?" }
+    ]
+    system_prompt: "Answer briefly."
+  }
+  @client(GLM4)
+}
+```
+
 ## Architecture Principles
 
 ### Directory Structure
@@ -215,6 +256,8 @@ pc/
 ├── pkg/                 # Public packages (importable by plugins)
 │   ├── protocol/       # Plugin protocol definitions
 │   └── types/          # Shared type definitions
+├── baml_src/            # BAML function definitions and tests
+├── baml_client/         # Generated BAML Go client (auto-generated)
 ├── examples/            # Example plugins
 ├── notes/               # Project documentation
 │   ├── 00.constitution.md
@@ -309,9 +352,10 @@ docs(arch): update plugin protocol specification
 - **Language**: Go 1.25+
 - **Build**: `make test`, `make build`
 - **Single test**: `go test -v -run TestName ./path/to/package`
+- **BAML generate**: `make generate`
 - **Commit**: `<type>(<scope>): <subject>`
 - **Config**: YAML format only
 - **Receiver**: Always `my`
 - **Logging**: `github.com/lixianmin/logo`
 - **Goroutines**: Always use `loom.Go()`
-- **Tests**: Table-driven (TDD via Superpowers)
+- **Tests**: Table-driven (TDD via Superpowers), BAML tests in `.baml` files

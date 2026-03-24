@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	baml "github.com/lixianmin/pc/baml_client/baml_client"
-	"github.com/lixianmin/pc/baml_client/baml_client/types"
+	baml "github.com/lixianmin/pc/baml_client"
+	"github.com/lixianmin/pc/baml_client/types"
 )
 
 type Message struct {

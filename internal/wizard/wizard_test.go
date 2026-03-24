@@ -124,34 +124,34 @@ func TestSaveConfig(t *testing.T) {
 
 func TestValidateAgentName(t *testing.T) {
 	tests := []struct {
-		name     string
+		name      string
 		agentName string
-		wantErr  bool
+		wantErr   bool
 	}{
 		{
-			name:     "valid agent name",
+			name:      "valid agent name",
 			agentName: "PersonalClaw",
-			wantErr:  false,
+			wantErr:   false,
 		},
 		{
-			name:     "valid name with spaces",
+			name:      "valid name with spaces",
 			agentName: "My Agent",
-			wantErr:  false,
+			wantErr:   false,
 		},
 		{
-			name:     "valid unicode name",
+			name:      "valid unicode name",
 			agentName: "我的助手",
-			wantErr:  false,
+			wantErr:   false,
 		},
 		{
-			name:     "empty name",
+			name:      "empty name",
 			agentName: "",
-			wantErr:  true,
+			wantErr:   true,
 		},
 		{
-			name:     "name with only spaces",
+			name:      "name with only spaces",
 			agentName: "   ",
-			wantErr:  true,
+			wantErr:   true,
 		},
 	}
 
@@ -168,19 +168,19 @@ func TestValidateAgentName(t *testing.T) {
 
 func TestGetDefaultWorkspace(t *testing.T) {
 	tests := []struct {
-		name          string
-		homeDir      string
-		wantPath     string
+		name     string
+		homeDir  string
+		wantPath string
 	}{
 		{
-			name:      "default workspace",
-			homeDir:   "/home/user",
-			wantPath:  "/home/user/workspace",
+			name:     "default workspace",
+			homeDir:  "/home/user",
+			wantPath: "/home/user/workspace",
 		},
 		{
-			name:      "custom home",
-			homeDir:   "/custom/home",
-			wantPath:  filepath.Join("/custom/home", "workspace"),
+			name:     "custom home",
+			homeDir:  "/custom/home",
+			wantPath: filepath.Join("/custom/home", "workspace"),
 		},
 	}
 
@@ -324,4 +324,3 @@ func TestGenerateExamplePlugins(t *testing.T) {
 		})
 	}
 }
-

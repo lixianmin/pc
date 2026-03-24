@@ -255,14 +255,14 @@ func TestSystemPromptBuilder_ToolUsageGuide(t *testing.T) {
 		{
 			name: "工具使用指南包含 ReAct 说明",
 			tools: []ToolInfo{
-				{Name: "shell", Description: "执行 shell 命令", Type: "tool"},
+				{Name: "bash", Description: "执行 bash 命令", Type: "tool"},
 			},
 			wantContains: []string{
 				"## 工具使用指南",
 				"当你需要获取外部信息或执行操作时",
 				"不要告诉用户'你无法'或'你没有权限'",
 				"### 可用工具",
-				"**shell**",
+				"**bash**",
 				"### 工具调用格式",
 				"<tool_call>",
 				"<name>工具名</name>",
@@ -280,8 +280,8 @@ func TestSystemPromptBuilder_ToolUsageGuide(t *testing.T) {
 			name: "带参数 schema 的工具描述",
 			tools: []ToolInfo{
 				{
-					Name:        "shell",
-					Description: "执行 shell 命令",
+					Name:        "bash",
+					Description: "执行 bash 命令",
 					Type:        "tool",
 					ParamsSchema: map[string]string{
 						"command":     "要执行的命令",
@@ -290,8 +290,8 @@ func TestSystemPromptBuilder_ToolUsageGuide(t *testing.T) {
 				},
 			},
 			wantContains: []string{
-				"**shell**",
-				"执行 shell 命令",
+				"**bash**",
+				"执行 bash 命令",
 				"`command`",
 				"要执行的命令",
 				"`description`",
@@ -331,17 +331,17 @@ func TestSystemPromptBuilder_ToolExamples(t *testing.T) {
 		wantContains []string
 	}{
 		{
-			name: "有 tool 类型时显示 shell 示例",
+			name: "有 tool 类型时显示 bash 示例",
 			tools: []ToolInfo{
-				{Name: "shell", Description: "执行命令", Type: "tool"},
+				{Name: "bash", Description: "执行命令", Type: "tool"},
 			},
 			wantContains: []string{
-				"**示例 1: 执行 shell 命令**",
+				"**示例 1: 执行 bash 命令**",
 				"用户: 列出主目录的文件",
 				"<thinking>",
 				"用户想要查看主目录的文件",
 				"<tool_call>",
-				"<name>shell</name>",
+				"<name>bash</name>",
 				"\"command\": \"ls ~\"",
 				"</tool_call>",
 			},

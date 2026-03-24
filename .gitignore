@@ -1,6 +1,8 @@
 pc
+!pc/
 *.out
 .DS_Store
 .VSCodeCounter/
 logs/
 bin/openai-llm
+baml_client/
