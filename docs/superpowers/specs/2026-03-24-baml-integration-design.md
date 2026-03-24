@@ -334,7 +334,7 @@ func (e *Executor) Execute(name string, params map[string]any) (any, error) {
 ### 阶段 3：清理
 
 1. 清理 `PluginManager` 中 LLM/Tool 相关代码
-2. 更新 `Makefile` 添加 `baml-cli generate`
+2. 更新 `Makefile`：移除 LLM/Tool 插件构建，添加 BAML generate
 3. 更新文档
 
 ## 配置管理
@@ -387,20 +387,43 @@ plugins:
 ## Makefile 变更
 
 ```makefile
-.PHONY: generate build test
+.PHONY: generate build build-plugins test clean
 
+# BAML 代码生成
 generate:
 	baml-cli generate
 
+# 主程序构建（包含 BAML 生成）
 build: generate
 	go build -o bin/pc ./cmd/pc
+
+# Channel 插件构建（LLM/Tool 已内置，不再需要单独构建）
+build-plugins:
+	@echo "Building channel plugins..."
+	@mkdir -p $(HOME)/.pc/plugins/channel/telegram/bin
+	@cd examples/plugins/channel/telegram/cmd/telegram-bot && \
+		go build -o $(HOME)/.pc/plugins/channel/telegram/bin/telegram-bot .
+	@echo "Channel plugins built."
+
+# 完整构建：主程序 + 插件
+all: generate build build-plugins
 
 test: generate
 	go test ./...
 
 dev: generate
 	go run ./cmd/pc
+
+clean:
+	rm -f bin/pc
+	rm -rf baml_client/
 ```
+
+**变更说明**：
+- `make build` 自动执行 `baml-cli generate`
+- `build-plugins` 只构建 Channel 插件
+- `make all` 构建主程序和 Channel 插件
+- LLM/Tool 插件构建步骤删除（已内置）
 
 ## 二期优化项
 
