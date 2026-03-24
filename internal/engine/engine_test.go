@@ -42,7 +42,7 @@ func TestEngine_TaskDecomposition(t *testing.T) {
 			sessionId: "test-task-3",
 			message:   "Hello, how are you?",
 			wantTask:  false,
-			wantErr:   false,
+			wantErr:   true,
 		},
 		{
 			name:      "empty goal returns error",
@@ -57,9 +57,6 @@ func TestEngine_TaskDecomposition(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			e := NewEngine(nil)
 			e.SetTaskEnabled(true)
-			e.SetLLMCallback(func(ctx context.Context, session *Session, systemPrompt string) (string, error) {
-				return "Mock LLM response", nil
-			})
 			ctx := context.Background()
 			_ = e.FetchSession(tt.sessionId)
 

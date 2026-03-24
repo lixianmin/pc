@@ -21,8 +21,6 @@ type PluginCaller interface {
 	CallPlugin(plugin *types.Plugin, method string, params any) (any, error)
 }
 
-type llmCallback func(ctx context.Context, session *Session, systemPrompt string) (string, error)
-
 // Engine is the core engine implementation.
 type Engine struct {
 	pluginManager  *plugin.PluginManager
@@ -33,7 +31,6 @@ type Engine struct {
 	systemPrompt   string
 	maxIterations  int
 	toolTimeout    time.Duration
-	llmCallback    llmCallback
 	promptRecorder *debug.PromptRecorder
 
 	// Task management
@@ -68,11 +65,6 @@ func NewEngineWithMock(caller PluginCaller) *Engine {
 		maxIterations: 10,
 		toolTimeout:   30 * time.Second,
 	}
-}
-
-// SetLLMCallback sets a custom LLM callback for testing.
-func (my *Engine) SetLLMCallback(cb llmCallback) {
-	my.llmCallback = cb
 }
 
 // SetPromptRecorder sets the prompt recorder for debugging.
@@ -177,7 +169,7 @@ func (my *Engine) ProcessMessage(ctx context.Context, sessionId, message string)
 	}
 
 	var response string
-	hasLLM := my.llmClient != nil || my.llmCallback != nil || (my.pluginManager != nil && my.llmPlugin != nil)
+	hasLLM := my.llmClient != nil || (my.pluginManager != nil && my.llmPlugin != nil)
 	if hasLLM {
 		logo.Info("[Session:", sessionId, "] Starting ReAct loop")
 		resp, err := my.reactLoop(ctx, session, message)
@@ -258,13 +250,6 @@ func (my *Engine) reactLoop(ctx context.Context, session *Session, initialMessag
 
 // callLLM calls the LLM via BAML to generate a response.
 func (my *Engine) callLLM(ctx context.Context, session *Session, message string) (string, error) {
-	if my.llmCallback != nil {
-		systemPrompt := my.buildDynamicSystemPrompt()
-		if my.systemPrompt != "" {
-			systemPrompt = my.systemPrompt + "\n\n" + systemPrompt
-		}
-		return my.llmCallback(ctx, session, systemPrompt)
-	}
 	return my.callLLMViaBAML(ctx, session, message)
 }
 
@@ -341,10 +326,6 @@ func (my *Engine) callLLMViaPlugin(ctx context.Context, session *Session, messag
 	var requestId string
 	if my.promptRecorder != nil {
 		requestId, _ = my.promptRecorder.Record(session.Id, messages)
-	}
-
-	if my.llmCallback != nil {
-		return my.llmCallback(ctx, session, systemPrompt)
 	}
 
 	params := map[string]any{

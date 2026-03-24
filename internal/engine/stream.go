@@ -70,7 +70,7 @@ func (my *Engine) ProcessMessageStream(ctx context.Context, sessionId, message s
 			return
 		}
 
-		hasLLM := (my.pluginManager != nil && my.llmPlugin != nil) || (my.llmCallback != nil)
+		hasLLM := my.llmClient != nil || (my.pluginManager != nil && my.llmPlugin != nil)
 		if !hasLLM {
 			ch <- NewStreamChunk(fmt.Sprintf("Echo: %s", message))
 			ch <- NewStreamDone()
@@ -147,19 +147,6 @@ func (my *Engine) callLLMStreamViaBAML(ctx context.Context, session *Session, me
 }
 
 func (my *Engine) callLLMStreamViaPlugin(ctx context.Context, session *Session, message string) (<-chan string, error) {
-	if my.llmCallback != nil {
-		ch := make(chan string)
-		go func() {
-			defer close(ch)
-			resp, err := my.llmCallback(ctx, session, my.buildDynamicSystemPrompt())
-			if err != nil {
-				return
-			}
-			ch <- resp
-		}()
-		return ch, nil
-	}
-
 	history := session.GetMessages()
 	systemPrompt := my.buildDynamicSystemPrompt()
 

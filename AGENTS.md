@@ -7,9 +7,6 @@
 | 开始任何任务 | [constitution.md](./docs/00.constitution.md) |
 | 写代码前 | [architecture.md 第六章](./docs/01.architecture.md#六编码规范) |
 | 遇到 bug 或失败 | [lesson.md](./docs/02.lesson.md) |
-| 有新需求要设计 | 用 `writing-plans` skill |
-| 要执行计划 | 用 `executing-plans` skill |
-| 整理 todo.md | 用 `todo-dispatch` skill |
 
 ## 项目约定
 

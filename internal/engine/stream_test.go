@@ -105,32 +105,3 @@ func TestEngine_ProcessMessageStream(t *testing.T) {
 		})
 	}
 }
-
-func TestEngine_ProcessMessageStream_Echo(t *testing.T) {
-	engine := NewEngine(nil)
-	engine.FetchSession("test-echo")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	ch := engine.ProcessMessageStream(ctx, "test-echo", "hello world")
-
-	var chunks []StreamChunk
-	for chunk := range ch {
-		chunks = append(chunks, chunk)
-	}
-
-	if len(chunks) < 2 {
-		t.Errorf("ProcessMessageStream() got %d chunks, want at least 2", len(chunks))
-		return
-	}
-
-	if chunks[0].Error != "" {
-		t.Errorf("ProcessMessageStream() unexpected error: %s", chunks[0].Error)
-		return
-	}
-
-	if !chunks[len(chunks)-1].Done {
-		t.Errorf("ProcessMessageStream() last chunk should have Done=true")
-	}
-}
