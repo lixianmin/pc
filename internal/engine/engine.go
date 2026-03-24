@@ -13,6 +13,7 @@ import (
 	"github.com/lixianmin/pc/internal/plugin"
 	"github.com/lixianmin/pc/internal/skill"
 	"github.com/lixianmin/pc/internal/task"
+	pkgerr "github.com/lixianmin/pc/pkg/error"
 	pkgtypes "github.com/lixianmin/pc/pkg/types"
 )
 
@@ -130,11 +131,11 @@ func (my *Engine) GetSkill(name string) *skill.Skill {
 // ProcessMessage processes an incoming message with ReAct loop.
 func (my *Engine) ProcessMessage(ctx context.Context, sessionId, message string) (string, error) {
 	if sessionId == "" {
-		return "", fmt.Errorf("session ID cannot be empty")
+		return "", pkgerr.NewAppError("EngineProcess", "session ID cannot be empty")
 	}
 
 	if message == "" {
-		return "", fmt.Errorf("message cannot be empty")
+		return "", pkgerr.NewAppError("EngineProcess", "message cannot be empty")
 	}
 
 	my.mu.RLock()
@@ -142,7 +143,7 @@ func (my *Engine) ProcessMessage(ctx context.Context, sessionId, message string)
 	my.mu.RUnlock()
 
 	if !exists {
-		return "", fmt.Errorf("session not found: %s", sessionId)
+		return "", pkgerr.NewAppErrorf("EngineProcess", "session not found: %s", sessionId)
 	}
 
 	logo.Info("[Session:", sessionId, "] User:", message)
@@ -155,14 +156,14 @@ func (my *Engine) ProcessMessage(ctx context.Context, sessionId, message string)
 		}
 		if response != "" {
 			if err := session.AddMessage("assistant", response); err != nil {
-				return "", fmt.Errorf("failed to save assistant response: %w", err)
+				return "", pkgerr.WrapAppError("EngineProcess", "failed to save assistant response", err)
 			}
 			return response, nil
 		}
 	}
 
 	if err := session.AddMessage("user", message); err != nil {
-		return "", fmt.Errorf("failed to save user message: %w", err)
+		return "", pkgerr.WrapAppError("EngineProcess", "failed to save user message", err)
 	}
 
 	var response string
@@ -172,7 +173,7 @@ func (my *Engine) ProcessMessage(ctx context.Context, sessionId, message string)
 		resp, err := my.reactLoop(ctx, session, message)
 		if err != nil {
 			logo.Error("[Session:", sessionId, "] ReAct loop failed:", err)
-			return "", fmt.Errorf("failed to process message: %w", err)
+			return "", pkgerr.WrapAppError("EngineProcess", "failed to process message", err)
 		}
 		response = resp
 		logo.Info("[Session:", sessionId, "] ReAct loop completed, response length:", len(response))
@@ -182,7 +183,7 @@ func (my *Engine) ProcessMessage(ctx context.Context, sessionId, message string)
 	}
 
 	if err := session.AddMessage("assistant", response); err != nil {
-		return "", fmt.Errorf("failed to save assistant response: %w", err)
+		return "", pkgerr.WrapAppError("EngineProcess", "failed to save assistant response", err)
 	}
 
 	logResp := response
@@ -203,7 +204,7 @@ func (my *Engine) reactLoop(ctx context.Context, session *Session, initialMessag
 
 		response, err := my.callLLM(ctx, session, currentMessage)
 		if err != nil {
-			return "", fmt.Errorf("LLM call failed at iteration %d: %w", iteration+1, err)
+			return "", pkgerr.WrapAppError("EngineReact", fmt.Sprintf("LLM call failed at iteration %d", iteration+1), err)
 		}
 
 		toolCalls, err := ParseToolCalls(response)
@@ -220,7 +221,7 @@ func (my *Engine) reactLoop(ctx context.Context, session *Session, initialMessag
 		logo.Info("[ReAct] Found", len(toolCalls), "tool call(s)")
 
 		if err := session.AddMessage("assistant", response); err != nil {
-			return "", fmt.Errorf("failed to save assistant message: %w", err)
+			return "", pkgerr.WrapAppError("EngineReact", "failed to save assistant message", err)
 		}
 
 		toolCtx, cancel := context.WithTimeout(ctx, my.toolTimeout)
@@ -236,13 +237,13 @@ func (my *Engine) reactLoop(ctx context.Context, session *Session, initialMessag
 
 		toolResultsMessage := FormatToolResults(results)
 		if err := session.AddMessage("system", toolResultsMessage); err != nil {
-			return "", fmt.Errorf("failed to save tool results: %w", err)
+			return "", pkgerr.WrapAppError("EngineReact", "failed to save tool results", err)
 		}
 
 		currentMessage = toolResultsMessage
 	}
 
-	return "", fmt.Errorf("exceeded maximum iterations (%d)", my.maxIterations)
+	return "", pkgerr.NewAppErrorf("EngineReact", "exceeded maximum iterations (%d)", my.maxIterations)
 }
 
 // callLLM calls the LLM via BAML to generate a response.
@@ -333,13 +334,13 @@ func (my *Engine) callLLMViaPlugin(ctx context.Context, session *Session, messag
 	resultMap, ok := result.(map[string]any)
 	if !ok {
 		logo.Error("[Engine.callLLMViaPlugin] Unexpected result type:", resultMap)
-		return "", fmt.Errorf("unexpected LLM response format")
+		return "", pkgerr.NewAppError("EngineLLM", "unexpected LLM response format")
 	}
 
 	content, ok := resultMap["content"].(string)
 	if !ok {
 		logo.Error("[Engine.callLLMViaPlugin] Missing content in result:", resultMap)
-		return "", fmt.Errorf("LLM response missing content")
+		return "", pkgerr.NewAppError("EngineLLM", "LLM response missing content")
 	}
 
 	elapsed := time.Since(startTime)
@@ -552,21 +553,21 @@ func (my *Engine) handleGoalDecomposition(ctx context.Context, sessionId string,
 	}
 
 	if err != nil {
-		return "", fmt.Errorf("failed to parse goal: %w", err)
+		return "", pkgerr.WrapAppError("EngineGoal", "failed to parse goal", err)
 	}
 
 	if goal == "" {
-		return "", fmt.Errorf("goal cannot be empty")
+		return "", pkgerr.NewAppError("EngineGoal", "goal cannot be empty")
 	}
 
 	steps, err := my.decomposer.Decompose(goal)
 	if err != nil {
-		return "", fmt.Errorf("failed to decompose goal: %w", err)
+		return "", pkgerr.WrapAppError("EngineGoal", "failed to decompose goal", err)
 	}
 
 	newTask, err := my.taskManager.AddTask(goal)
 	if err != nil {
-		return "", fmt.Errorf("failed to create task: %w", err)
+		return "", pkgerr.WrapAppError("EngineGoal", "failed to create task", err)
 	}
 
 	for _, step := range steps {
