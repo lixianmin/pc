@@ -39,10 +39,10 @@ func TestEngine_TaskDecomposition(t *testing.T) {
 		},
 		{
 			name:      "regular message does not trigger decomposition",
-			sessionId: "test-task-3",
 			message:   "Hello, how are you?",
+			sessionId: "test-task-3",
+			wantErr:   false,
 			wantTask:  false,
-			wantErr:   true,
 		},
 		{
 			name:      "empty goal returns error",

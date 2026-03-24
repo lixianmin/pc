@@ -123,10 +123,7 @@ func (my *Engine) ListSkills() []skill.Skill {
 }
 
 // GetSkill returns a skill by name.
-func (my *Engine) GetSkill(name string) (*skill.Skill, error) {
-	if my.skillManager == nil {
-		return nil, fmt.Errorf("skill manager not initialized")
-	}
+func (my *Engine) GetSkill(name string) *skill.Skill {
 	return my.skillManager.GetSkill(name)
 }
 

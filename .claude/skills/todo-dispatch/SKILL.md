@@ -5,10 +5,6 @@ description: 将 `docs/03.todo.md` 中的待办项整理成可执行的任务清
 
 # Todo Dispatch
 
-## 触发条件
-
-用户说"整理 todo.md"、"处理 todo"或类似指令。
-
 ## 工作流
 
 ```
@@ -28,30 +24,6 @@ description: 将 `docs/03.todo.md` 中的待办项整理成可执行的任务清
        │
        ▼
      清空 todo.md
-```
-
-## 执行步骤
-
-### 1. 读取 todo.md
-
-读取 `docs/03.todo.md` 获取所有待办项。
-
-### 2. 规划任务
-
-调用 `writing-plans` skill，将所有待办项规划成：
-- 明确的任务边界
-- 可执行的步骤
-- 验收标准
-
-### 3. 输出任务清单
-
-将规划好的任务写入 `docs/superpowers/plans/`。
-
-### 4. 清空 todo.md
-
-```markdown
-# 临时想法收集器
-
 ```
 
 ## 原则

@@ -10,12 +10,7 @@ type Skill struct {
 
 // ISkillManager is the interface for skill management.
 type ISkillManager interface {
-	// LoadSkills loads all skills from the skill directory.
 	LoadSkills(skillDir string) ([]Skill, error)
-
-	// GetSkill returns a skill by name.
-	GetSkill(name string) (*Skill, error)
-
-	// ListSkills returns all loaded skills.
+	GetSkill(name string) *Skill
 	ListSkills() []Skill
 }

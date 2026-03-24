@@ -80,7 +80,7 @@ func TestGetSkill(t *testing.T) {
 		name      string
 		setup     func(*SkillManager)
 		skillName string
-		wantErr   bool
+		wantNil   bool
 	}{
 		{
 			name: "get existing skill",
@@ -90,7 +90,7 @@ func TestGetSkill(t *testing.T) {
 				}
 			},
 			skillName: "test-skill",
-			wantErr:   false,
+			wantNil:   false,
 		},
 		{
 			name: "get non-existent skill",
@@ -98,7 +98,7 @@ func TestGetSkill(t *testing.T) {
 				m.skills = []Skill{}
 			},
 			skillName: "non-existent",
-			wantErr:   true,
+			wantNil:   true,
 		},
 	}
 
@@ -107,12 +107,9 @@ func TestGetSkill(t *testing.T) {
 			m := NewSkillManager()
 			tt.setup(m)
 
-			skill, err := m.GetSkill(tt.skillName)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetSkill() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if !tt.wantErr && skill == nil {
-				t.Error("GetSkill() returned nil")
+			skill := m.GetSkill(tt.skillName)
+			if (skill == nil) != tt.wantNil {
+				t.Errorf("GetSkill() nil = %v, wantNil %v", skill == nil, tt.wantNil)
 			}
 		})
 	}

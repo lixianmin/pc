@@ -105,13 +105,13 @@ func parseSkillFile(filePath string) (Skill, error) {
 }
 
 // GetSkill returns a skill by name.
-func (my *SkillManager) GetSkill(name string) (*Skill, error) {
+func (my *SkillManager) GetSkill(name string) *Skill {
 	for _, skill := range my.skills {
 		if skill.Name == name {
-			return &skill, nil
+			return &skill
 		}
 	}
-	return nil, fmt.Errorf("skill not found: %s", name)
+	return nil
 }
 
 // ListSkills returns all loaded skills.
