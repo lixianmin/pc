@@ -337,18 +337,39 @@ func (e *Executor) Execute(name string, params map[string]any) (any, error) {
 2. 更新 `Makefile` 添加 `baml-cli generate`
 3. 更新文档
 
-## 配置变更
+## 配置管理
 
-### config.yml
+### 纯 BAML 方式
+
+LLM 配置完全由 `.baml` 文件 + 环境变量管理，不在 `config.yml` 中配置。
+
+### 环境变量
+
+```bash
+# ~/.pc/.env 或系统环境变量
+OPENAI_API_KEY=sk-xxx
+ANTHROPIC_API_KEY=sk-xxx
+
+# Ollama 本地模型（可选）
+OLLAMA_BASE_URL=http://localhost:11434
+```
+
+### 切换 LLM Provider
+
+修改 `.baml` 文件中的 client 引用：
+
+```baml
+// 在 chat.baml 中切换 client
+function Chat(...) -> string {
+  client "gpt-4o"    // 改为 "claude" 或 "ollama" 即可切换
+  prompt #"... "#
+}
+```
+
+### config.yml（保持不变）
 
 ```yaml
-# 新增：LLM 配置
-llm:
-  provider: openai          # openai, anthropic, ollama
-  model: gpt-4o-mini
-  # api_key 从环境变量读取
-
-# 保留：Agent 配置
+# Agent 配置
 agent:
   name: PersonalClaw
   profession: 通用助手
@@ -356,22 +377,11 @@ agent:
     - 友好
     - 专业
 
-# 保留：Channel 插件
+# Channel 插件
 plugins:
   channel:
     telegram:
       enabled: true
-```
-
-### 环境变量
-
-```bash
-# LLM API Keys
-OPENAI_API_KEY=sk-xxx
-ANTHROPIC_API_KEY=sk-xxx
-
-# Ollama (可选)
-OLLAMA_BASE_URL=http://localhost:11434
 ```
 
 ## Makefile 变更
