@@ -7,8 +7,6 @@ import (
 	"os/exec"
 	"strings"
 	"time"
-
-	"github.com/lixianmin/pc/pkg/types"
 )
 
 type BashTool struct {
@@ -25,32 +23,6 @@ func NewBashTool() *BashTool {
 
 func (my *BashTool) Name() string {
 	return "bash"
-}
-
-func (my *BashTool) Description() string {
-	return "Execute shell commands"
-}
-
-func (my *BashTool) Parameters() map[string]types.ParamSchema {
-	return map[string]types.ParamSchema{
-		"command": {
-			Type:        "string",
-			Required:    true,
-			Description: "The shell command to execute",
-		},
-		"workdir": {
-			Type:        "string",
-			Required:    false,
-			Description: "Working directory (default: current directory)",
-			Default:     "",
-		},
-		"timeout": {
-			Type:        "number",
-			Required:    false,
-			Description: "Timeout in seconds (default: 120)",
-			Default:     float64(120),
-		},
-	}
 }
 
 func (my *BashTool) Execute(ctx context.Context, params map[string]any) (string, error) {

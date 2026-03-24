@@ -7,8 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/lixianmin/pc/pkg/types"
 )
 
 type ReadTool struct{}
@@ -19,32 +17,6 @@ func NewReadTool() *ReadTool {
 
 func (my *ReadTool) Name() string {
 	return "read"
-}
-
-func (my *ReadTool) Description() string {
-	return "Read file contents"
-}
-
-func (my *ReadTool) Parameters() map[string]types.ParamSchema {
-	return map[string]types.ParamSchema{
-		"path": {
-			Type:        "string",
-			Required:    true,
-			Description: "The absolute path to the file",
-		},
-		"offset": {
-			Type:        "number",
-			Required:    false,
-			Description: "Starting line number (1-indexed)",
-			Default:     float64(1),
-		},
-		"limit": {
-			Type:        "number",
-			Required:    false,
-			Description: "Maximum number of lines to return",
-			Default:     float64(2000),
-		},
-	}
 }
 
 func (my *ReadTool) Execute(ctx context.Context, params map[string]any) (string, error) {

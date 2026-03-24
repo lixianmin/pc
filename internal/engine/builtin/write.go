@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"github.com/lixianmin/pc/pkg/types"
 )
 
 type WriteTool struct{}
@@ -17,25 +15,6 @@ func NewWriteTool() *WriteTool {
 
 func (my *WriteTool) Name() string {
 	return "write"
-}
-
-func (my *WriteTool) Description() string {
-	return "Write file contents"
-}
-
-func (my *WriteTool) Parameters() map[string]types.ParamSchema {
-	return map[string]types.ParamSchema{
-		"path": {
-			Type:        "string",
-			Required:    true,
-			Description: "The absolute path to write to",
-		},
-		"content": {
-			Type:        "string",
-			Required:    true,
-			Description: "The content to write to the file",
-		},
-	}
 }
 
 func (my *WriteTool) Execute(ctx context.Context, params map[string]any) (string, error) {

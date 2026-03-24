@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-
-	"github.com/lixianmin/pc/pkg/types"
 )
 
 type GrepTool struct{}
@@ -20,32 +18,6 @@ func NewGrepTool() *GrepTool {
 
 func (my *GrepTool) Name() string {
 	return "grep"
-}
-
-func (my *GrepTool) Description() string {
-	return "Search file contents using regex"
-}
-
-func (my *GrepTool) Parameters() map[string]types.ParamSchema {
-	return map[string]types.ParamSchema{
-		"pattern": {
-			Type:        "string",
-			Required:    true,
-			Description: "The regex pattern to search for",
-		},
-		"path": {
-			Type:        "string",
-			Required:    false,
-			Description: "The directory to search (default: current directory)",
-			Default:     "",
-		},
-		"include": {
-			Type:        "string",
-			Required:    false,
-			Description: "File pattern filter (e.g., *.go)",
-			Default:     "",
-		},
-	}
 }
 
 func (my *GrepTool) Execute(ctx context.Context, params map[string]any) (string, error) {

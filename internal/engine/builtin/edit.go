@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-
-	"github.com/lixianmin/pc/pkg/types"
 )
 
 type EditTool struct{}
@@ -17,36 +15,6 @@ func NewEditTool() *EditTool {
 
 func (my *EditTool) Name() string {
 	return "edit"
-}
-
-func (my *EditTool) Description() string {
-	return "Edit file by string replacement"
-}
-
-func (my *EditTool) Parameters() map[string]types.ParamSchema {
-	return map[string]types.ParamSchema{
-		"path": {
-			Type:        "string",
-			Required:    true,
-			Description: "The absolute path to edit",
-		},
-		"old_string": {
-			Type:        "string",
-			Required:    true,
-			Description: "The text to replace",
-		},
-		"new_string": {
-			Type:        "string",
-			Required:    true,
-			Description: "The replacement text",
-		},
-		"replace_all": {
-			Type:        "boolean",
-			Required:    false,
-			Description: "Replace all occurrences (default false)",
-			Default:     false,
-		},
-	}
 }
 
 func (my *EditTool) Execute(ctx context.Context, params map[string]any) (string, error) {

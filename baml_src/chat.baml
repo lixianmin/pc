@@ -6,7 +6,9 @@ class Message {
   content string
 }
 
-function Chat(messages: Message[], system_prompt: string) -> ChatResponse | BashTool | ReadTool | WriteTool | EditTool | WebSearchTool | WebFetchTool | UseSkill {
+type ToolsList = BashTool | ReadTool | WriteTool | EditTool | WebSearchTool | WebFetchTool
+
+function Chat(messages: Message[], system_prompt: string) -> ChatResponse | ToolsList | UseSkill {
   client GLM47
   prompt #"
     {{ _.role("system") }}

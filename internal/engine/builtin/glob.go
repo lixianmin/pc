@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-
-	"github.com/lixianmin/pc/pkg/types"
 )
 
 type GlobTool struct{}
@@ -17,26 +15,6 @@ func NewGlobTool() *GlobTool {
 
 func (my *GlobTool) Name() string {
 	return "glob"
-}
-
-func (my *GlobTool) Description() string {
-	return "File name pattern matching"
-}
-
-func (my *GlobTool) Parameters() map[string]types.ParamSchema {
-	return map[string]types.ParamSchema{
-		"pattern": {
-			Type:        "string",
-			Required:    true,
-			Description: "The glob pattern (e.g., *.go)",
-		},
-		"path": {
-			Type:        "string",
-			Required:    false,
-			Description: "The directory to search (default: current directory)",
-			Default:     "",
-		},
-	}
 }
 
 func (my *GlobTool) Execute(ctx context.Context, params map[string]any) (string, error) {
