@@ -9,6 +9,7 @@ import (
 
 	"github.com/lixianmin/logo"
 	"github.com/lixianmin/pc/internal/debug"
+	"github.com/lixianmin/pc/internal/llm"
 	"github.com/lixianmin/pc/internal/plugin"
 	"github.com/lixianmin/pc/internal/skill"
 	"github.com/lixianmin/pc/internal/task"
@@ -42,6 +43,10 @@ type Engine struct {
 
 	// Skill management
 	skillManager *skill.SkillManager
+
+	// TEMP: BAML integration - 阶段 3 删除 useBAML
+	llmClient *llm.Client
+	useBAML   bool
 }
 
 // NewEngine creates a new core engine.
@@ -53,6 +58,8 @@ func NewEngine(pm *plugin.PluginManager) *Engine {
 		toolTimeout:   30 * time.Second,
 		taskManager:   task.NewManager(""),
 		decomposer:    task.NewDecomposer(),
+		llmClient:     llm.NewClient(),
+		useBAML:       false, // TEMP: 默认使用插件，阶段 3 改为 true
 	}
 }
 
@@ -94,6 +101,12 @@ func (my *Engine) SetLLMPlugin(p *types.Plugin) {
 // SetSystemPrompt sets the complete system prompt for LLM calls.
 func (my *Engine) SetSystemPrompt(prompt string) {
 	my.systemPrompt = prompt
+}
+
+// SetUseBAML enables or disables BAML for LLM calls.
+// TEMP: 阶段 3 删除此方法，useBAML 默认为 true
+func (my *Engine) SetUseBAML(useBAML bool) {
+	my.useBAML = useBAML
 }
 
 // BuildSystemPrompt builds the dynamic system prompt with tools and skills.
@@ -254,6 +267,53 @@ func (my *Engine) reactLoop(ctx context.Context, session *Session, initialMessag
 
 // callLLM calls the LLM plugin to generate a response.
 func (my *Engine) callLLM(ctx context.Context, session *Session, message string) (string, error) {
+	// TEMP: 根据 useBAML 切换调用方式，阶段 3 删除 if 分支
+	if my.useBAML {
+		return my.callLLMViaBAML(ctx, session, message)
+	}
+	return my.callLLMViaPlugin(ctx, session, message)
+}
+
+// callLLMViaBAML 使用 BAML 调用 LLM
+func (my *Engine) callLLMViaBAML(ctx context.Context, session *Session, message string) (string, error) {
+	startTime := time.Now()
+
+	systemPrompt := my.buildDynamicSystemPrompt()
+	if my.systemPrompt != "" {
+		systemPrompt = my.systemPrompt + "\n\n" + systemPrompt
+	}
+
+	history := session.GetMessages()
+	var messages []llm.Message
+	for _, msg := range history {
+		messages = append(messages, llm.Message{
+			Role:    msg.Role,
+			Content: msg.Content,
+		})
+	}
+	messages = append(messages, llm.Message{
+		Role:    "user",
+		Content: message,
+	})
+
+	content, err := my.llmClient.Chat(ctx, messages, systemPrompt)
+	if err != nil {
+		logo.Error("[Engine.callLLMViaBAML] Chat failed:", err)
+		return "", err
+	}
+
+	elapsed := time.Since(startTime)
+	var totalChars int
+	for _, m := range messages {
+		totalChars += len(m.Content)
+	}
+	logo.Info("[Engine.callLLMViaBAML] LLM call completed, chars=", totalChars, " time=", elapsed, " response_len=", len(content))
+
+	return content, nil
+}
+
+// callLLMViaPlugin 使用插件调用 LLM（原有实现）
+func (my *Engine) callLLMViaPlugin(ctx context.Context, session *Session, message string) (string, error) {
 	startTime := time.Now()
 
 	var history = session.GetMessages()
@@ -299,19 +359,19 @@ func (my *Engine) callLLM(ctx context.Context, session *Session, message string)
 
 	result, err := my.pluginManager.CallPlugin(my.llmPlugin, "complete", params)
 	if err != nil {
-		logo.Error("[Engine.callLLM] Plugin call failed:", err)
+		logo.Error("[Engine.callLLMViaPlugin] Plugin call failed:", err)
 		return "", err
 	}
 
 	resultMap, ok := result.(map[string]any)
 	if !ok {
-		logo.Error("[Engine.callLLM] Unexpected result type:", resultMap)
+		logo.Error("[Engine.callLLMViaPlugin] Unexpected result type:", resultMap)
 		return "", fmt.Errorf("unexpected LLM response format")
 	}
 
 	content, ok := resultMap["content"].(string)
 	if !ok {
-		logo.Error("[Engine.callLLM] Missing content in result:", resultMap)
+		logo.Error("[Engine.callLLMViaPlugin] Missing content in result:", resultMap)
 		return "", fmt.Errorf("LLM response missing content")
 	}
 
@@ -324,7 +384,7 @@ func (my *Engine) callLLM(ctx context.Context, session *Session, message string)
 	if requestId != "" {
 		logo.Info("[LLM] req=", requestId, " tokens=", totalChars, " time=", elapsed)
 	} else {
-		logo.Info("[Engine.callLLM] LLM call completed, response length:", len(content))
+		logo.Info("[Engine.callLLMViaPlugin] LLM call completed, response length:", len(content))
 	}
 
 	return content, nil
