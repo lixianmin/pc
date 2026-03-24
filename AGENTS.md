@@ -21,7 +21,26 @@ Aligned with [00.constitution.md](./notes/00.constitution.md):
 | [02.arch.md](./notes/02.arch.md) | Architecture, tech stack decisions | Before architecture changes |
 | [03.tasks.md](./notes/03.tasks.md) | Task list **index** (milestone overview) | During development tracking |
 | [04.lesson.md](./notes/04.lesson.md) | Lessons learned, historical mistakes | **Second step of every task** |
-| [05.todo.md](./notes/05.todo.md) | Pending tasks and decisions | For tracking todos |
+| [05.todo.md](./notes/05.todo.md) | **临时想法收集器** | 用户记录临时发现的问题 |
+
+### 05.todo.md 使用方式
+
+**用途**：用户在 review 代码时记录临时发现的问题和想法
+
+**状态**：大多数情况下是空的
+
+**工作流**：
+1. 用户 review 代码，发现问题，直接编辑 `05.todo.md` 添加内容
+2. AI 读取 `05.todo.md`，整理成任务
+3. 任务放到 `docs/superpowers/tasks/` 或相关计划文档
+4. AI 处理任务
+5. **清空** `05.todo.md`
+
+**注意**：
+- 不要在 `05.todo.md` 中添加"已完成"列表
+- 不要添加变更记录
+- 不要添加历史内容
+- 处理完任务后要清空文件
 
 ### Task Execution Order
 
@@ -192,10 +211,83 @@ func TestProcessMessage(t *testing.T) {
 }
 ```
 
-### Integration Tests
-- Prefer integration tests over mocks
-- Use real dependencies when possible
-- Integration test files: `*_integration_test.go` or in `tests/` directory
+### BAML Tests
+- **Convention**: BAML tests are written in the same `.baml` files alongside function definitions
+- Use `test` keyword to define test cases
+- Test different clients with `@client(ClientName)` annotation
+
+- Tests are run with `baml test <function_name>` or `baml test <test_name>` command
+
+Example:
+```baml
+function Chat(messages: Message[], system_prompt: string) -> string {
+  client "Gpt4o"
+  prompt #"
+    {{ _.role("system") }}
+    {{ system_prompt }}
+    {% for msg in messages %}
+    {{ _.role(msg.role) }}
+    {{ msg.content }}
+    {% endfor %}
+  "#
+}
+
+test ChatBasic {
+  functions [Chat]
+  args {
+    messages [
+      { role: "user", content: "Hello" }
+    ]
+    system_prompt: "You are a helpful assistant."
+  }
+}
+
+test ChatWithGLM4 {
+  functions [Chat]
+  args {
+    messages [
+      { role: "user", content: "What is 2+2?" }
+    ]
+    system_prompt: "You are a helpful assistant. Answer briefly."
+  }
+  @client(GLM4)
+}
+
+test ChatWithGLM5 {
+  functions [Chat]
+  args {
+    messages [
+      { role: "user", content: "What is the capital of France?" }
+    ]
+    system_prompt: "You are a helpful assistant. Answer briefly."
+  }
+  @client(GLM5)
+}
+
+test ChatMultiTurn {
+  functions [Chat]
+  args {
+    messages [
+      { role: "user", content: "My name is Alice." },
+      { role: "assistant", content: "Nice to meet you, Alice!" },
+      { role: "user", content: "What is my name?" }
+    ]
+    system_prompt: "You are a helpful assistant."
+  }
+}
+
+test ChatChineseInput {
+  functions [Chat]
+  args {
+    messages [
+      { role: "user", content: "你好，请介绍一下你自己。" }
+    ]
+    system_prompt: "你是一个有帮助的助手。  }
+  @client(GLM4)
+}
+```
+
+
 
 ### BAML Tests
 - **Convention**: BAML tests are written in the same `.baml` files alongside function definitions
