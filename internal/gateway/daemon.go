@@ -201,6 +201,9 @@ func (my *Daemon) Run() error {
 
 	eng := engine.NewEngine(pm)
 
+	// TEMP: 启用 BAML，阶段 3 删除此行
+	eng.SetUseBAML(true)
+
 	if cfg.GetPromptsDir() != "" {
 		recorder := debug.NewPromptRecorder(cfg.GetPromptsDir(), cfg.GetMaxPromptFiles())
 		eng.SetPromptRecorder(recorder)
