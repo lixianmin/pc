@@ -335,7 +335,26 @@ func (e *Executor) Execute(name string, params map[string]any) (any, error) {
 
 1. 清理 `PluginManager` 中 LLM/Tool 相关代码
 2. 更新 `Makefile`：移除 LLM/Tool 插件构建，添加 BAML generate
-3. 更新文档
+3. 更新文档：
+   - 更新 `notes/02.arch.md` 反映新架构
+   - 创建 `docs/superpowers/archive/` 目录
+   - 归档已完成的 plans 和过时的 specs
+4. 删除 `examples/plugins/llm/` 和 `examples/plugins/tool/`
+
+### 文档归档清单
+
+以下文档在迁移完成后归档到 `docs/superpowers/archive/`：
+
+**specs/ 归档**：
+- `2026-03-16-architecture-review-design.md` - 已实施
+- `2026-03-19-builtin-tools-design.md` - 被 BAML 设计取代
+
+**plans/ 归档**：
+- `2026-03-16-session-consolidation.md` - 已完成
+- `2026-03-16-streaming-support.md` - 已完成
+- `2026-03-19-builtin-tools-implementation.md` - 被 BAML 迁移取代
+- `2026-03-19-m5-task-integration.md` - 已完成
+- `2026-03-19-skill-integration.md` - 已完成
 
 ## 配置管理
 
