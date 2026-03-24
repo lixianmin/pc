@@ -202,25 +202,25 @@ func (my *Engine) reactLoop(ctx context.Context, session *Session, initialMessag
 	for iteration := 0; iteration < my.maxIterations; iteration++ {
 		logo.Info("[ReAct] Iteration", iteration+1, "/", my.maxIterations)
 
-		response, err := my.callLLM(ctx, session, currentMessage)
+		result, err := my.callLLM(ctx, session, currentMessage)
 		if err != nil {
 			return "", pkgerr.WrapAppError("EngineReact", fmt.Sprintf("LLM call failed at iteration %d", iteration+1), err)
 		}
 
-		toolCalls, err := ParseToolCalls(response)
-		if err != nil {
-			logo.Warn("[ReAct] Failed to parse tool calls, returning response:", err)
-			return response, nil
+		if result.IsChatResponse() {
+			logo.Info("[ReAct] ChatResponse received, returning final response")
+			return result.AsChatResponse().Content, nil
 		}
 
-		if len(toolCalls) == 0 {
-			logo.Info("[ReAct] No tool calls found, returning final response")
-			return response, nil
+		toolCall := my.convertToToolCall(result)
+		if toolCall == nil {
+			logo.Warn("[ReAct] Unknown response type, returning as-is")
+			return "[Unknown response type]", nil
 		}
 
-		logo.Info("[ReAct] Found", len(toolCalls), "tool call(s)")
+		logo.Info("[ReAct] Tool call:", toolCall.Name)
 
-		if err := session.AddMessage("assistant", response); err != nil {
+		if err := session.AddMessage("assistant", fmt.Sprintf("[Tool: %s]", toolCall.Name)); err != nil {
 			return "", pkgerr.WrapAppError("EngineReact", "failed to save assistant message", err)
 		}
 
@@ -233,9 +233,9 @@ func (my *Engine) reactLoop(ctx context.Context, session *Session, initialMessag
 		} else {
 			executor = NewToolExecutor(my.pluginManager)
 		}
-		results := executor.ExecuteMultiple(toolCtx, toolCalls)
+		toolResult := executor.Execute(toolCtx, *toolCall)
 
-		toolResultsMessage := FormatToolResults(results)
+		toolResultsMessage := FormatToolResult(toolResult)
 		if err := session.AddMessage("system", toolResultsMessage); err != nil {
 			return "", pkgerr.WrapAppError("EngineReact", "failed to save tool results", err)
 		}
@@ -246,8 +246,36 @@ func (my *Engine) reactLoop(ctx context.Context, session *Session, initialMessag
 	return "", pkgerr.NewAppErrorf("EngineReact", "exceeded maximum iterations (%d)", my.maxIterations)
 }
 
+func (my *Engine) convertToToolCall(result *ChatResult) *ToolCall {
+	switch {
+	case result.IsBashTool():
+		tool := result.AsBashTool()
+		return &ToolCall{Name: "bash", Params: map[string]interface{}{"command": tool.Command}}
+	case result.IsReadTool():
+		tool := result.AsReadTool()
+		return &ToolCall{Name: "read", Params: map[string]interface{}{"file_path": tool.File_path}}
+	case result.IsWriteTool():
+		tool := result.AsWriteTool()
+		return &ToolCall{Name: "write", Params: map[string]interface{}{"file_path": tool.File_path, "content": tool.Content}}
+	case result.IsEditTool():
+		tool := result.AsEditTool()
+		return &ToolCall{Name: "edit", Params: map[string]interface{}{"file_path": tool.File_path, "old_string": tool.Old_string, "new_string": tool.New_string}}
+	case result.IsWebSearchTool():
+		tool := result.AsWebSearchTool()
+		return &ToolCall{Name: "web_search", Params: map[string]interface{}{"query": tool.Query}}
+	case result.IsWebFetchTool():
+		tool := result.AsWebFetchTool()
+		return &ToolCall{Name: "web_fetch", Params: map[string]interface{}{"url": tool.Url}}
+	case result.IsUseSkill():
+		tool := result.AsUseSkill()
+		return &ToolCall{Name: "use_skill", Params: map[string]interface{}{"skill_name": tool.Skill_name, "input": tool.Input}}
+	default:
+		return nil
+	}
+}
+
 // callLLM calls the LLM via BAML to generate a response.
-func (my *Engine) callLLM(ctx context.Context, session *Session, message string) (string, error) {
+func (my *Engine) callLLM(ctx context.Context, session *Session, message string) (*ChatResult, error) {
 	startTime := time.Now()
 
 	var systemPrompt = my.buildDynamicSystemPrompt()
@@ -268,10 +296,10 @@ func (my *Engine) callLLM(ctx context.Context, session *Session, message string)
 		Content: message,
 	})
 
-	content, err := my.llmClient.Chat(ctx, messages, systemPrompt)
+	result, err := my.llmClient.Chat(ctx, messages, systemPrompt)
 	if err != nil {
-		logo.Error("[Engine.callLLMViaBAML] Chat failed:", err)
-		return "", err
+		logo.Error("[Engine.callLLM] Chat failed:", err)
+		return nil, err
 	}
 
 	elapsed := time.Since(startTime)
@@ -279,9 +307,9 @@ func (my *Engine) callLLM(ctx context.Context, session *Session, message string)
 	for _, m := range messages {
 		totalChars += len(m.Content)
 	}
-	logo.Info("[Engine.callLLMViaBAML] LLM call completed, chars=", totalChars, " time=", elapsed, " response_len=", len(content))
+	logo.Info("[Engine.callLLM] LLM call completed, chars=", totalChars, " time=", elapsed)
 
-	return content, nil
+	return result, nil
 }
 
 // callLLMViaPlugin 使用插件调用 LLM（原有实现）
