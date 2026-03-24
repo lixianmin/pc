@@ -131,13 +131,13 @@ func readFileContent(path string) (string, error) {
 }
 
 // BuildContext builds the context string from references.
-func (p *ParsedInput) BuildContext() string {
-	if len(p.Refs) == 0 {
+func (my *ParsedInput) BuildContext() string {
+	if len(my.Refs) == 0 {
 		return ""
 	}
 
 	var parts []string
-	for _, ref := range p.Refs {
+	for _, ref := range my.Refs {
 		switch ref.Type {
 		case "skill":
 			parts = append(parts, fmt.Sprintf("## Skill: %s\n%s", ref.Name, ref.Content))
@@ -150,9 +150,9 @@ func (p *ParsedInput) BuildContext() string {
 }
 
 // GetReferencedSkills returns the names of referenced skills.
-func (p *ParsedInput) GetReferencedSkills() []string {
+func (my *ParsedInput) GetReferencedSkills() []string {
 	var skills []string
-	for _, ref := range p.Refs {
+	for _, ref := range my.Refs {
 		if ref.Type == "skill" {
 			skills = append(skills, ref.Name)
 		}
@@ -161,9 +161,9 @@ func (p *ParsedInput) GetReferencedSkills() []string {
 }
 
 // GetReferencedFiles returns the paths of referenced files.
-func (p *ParsedInput) GetReferencedFiles() []string {
+func (my *ParsedInput) GetReferencedFiles() []string {
 	var files []string
-	for _, ref := range p.Refs {
+	for _, ref := range my.Refs {
 		if ref.Type == "file" {
 			files = append(files, ref.Name)
 		}

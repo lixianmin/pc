@@ -33,13 +33,13 @@ func NewSecurityChecker(config SecurityConfig) *SecurityChecker {
 	return &SecurityChecker{config: config}
 }
 
-func (s *SecurityChecker) CheckToolCall(call ToolCall) error {
-	if err := s.checkToolAllowed(call.Name); err != nil {
+func (my *SecurityChecker) CheckToolCall(call ToolCall) error {
+	if err := my.checkToolAllowed(call.Name); err != nil {
 		return err
 	}
 
 	if call.Name == "bash" {
-		if err := s.checkShellCommand(call.Params); err != nil {
+		if err := my.checkShellCommand(call.Params); err != nil {
 			return err
 		}
 	}
@@ -47,18 +47,18 @@ func (s *SecurityChecker) CheckToolCall(call ToolCall) error {
 	return nil
 }
 
-func (s *SecurityChecker) checkToolAllowed(toolName string) error {
-	if len(s.config.BlockedTools) > 0 {
-		for _, blocked := range s.config.BlockedTools {
+func (my *SecurityChecker) checkToolAllowed(toolName string) error {
+	if len(my.config.BlockedTools) > 0 {
+		for _, blocked := range my.config.BlockedTools {
 			if toolName == blocked {
 				return fmt.Errorf("tool '%s' is blocked", toolName)
 			}
 		}
 	}
 
-	if len(s.config.AllowedTools) > 0 {
+	if len(my.config.AllowedTools) > 0 {
 		allowed := false
-		for _, a := range s.config.AllowedTools {
+		for _, a := range my.config.AllowedTools {
 			if toolName == a {
 				allowed = true
 				break
@@ -72,41 +72,41 @@ func (s *SecurityChecker) checkToolAllowed(toolName string) error {
 	return nil
 }
 
-func (s *SecurityChecker) checkShellCommand(params map[string]interface{}) error {
+func (my *SecurityChecker) checkShellCommand(params map[string]interface{}) error {
 	command, ok := params["command"].(string)
 	if !ok {
 		return nil
 	}
 
-	if len(s.config.BlockedCommands) > 0 {
-		for _, blocked := range s.config.BlockedCommands {
+	if len(my.config.BlockedCommands) > 0 {
+		for _, blocked := range my.config.BlockedCommands {
 			if strings.Contains(command, blocked) {
 				return fmt.Errorf("command contains blocked pattern: %s", blocked)
 			}
 		}
 	}
 
-	if s.isDangerousCommand(command) {
-		return fmt.Errorf("dangerous command detected: %s", s.maskCommand(command))
+	if my.isDangerousCommand(command) {
+		return fmt.Errorf("dangerous command detected: %s", my.maskCommand(command))
 	}
 
-	if len(s.config.AllowedCommands) > 0 {
+	if len(my.config.AllowedCommands) > 0 {
 		allowed := false
-		for _, prefix := range s.config.AllowedCommands {
+		for _, prefix := range my.config.AllowedCommands {
 			if strings.HasPrefix(command, prefix) {
 				allowed = true
 				break
 			}
 		}
 		if !allowed {
-			return fmt.Errorf("command not in allowed list: %s", s.maskCommand(command))
+			return fmt.Errorf("command not in allowed list: %s", my.maskCommand(command))
 		}
 	}
 
 	return nil
 }
 
-func (s *SecurityChecker) isDangerousCommand(command string) bool {
+func (my *SecurityChecker) isDangerousCommand(command string) bool {
 	dangerousPatterns := []string{
 		`rm\s+-rf\s+/`,
 		`rm\s+-rf\s+/\*`,
@@ -149,28 +149,28 @@ func (s *SecurityChecker) isDangerousCommand(command string) bool {
 	return false
 }
 
-func (s *SecurityChecker) maskCommand(command string) string {
+func (my *SecurityChecker) maskCommand(command string) string {
 	if len(command) > 50 {
 		return command[:47] + "..."
 	}
 	return command
 }
 
-func (s *SecurityChecker) NeedsConfirmation(call ToolCall) bool {
-	if !s.config.ConfirmDangerous {
+func (my *SecurityChecker) NeedsConfirmation(call ToolCall) bool {
+	if !my.config.ConfirmDangerous {
 		return false
 	}
 
 	if call.Name == "bash" {
 		if command, ok := call.Params["command"].(string); ok {
-			return s.isDangerousCommand(command) || s.isPotentiallyDestructive(command)
+			return my.isDangerousCommand(command) || my.isPotentiallyDestructive(command)
 		}
 	}
 
 	return false
 }
 
-func (s *SecurityChecker) isPotentiallyDestructive(command string) bool {
+func (my *SecurityChecker) isPotentiallyDestructive(command string) bool {
 	destructivePatterns := []string{
 		"rm",
 		"rmdir",
@@ -191,17 +191,17 @@ func (s *SecurityChecker) isPotentiallyDestructive(command string) bool {
 	return false
 }
 
-func (s *SecurityChecker) Confirm(ctx context.Context, call ToolCall) (bool, error) {
-	if s.config.ConfirmCallback != nil {
-		return s.config.ConfirmCallback(call.Name, call.Params)
+func (my *SecurityChecker) Confirm(ctx context.Context, call ToolCall) (bool, error) {
+	if my.config.ConfirmCallback != nil {
+		return my.config.ConfirmCallback(call.Name, call.Params)
 	}
 
 	return false, fmt.Errorf("confirmation callback not configured")
 }
 
-func (s *SecurityChecker) ValidateMultiple(calls []ToolCall) error {
+func (my *SecurityChecker) ValidateMultiple(calls []ToolCall) error {
 	for i, call := range calls {
-		if err := s.CheckToolCall(call); err != nil {
+		if err := my.CheckToolCall(call); err != nil {
 			return fmt.Errorf("tool call %d (%s) failed security check: %w", i+1, call.Name, err)
 		}
 	}

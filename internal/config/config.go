@@ -18,9 +18,9 @@ type SystemPromptConfig struct {
 
 // GetFile returns the system prompt file path, or default if empty.
 // Deprecated: Use GetAgentPath instead.
-func (s SystemPromptConfig) GetFile() string {
-	if s.File != "" {
-		return s.File
+func (my SystemPromptConfig) GetFile() string {
+	if my.File != "" {
+		return my.File
 	}
 	return ""
 }

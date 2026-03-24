@@ -8,17 +8,17 @@ import (
 	"time"
 
 	"github.com/lixianmin/logo"
+	"github.com/lixianmin/pc/baml_client/types"
 	"github.com/lixianmin/pc/internal/debug"
-	"github.com/lixianmin/pc/internal/llm"
 	"github.com/lixianmin/pc/internal/plugin"
 	"github.com/lixianmin/pc/internal/skill"
 	"github.com/lixianmin/pc/internal/task"
-	"github.com/lixianmin/pc/pkg/types"
+	pkgtypes "github.com/lixianmin/pc/pkg/types"
 )
 
 type PluginCaller interface {
-	ListPlugins() []*types.Plugin
-	CallPlugin(plugin *types.Plugin, method string, params any) (any, error)
+	ListPlugins() []*pkgtypes.Plugin
+	CallPlugin(plugin *pkgtypes.Plugin, method string, params any) (any, error)
 }
 
 // Engine is the core engine implementation.
@@ -27,7 +27,7 @@ type Engine struct {
 	mockCaller     PluginCaller
 	sessions       map[string]*Session
 	mu             sync.RWMutex
-	llmPlugin      *types.Plugin
+	llmPlugin      *pkgtypes.Plugin
 	systemPrompt   string
 	maxIterations  int
 	toolTimeout    time.Duration
@@ -41,7 +41,7 @@ type Engine struct {
 	// Skill management
 	skillManager *skill.SkillManager
 
-	llmClient *llm.Client
+	llmClient *Client
 }
 
 // NewEngine creates a new core engine.
@@ -53,7 +53,7 @@ func NewEngine(pm *plugin.PluginManager) *Engine {
 		toolTimeout:   30 * time.Second,
 		taskManager:   task.NewManager(""),
 		decomposer:    task.NewDecomposer(),
-		llmClient:     llm.NewClient(),
+		llmClient:     NewClient(),
 	}
 }
 
@@ -83,7 +83,7 @@ func (my *Engine) SetToolTimeout(d time.Duration) {
 }
 
 // SetLLMPlugin sets the LLM plugin to use for generating responses.
-func (my *Engine) SetLLMPlugin(p *types.Plugin) {
+func (my *Engine) SetLLMPlugin(p *pkgtypes.Plugin) {
 	my.llmPlugin = p
 }
 
@@ -250,27 +250,22 @@ func (my *Engine) reactLoop(ctx context.Context, session *Session, initialMessag
 
 // callLLM calls the LLM via BAML to generate a response.
 func (my *Engine) callLLM(ctx context.Context, session *Session, message string) (string, error) {
-	return my.callLLMViaBAML(ctx, session, message)
-}
-
-// callLLMViaBAML 使用 BAML 调用 LLM
-func (my *Engine) callLLMViaBAML(ctx context.Context, session *Session, message string) (string, error) {
 	startTime := time.Now()
 
-	systemPrompt := my.buildDynamicSystemPrompt()
+	var systemPrompt = my.buildDynamicSystemPrompt()
 	if my.systemPrompt != "" {
 		systemPrompt = my.systemPrompt + "\n\n" + systemPrompt
 	}
 
 	history := session.GetMessages()
-	var messages []llm.Message
+	var messages []types.Message
 	for _, msg := range history {
-		messages = append(messages, llm.Message{
+		messages = append(messages, types.Message{
 			Role:    msg.Role,
 			Content: msg.Content,
 		})
 	}
-	messages = append(messages, llm.Message{
+	messages = append(messages, types.Message{
 		Role:    "user",
 		Content: message,
 	})
@@ -372,7 +367,7 @@ func (my *Engine) buildDynamicSystemPrompt() string {
 		parts = append(parts, my.systemPrompt)
 	}
 
-	availableTools := my.getAvailableTools()
+	var availableTools = my.getAvailableTools()
 	if len(availableTools) > 0 {
 		parts = append(parts, "", my.buildToolGuide(availableTools))
 	}
@@ -407,7 +402,7 @@ func (my *Engine) getAvailableTools() []ToolInfo {
 
 		plugins := my.pluginManager.ListPlugins()
 		for _, p := range plugins {
-			if p.Type == types.PluginTypeTool && p.Enabled {
+			if p.Type == pkgtypes.PluginTypeTool && p.Enabled {
 				tools = append(tools, ToolInfo{
 					Name:        p.Name,
 					Description: fmt.Sprintf("%s tool", p.Name),
@@ -421,7 +416,7 @@ func (my *Engine) getAvailableTools() []ToolInfo {
 	if my.mockCaller != nil {
 		plugins := my.mockCaller.ListPlugins()
 		for _, p := range plugins {
-			if p.Type == types.PluginTypeTool && p.Enabled {
+			if p.Type == pkgtypes.PluginTypeTool && p.Enabled {
 				tools = append(tools, ToolInfo{
 					Name:        p.Name,
 					Description: fmt.Sprintf("%s tool", p.Name),

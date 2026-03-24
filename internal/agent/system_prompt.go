@@ -50,36 +50,36 @@ func NewSystemPromptBuilder() *SystemPromptBuilder {
 }
 
 // SetBasePrompt sets the base system prompt (from agents.md).
-func (b *SystemPromptBuilder) SetBasePrompt(prompt string) *SystemPromptBuilder {
-	b.basePrompt = prompt
-	return b
+func (my *SystemPromptBuilder) SetBasePrompt(prompt string) *SystemPromptBuilder {
+	my.basePrompt = prompt
+	return my
 }
 
 // SetSkills sets the available skills.
-func (b *SystemPromptBuilder) SetSkills(skills []skill.Skill) *SystemPromptBuilder {
-	b.skills = skills
-	return b
+func (my *SystemPromptBuilder) SetSkills(skills []skill.Skill) *SystemPromptBuilder {
+	my.skills = skills
+	return my
 }
 
 // SetTools sets the available tools.
-func (b *SystemPromptBuilder) SetTools(tools []ToolInfo) *SystemPromptBuilder {
-	b.tools = tools
-	return b
+func (my *SystemPromptBuilder) SetTools(tools []ToolInfo) *SystemPromptBuilder {
+	my.tools = tools
+	return my
 }
 
 // Build constructs the complete system prompt with ReAct tool usage guide.
-func (b *SystemPromptBuilder) Build() string {
+func (my *SystemPromptBuilder) Build() string {
 	var parts []string
 
 	// Base prompt
-	if b.basePrompt != "" {
-		parts = append(parts, b.basePrompt)
+	if my.basePrompt != "" {
+		parts = append(parts, my.basePrompt)
 	}
 
 	// Skills section
-	if len(b.skills) > 0 {
+	if len(my.skills) > 0 {
 		parts = append(parts, "", "## 可用技能")
-		for _, s := range b.skills {
+		for _, s := range my.skills {
 			if s.Description != "" {
 				parts = append(parts, fmt.Sprintf("- %s: %s", s.Name, s.Description))
 			} else {
@@ -89,15 +89,15 @@ func (b *SystemPromptBuilder) Build() string {
 	}
 
 	// Tools section with ReAct guide
-	if len(b.tools) > 0 {
-		parts = append(parts, "", b.buildToolUsageGuide())
+	if len(my.tools) > 0 {
+		parts = append(parts, "", my.buildToolUsageGuide())
 	}
 
 	return strings.Join(parts, "\n")
 }
 
 // buildToolUsageGuide builds the tool usage guide section for ReAct loop.
-func (b *SystemPromptBuilder) buildToolUsageGuide() string {
+func (my *SystemPromptBuilder) buildToolUsageGuide() string {
 	var parts []string
 
 	// Header
@@ -108,8 +108,8 @@ func (b *SystemPromptBuilder) buildToolUsageGuide() string {
 
 	// Available tools list
 	parts = append(parts, "### 可用工具")
-	for _, t := range b.tools {
-		parts = append(parts, b.formatToolDescription(t))
+	for _, t := range my.tools {
+		parts = append(parts, my.formatToolDescription(t))
 	}
 
 	// Tool call format
@@ -127,7 +127,7 @@ func (b *SystemPromptBuilder) buildToolUsageGuide() string {
 	// Examples
 	parts = append(parts, "### 示例")
 	parts = append(parts, "")
-	parts = append(parts, b.buildToolExamples())
+	parts = append(parts, my.buildToolExamples())
 
 	// ReAct workflow
 	parts = append(parts, "")
@@ -144,7 +144,7 @@ func (b *SystemPromptBuilder) buildToolUsageGuide() string {
 }
 
 // formatToolDescription formats a single tool description.
-func (b *SystemPromptBuilder) formatToolDescription(t ToolInfo) string {
+func (my *SystemPromptBuilder) formatToolDescription(t ToolInfo) string {
 	var parts []string
 
 	// Tool name and description
@@ -167,10 +167,10 @@ func (b *SystemPromptBuilder) formatToolDescription(t ToolInfo) string {
 }
 
 // buildToolExamples builds example tool usage section.
-func (b *SystemPromptBuilder) buildToolExamples() string {
+func (my *SystemPromptBuilder) buildToolExamples() string {
 	// Find a shell-like or file tool for the example
 	var hasShellTool bool
-	for _, t := range b.tools {
+	for _, t := range my.tools {
 		if t.Type == "tool" {
 			hasShellTool = true
 			break

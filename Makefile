@@ -55,6 +55,8 @@ vet:
 
 lint:
 	@echo "Linting code..."
+	@echo "Checking receiver naming (should be 'my')..."
+	@grep -rn "func (" --include="*.go" internal/ cmd/ pkg/ examples/ | grep -v "_test.go" | grep -v "baml_client" | grep -v "func (my " && exit 1 || true
 	@golangci-lint run ./... || echo "golangci-lint not installed, skipping"
 
 deps:

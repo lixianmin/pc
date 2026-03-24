@@ -30,18 +30,18 @@ type RoutedMessage struct {
 }
 
 // ToEngineMessage converts the routed message to the format expected by Engine
-func (m *RoutedMessage) ToEngineMessage() string {
-	if m.Context != "" {
-		return m.Content + "\n\n---\nContext:\n" + m.Context
+func (my *RoutedMessage) ToEngineMessage() string {
+	if my.Context != "" {
+		return my.Content + "\n\n---\nContext:\n" + my.Context
 	}
-	return m.Content
+	return my.Content
 }
 
 // BuildResponse creates a response message for this source
-func (m *RoutedMessage) BuildResponse(content string) *RoutedResponse {
+func (my *RoutedMessage) BuildResponse(content string) *RoutedResponse {
 	return &RoutedResponse{
-		SourceType: m.SourceType,
-		SourceID:   m.SourceID,
+		SourceType: my.SourceType,
+		SourceID:   my.SourceID,
 		Content:    content,
 	}
 }
@@ -67,47 +67,47 @@ func NewInputSourceRegistry() *InputSourceRegistry {
 }
 
 // Register registers an input source
-func (r *InputSourceRegistry) Register(sourceType string, source InputSource) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (my *InputSourceRegistry) Register(sourceType string, source InputSource) error {
+	my.mu.Lock()
+	defer my.mu.Unlock()
 
-	if _, exists := r.sources[sourceType]; exists {
+	if _, exists := my.sources[sourceType]; exists {
 		return fmt.Errorf("input source already registered: %s", sourceType)
 	}
 
-	r.sources[sourceType] = source
+	my.sources[sourceType] = source
 	return nil
 }
 
 // Unregister unregisters an input source
-func (r *InputSourceRegistry) Unregister(sourceType string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (my *InputSourceRegistry) Unregister(sourceType string) error {
+	my.mu.Lock()
+	defer my.mu.Unlock()
 
-	if _, exists := r.sources[sourceType]; !exists {
+	if _, exists := my.sources[sourceType]; !exists {
 		return fmt.Errorf("input source not found: %s", sourceType)
 	}
 
-	delete(r.sources, sourceType)
+	delete(my.sources, sourceType)
 	return nil
 }
 
 // Get gets an input source by type
-func (r *InputSourceRegistry) Get(sourceType string) (InputSource, bool) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
+func (my *InputSourceRegistry) Get(sourceType string) (InputSource, bool) {
+	my.mu.RLock()
+	defer my.mu.RUnlock()
 
-	source, exists := r.sources[sourceType]
+	source, exists := my.sources[sourceType]
 	return source, exists
 }
 
 // List returns all registered input source types
-func (r *InputSourceRegistry) List() []string {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
+func (my *InputSourceRegistry) List() []string {
+	my.mu.RLock()
+	defer my.mu.RUnlock()
 
-	types := make([]string, 0, len(r.sources))
-	for t := range r.sources {
+	types := make([]string, 0, len(my.sources))
+	for t := range my.sources {
 		types = append(types, t)
 	}
 	return types
@@ -130,26 +130,26 @@ func NewMessageRouter() *MessageRouter {
 }
 
 // RegisterHandler registers a handler for a source type
-func (r *MessageRouter) RegisterHandler(sourceType string, handler MessageHandler) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (my *MessageRouter) RegisterHandler(sourceType string, handler MessageHandler) {
+	my.mu.Lock()
+	defer my.mu.Unlock()
 
-	r.handlers[sourceType] = handler
+	my.handlers[sourceType] = handler
 }
 
 // UnregisterHandler unregisters a handler for a source type
-func (r *MessageRouter) UnregisterHandler(sourceType string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (my *MessageRouter) UnregisterHandler(sourceType string) {
+	my.mu.Lock()
+	defer my.mu.Unlock()
 
-	delete(r.handlers, sourceType)
+	delete(my.handlers, sourceType)
 }
 
 // Route routes a message to its handler
-func (r *MessageRouter) Route(msg *RoutedMessage) {
-	r.mu.RLock()
-	handler, exists := r.handlers[msg.SourceType]
-	r.mu.RUnlock()
+func (my *MessageRouter) Route(msg *RoutedMessage) {
+	my.mu.RLock()
+	handler, exists := my.handlers[msg.SourceType]
+	my.mu.RUnlock()
 
 	if !exists {
 		// No handler for this source type

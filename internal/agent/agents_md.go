@@ -126,28 +126,28 @@ func ReadAgentsMdContent(path string) (string, error) {
 }
 
 // ToSystemPrompt converts the agents.md config to a system prompt string.
-func (c *AgentsMdConfig) ToSystemPrompt() string {
+func (my *AgentsMdConfig) ToSystemPrompt() string {
 	var parts []string
 
 	// Name
-	parts = append(parts, fmt.Sprintf("你是 %s。", c.Name))
+	parts = append(parts, fmt.Sprintf("你是 %s。", my.Name))
 
 	// Profession
-	if c.Profession != "" {
-		parts = append(parts, "", "## 职业", c.Profession)
+	if my.Profession != "" {
+		parts = append(parts, "", "## 职业", my.Profession)
 	}
 
 	// Personality
-	if len(c.Personality) > 0 {
+	if len(my.Personality) > 0 {
 		parts = append(parts, "", "## 性格特征")
-		for _, trait := range c.Personality {
+		for _, trait := range my.Personality {
 			parts = append(parts, "- "+trait)
 		}
 	}
 
 	// Instructions
-	if c.Instructions != "" {
-		parts = append(parts, "", "## 行为准则", c.Instructions)
+	if my.Instructions != "" {
+		parts = append(parts, "", "## 行为准则", my.Instructions)
 	}
 
 	return strings.Join(parts, "\n")

@@ -26,12 +26,12 @@ func NewHistory(filePath string) *History {
 }
 
 // Load loads history from file.
-func (h *History) Load() error {
-	if h.filePath == "" {
+func (my *History) Load() error {
+	if my.filePath == "" {
 		return nil
 	}
 
-	file, err := os.Open(h.filePath)
+	file, err := os.Open(my.filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -44,39 +44,37 @@ func (h *History) Load() error {
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line != "" {
-			h.items = append(h.items, line)
+			my.items = append(my.items, line)
 		}
 	}
 
-	// Limit history size
-	if len(h.items) > h.maxSize {
-		h.items = h.items[len(h.items)-h.maxSize:]
+	if len(my.items) > my.maxSize {
+		my.items = my.items[len(my.items)-my.maxSize:]
 	}
 
-	h.index = len(h.items)
+	my.index = len(my.items)
 	return scanner.Err()
 }
 
 // Save saves history to file.
-func (h *History) Save() error {
-	if h.filePath == "" {
+func (my *History) Save() error {
+	if my.filePath == "" {
 		return nil
 	}
 
-	// Ensure directory exists
-	dir := filepath.Dir(h.filePath)
+	dir := filepath.Dir(my.filePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
 
-	file, err := os.Create(h.filePath)
+	file, err := os.Create(my.filePath)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
 	writer := bufio.NewWriter(file)
-	for _, item := range h.items {
+	for _, item := range my.items {
 		if _, err := writer.WriteString(item + "\n"); err != nil {
 			return err
 		}
@@ -86,57 +84,53 @@ func (h *History) Save() error {
 }
 
 // Add adds a new item to history.
-func (h *History) Add(item string) {
+func (my *History) Add(item string) {
 	item = strings.TrimSpace(item)
 	if item == "" {
 		return
 	}
 
-	// Don't add duplicates at the end
-	if len(h.items) > 0 && h.items[len(h.items)-1] == item {
+	if len(my.items) > 0 && my.items[len(my.items)-1] == item {
 		return
 	}
 
-	h.items = append(h.items, item)
+	my.items = append(my.items, item)
 
-	// Limit size
-	if len(h.items) > h.maxSize {
-		h.items = h.items[1:]
+	if len(my.items) > my.maxSize {
+		my.items = my.items[1:]
 	}
 
-	h.index = len(h.items)
+	my.index = len(my.items)
 }
 
 // Previous returns the previous history item.
-func (h *History) Previous() string {
-	if len(h.items) == 0 {
+func (my *History) Previous() string {
+	if len(my.items) == 0 {
 		return ""
 	}
 
-	h.index--
-	if h.index < 0 {
-		h.index = 0
+	my.index--
+	if my.index < 0 {
+		my.index = 0
 	}
 
-	return h.items[h.index]
+	return my.items[my.index]
 }
 
-// Next returns the next history item.
-func (h *History) Next() string {
-	if len(h.items) == 0 {
+func (my *History) Next() string {
+	if len(my.items) == 0 {
 		return ""
 	}
 
-	h.index++
-	if h.index >= len(h.items) {
-		h.index = len(h.items)
+	my.index++
+	if my.index >= len(my.items) {
+		my.index = len(my.items)
 		return ""
 	}
 
-	return h.items[h.index]
+	return my.items[my.index]
 }
 
-// Reset resets the history navigation index.
-func (h *History) Reset() {
-	h.index = len(h.items)
+func (my *History) Reset() {
+	my.index = len(my.items)
 }

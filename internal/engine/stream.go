@@ -7,7 +7,7 @@ import (
 
 	"github.com/lixianmin/got/loom"
 	"github.com/lixianmin/logo"
-	"github.com/lixianmin/pc/internal/llm"
+	"github.com/lixianmin/pc/baml_client/types"
 )
 
 type StreamChunk struct {
@@ -105,21 +105,17 @@ func (my *Engine) ProcessMessageStream(ctx context.Context, sessionId, message s
 }
 
 func (my *Engine) callLLMStream(ctx context.Context, session *Session, message string) (<-chan string, error) {
-	return my.callLLMStreamViaBAML(ctx, session, message)
-}
-
-func (my *Engine) callLLMStreamViaBAML(ctx context.Context, session *Session, message string) (<-chan string, error) {
 	history := session.GetMessages()
 	systemPrompt := my.buildDynamicSystemPrompt()
 
-	var messages []llm.Message
+	var messages []types.Message
 	for _, msg := range history {
-		messages = append(messages, llm.Message{
+		messages = append(messages, types.Message{
 			Role:    msg.Role,
 			Content: msg.Content,
 		})
 	}
-	messages = append(messages, llm.Message{
+	messages = append(messages, types.Message{
 		Role:    "user",
 		Content: message,
 	})
@@ -130,7 +126,7 @@ func (my *Engine) callLLMStreamViaBAML(ctx context.Context, session *Session, me
 	go func() {
 		defer close(ch)
 		for chunk := range stream {
-			if chunk.Error != nil {
+			if chunk.Error != "" {
 				logo.Error("[Engine.callLLMStreamViaBAML] Stream error:", chunk.Error)
 				return
 			}

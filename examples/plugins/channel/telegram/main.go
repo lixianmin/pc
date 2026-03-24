@@ -94,16 +94,16 @@ func NewPlugin() *Plugin {
 }
 
 // Initialize sets up the plugin with configuration
-func (p *Plugin) Initialize(config Config) error {
-	p.config = config
-	if p.config.BotToken == "" {
+func (my *Plugin) Initialize(config Config) error {
+	my.config = config
+	if my.config.BotToken == "" {
 		return fmt.Errorf("bot_token is required")
 	}
 	return nil
 }
 
 // Handle processes a request and returns a response
-func (p *Plugin) Handle(req Request) Response {
+func (my *Plugin) Handle(req Request) Response {
 	resp := Response{
 		Version: version,
 		ID:      req.ID,
@@ -112,28 +112,28 @@ func (p *Plugin) Handle(req Request) Response {
 
 	switch req.Method {
 	case "start":
-		result, err := p.start()
+		result, err := my.start()
 		if err != nil {
 			resp.Error = &ErrorDetail{Code: "START_ERROR", Message: err.Error()}
 		} else {
 			resp.Result = result
 		}
 	case "stop":
-		result, err := p.stop()
+		result, err := my.stop()
 		if err != nil {
 			resp.Error = &ErrorDetail{Code: "STOP_ERROR", Message: err.Error()}
 		} else {
 			resp.Result = result
 		}
 	case "send":
-		result, err := p.send(req.Params)
+		result, err := my.send(req.Params)
 		if err != nil {
 			resp.Error = &ErrorDetail{Code: "SEND_ERROR", Message: err.Error()}
 		} else {
 			resp.Result = result
 		}
 	case "listen":
-		result, err := p.listen()
+		result, err := my.listen()
 		if err != nil {
 			resp.Error = &ErrorDetail{Code: "LISTEN_ERROR", Message: err.Error()}
 		} else {
@@ -147,14 +147,14 @@ func (p *Plugin) Handle(req Request) Response {
 }
 
 // start starts the bot
-func (p *Plugin) start() (any, error) {
-	if p.isRunning {
+func (my *Plugin) start() (any, error) {
+	if my.isRunning {
 		return nil, fmt.Errorf("bot is already running")
 	}
 
 	// Validate token by calling getMe
-	url := fmt.Sprintf("https://api.telegram.org/bot%s/getMe", p.config.BotToken)
-	httpResp, err := p.client.Get(url)
+	url := fmt.Sprintf("https://api.telegram.org/bot%s/getMe", my.config.BotToken)
+	httpResp, err := my.client.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate token: %w", err)
 	}
@@ -178,7 +178,7 @@ func (p *Plugin) start() (any, error) {
 		return nil, fmt.Errorf("failed to start bot")
 	}
 
-	p.isRunning = true
+	my.isRunning = true
 	return map[string]any{
 		"status":   "started",
 		"username": result.Result.Username,
@@ -186,20 +186,20 @@ func (p *Plugin) start() (any, error) {
 }
 
 // stop stops the bot
-func (p *Plugin) stop() (any, error) {
-	if !p.isRunning {
+func (my *Plugin) stop() (any, error) {
+	if !my.isRunning {
 		return nil, fmt.Errorf("bot is not running")
 	}
 
-	p.isRunning = false
+	my.isRunning = false
 	return map[string]any{
 		"status": "stopped",
 	}, nil
 }
 
 // send sends a message
-func (p *Plugin) send(params json.RawMessage) (any, error) {
-	if !p.isRunning {
+func (my *Plugin) send(params json.RawMessage) (any, error) {
+	if !my.isRunning {
 		return nil, fmt.Errorf("bot is not running")
 	}
 
@@ -216,7 +216,7 @@ func (p *Plugin) send(params json.RawMessage) (any, error) {
 		return nil, fmt.Errorf("chat_id and text are required")
 	}
 
-	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", p.config.BotToken)
+	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", my.config.BotToken)
 
 	payload := map[string]string{
 		"chat_id": req.ChatID,
@@ -225,7 +225,7 @@ func (p *Plugin) send(params json.RawMessage) (any, error) {
 
 	payloadBytes, _ := json.Marshal(payload)
 
-	httpResp, err := p.client.Post(url, "application/json", bytes.NewReader(payloadBytes))
+	httpResp, err := my.client.Post(url, "application/json", bytes.NewReader(payloadBytes))
 	if err != nil {
 		return nil, fmt.Errorf("failed to send message: %w", err)
 	}
@@ -241,17 +241,17 @@ func (p *Plugin) send(params json.RawMessage) (any, error) {
 }
 
 // listen listens for incoming messages
-func (p *Plugin) listen() (any, error) {
-	if !p.isRunning {
+func (my *Plugin) listen() (any, error) {
+	if !my.isRunning {
 		return nil, fmt.Errorf("bot is not running")
 	}
 
-	url := fmt.Sprintf("https://api.telegram.org/bot%s/getUpdates", p.config.BotToken)
-	if p.lastUpdateID > 0 {
-		url = fmt.Sprintf("%s?offset=%d", url, p.lastUpdateID+1)
+	url := fmt.Sprintf("https://api.telegram.org/bot%s/getUpdates", my.config.BotToken)
+	if my.lastUpdateID > 0 {
+		url = fmt.Sprintf("%s?offset=%d", url, my.lastUpdateID+1)
 	}
 
-	httpResp, err := p.client.Get(url)
+	httpResp, err := my.client.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get updates: %w", err)
 	}
@@ -271,8 +271,8 @@ func (p *Plugin) listen() (any, error) {
 
 	var messages []map[string]any
 	for _, update := range result.Result {
-		if update.UpdateID > p.lastUpdateID {
-			p.lastUpdateID = update.UpdateID
+		if update.UpdateID > my.lastUpdateID {
+			my.lastUpdateID = update.UpdateID
 		}
 
 		messages = append(messages, map[string]any{

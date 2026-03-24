@@ -119,25 +119,25 @@ func NewModel(rpcClient *gateway.RpcClient) *Model {
 }
 
 // Init initializes the model.
-func (m *Model) Init() tea.Cmd {
+func (my *Model) Init() tea.Cmd {
 	cmds := []tea.Cmd{
 		tea.EnterAltScreen,
 		textarea.Blink,
 	}
 
 	// Load history
-	if err := m.history.Load(); err == nil {
+	if err := my.history.Load(); err == nil {
 		// History loaded successfully
 	}
 
 	// Send initial greeting
-	cmds = append(cmds, m.sendMessageCmd("Hello! I'm your PersonalClaw assistant. How can I help you today?", true))
+	cmds = append(cmds, my.sendMessageCmd("Hello! I'm your PersonalClaw assistant. How can I help you today?", true))
 
 	return tea.Batch(cmds...)
 }
 
 // Update handles messages and updates the model.
-func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (my *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
 		taCmd tea.Cmd
 		vpCmd tea.Cmd
@@ -145,96 +145,96 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
+		my.width = msg.Width
+		my.height = msg.Height
 
-		if !m.ready {
+		if !my.ready {
 			// Initialize viewport
-			m.viewport = viewport.New(msg.Width, msg.Height-6)
-			m.viewport.SetContent(m.renderMessages())
-			m.ready = true
+			my.viewport = viewport.New(msg.Width, msg.Height-6)
+			my.viewport.SetContent(my.renderMessages())
+			my.ready = true
 		} else {
-			m.viewport.Width = msg.Width
-			m.viewport.Height = msg.Height - 6
-			m.viewport.SetContent(m.renderMessages())
+			my.viewport.Width = msg.Width
+			my.viewport.Height = msg.Height - 6
+			my.viewport.SetContent(my.renderMessages())
 		}
 
-		m.textarea.SetWidth(msg.Width - 4)
+		my.textarea.SetWidth(msg.Width - 4)
 
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
-			m.quitting = true
-			return m, tea.Quit
+			my.quitting = true
+			return my, tea.Quit
 
 		case tea.KeyEnter:
 			if msg.Alt {
 				// Alt+Enter for newline
-				m.textarea.InsertString("\n")
+				my.textarea.InsertString("\n")
 			} else {
 				// Send message
-				input := strings.TrimSpace(m.textarea.Value())
+				input := strings.TrimSpace(my.textarea.Value())
 				if input != "" {
-					m.textarea.SetValue("")
-					return m, m.handleInput(input)
+					my.textarea.SetValue("")
+					return my, my.handleInput(input)
 				}
 			}
 
 		case tea.KeyUp:
-			if m.textarea.Value() == "" {
+			if my.textarea.Value() == "" {
 				// Load previous history item
-				if item := m.history.Previous(); item != "" {
-					m.textarea.SetValue(item)
-					m.textarea.CursorEnd()
+				if item := my.history.Previous(); item != "" {
+					my.textarea.SetValue(item)
+					my.textarea.CursorEnd()
 				}
 			} else if msg.Alt {
 				// Alt+Up: scroll viewport up
-				m.viewport.LineUp(1)
-				m.userScrolled = true
+				my.viewport.LineUp(1)
+				my.userScrolled = true
 			}
 
 		case tea.KeyDown:
-			if m.textarea.Value() == "" {
+			if my.textarea.Value() == "" {
 				// Load next history item
-				if item := m.history.Next(); item != "" {
-					m.textarea.SetValue(item)
-					m.textarea.CursorEnd()
+				if item := my.history.Next(); item != "" {
+					my.textarea.SetValue(item)
+					my.textarea.CursorEnd()
 				} else {
-					m.textarea.SetValue("")
+					my.textarea.SetValue("")
 				}
 			} else if msg.Alt {
 				// Alt+Down: scroll viewport down
-				m.viewport.LineDown(1)
-				if m.viewport.AtBottom() {
-					m.userScrolled = false
+				my.viewport.LineDown(1)
+				if my.viewport.AtBottom() {
+					my.userScrolled = false
 				} else {
-					m.userScrolled = true
+					my.userScrolled = true
 				}
 			}
 
 		case tea.KeyPgUp:
-			m.viewport.ViewUp()
-			m.userScrolled = true
+			my.viewport.ViewUp()
+			my.userScrolled = true
 
 		case tea.KeyPgDown:
-			m.viewport.ViewDown()
-			if m.viewport.AtBottom() {
-				m.userScrolled = false
+			my.viewport.ViewDown()
+			if my.viewport.AtBottom() {
+				my.userScrolled = false
 			} else {
-				m.userScrolled = true
+				my.userScrolled = true
 			}
 
 		case tea.KeyHome:
-			m.viewport.GotoTop()
-			m.userScrolled = true
+			my.viewport.GotoTop()
+			my.userScrolled = true
 
 		case tea.KeyEnd:
-			m.viewport.GotoBottom()
-			m.userScrolled = false
+			my.viewport.GotoBottom()
+			my.userScrolled = false
 
 		case tea.KeyTab:
 			// Tab completion
-			input := m.textarea.Value()
+			input := my.textarea.Value()
 			cursorPos := len(input) // Use end of input as cursor position for simplicity
 
 			// Find the word at cursor position
@@ -247,10 +247,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			var completed string
 			if strings.HasPrefix(currentWord, "@") {
 				// Skill or file completion
-				completed = m.completeReference(currentWord)
+				completed = my.completeReference(currentWord)
 			} else if strings.HasPrefix(currentWord, "/") {
 				// Command completion
-				completed = m.completeCommand(currentWord)
+				completed = my.completeCommand(currentWord)
 			}
 
 			if completed != currentWord {
@@ -259,107 +259,107 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if cursorPos < len(input) {
 					newInput += input[cursorPos:]
 				}
-				m.textarea.SetValue(newInput + " ")
+				my.textarea.SetValue(newInput + " ")
 			}
 		}
 
 	case responseMsg:
-		m.status = "Connected"
-		m.addMessage("agent", string(msg))
-		if m.ready {
-			m.viewport.SetContent(m.renderMessages())
+		my.status = "Connected"
+		my.addMessage("agent", string(msg))
+		if my.ready {
+			my.viewport.SetContent(my.renderMessages())
 			// Only auto-scroll if user hasn't manually scrolled
-			if !m.userScrolled {
-				m.viewport.GotoBottom()
+			if !my.userScrolled {
+				my.viewport.GotoBottom()
 			}
 		}
 
 	case errorMsg:
-		m.status = fmt.Sprintf("Error: %v", msg)
-		m.addMessage("agent", fmt.Sprintf("Error: %v", msg))
-		if m.ready {
-			m.viewport.SetContent(m.renderMessages())
-			if !m.userScrolled {
-				m.viewport.GotoBottom()
+		my.status = fmt.Sprintf("Error: %v", msg)
+		my.addMessage("agent", fmt.Sprintf("Error: %v", msg))
+		if my.ready {
+			my.viewport.SetContent(my.renderMessages())
+			if !my.userScrolled {
+				my.viewport.GotoBottom()
 			}
 		}
 
 	case streamStartMsg:
-		m.isStreaming = true
-		m.streamBuffer.Reset()
-		m.status = "Streaming..."
+		my.isStreaming = true
+		my.streamBuffer.Reset()
+		my.status = "Streaming..."
 
 	case streamChunkMsg:
-		m.streamBuffer.WriteString(msg.content)
-		if m.ready {
-			lastIdx := len(m.messages) - 1
-			if lastIdx >= 0 && m.messages[lastIdx].Role == "agent-streaming" {
-				m.messages[lastIdx].Content = m.streamBuffer.String()
+		my.streamBuffer.WriteString(msg.content)
+		if my.ready {
+			lastIdx := len(my.messages) - 1
+			if lastIdx >= 0 && my.messages[lastIdx].Role == "agent-streaming" {
+				my.messages[lastIdx].Content = my.streamBuffer.String()
 			} else {
-				m.messages = append(m.messages, Message{
+				my.messages = append(my.messages, Message{
 					Role:    "agent-streaming",
-					Content: m.streamBuffer.String(),
+					Content: my.streamBuffer.String(),
 				})
 			}
-			m.viewport.SetContent(m.renderMessages())
-			if !m.userScrolled {
-				m.viewport.GotoBottom()
+			my.viewport.SetContent(my.renderMessages())
+			if !my.userScrolled {
+				my.viewport.GotoBottom()
 			}
 		}
 
 		if msg.done {
-			return m, m.processStreamFinalize()
+			return my, my.processStreamFinalize()
 		}
 
 	case streamDoneMsg:
-		m.isStreaming = false
-		m.status = "Connected"
-		if m.ready {
-			lastIdx := len(m.messages) - 1
-			if lastIdx >= 0 && m.messages[lastIdx].Role == "agent-streaming" {
-				m.messages[lastIdx].Role = "agent"
-				m.messages[lastIdx].Content = msg.fullContent
+		my.isStreaming = false
+		my.status = "Connected"
+		if my.ready {
+			lastIdx := len(my.messages) - 1
+			if lastIdx >= 0 && my.messages[lastIdx].Role == "agent-streaming" {
+				my.messages[lastIdx].Role = "agent"
+				my.messages[lastIdx].Content = msg.fullContent
 			}
-			m.viewport.SetContent(m.renderMessages())
-			if !m.userScrolled {
-				m.viewport.GotoBottom()
+			my.viewport.SetContent(my.renderMessages())
+			if !my.userScrolled {
+				my.viewport.GotoBottom()
 			}
 		}
 
 	case statusMsg:
-		m.status = string(msg)
+		my.status = string(msg)
 	}
 
-	m.textarea, taCmd = m.textarea.Update(msg)
-	if m.ready {
-		m.viewport, vpCmd = m.viewport.Update(msg)
+	my.textarea, taCmd = my.textarea.Update(msg)
+	if my.ready {
+		my.viewport, vpCmd = my.viewport.Update(msg)
 	}
 
-	return m, tea.Batch(taCmd, vpCmd)
+	return my, tea.Batch(taCmd, vpCmd)
 }
 
 // View renders the UI.
-func (m *Model) View() string {
-	if !m.ready {
+func (my *Model) View() string {
+	if !my.ready {
 		return "Loading..."
 	}
 
-	if m.quitting {
+	if my.quitting {
 		return "Goodbye!\n"
 	}
 
 	// Header
-	header := m.styles.Header.Render("PersonalClaw v0.1.0")
+	header := my.styles.Header.Render("PersonalClaw v0.1.0")
 
 	// Status bar
-	status := m.styles.StatusBar.Render(fmt.Sprintf("Status: %s | Session: %s", m.status, m.sessionID[:8]))
+	status := my.styles.StatusBar.Render(fmt.Sprintf("Status: %s | Session: %s", my.status, my.sessionID[:8]))
 
 	// Input area
-	prompt := m.styles.InputPrompt.Render("> ")
-	input := m.textarea.View()
+	prompt := my.styles.InputPrompt.Render("> ")
+	input := my.textarea.View()
 
 	// Render content area with scrollbar
-	content := m.renderContentWithScrollbar()
+	content := my.renderContentWithScrollbar()
 
 	// Combine all parts
 	return fmt.Sprintf(
@@ -373,26 +373,26 @@ func (m *Model) View() string {
 }
 
 // renderContentWithScrollbar renders the viewport content with a scrollbar.
-func (m *Model) renderContentWithScrollbar() string {
-	viewportContent := m.viewport.View()
-	scrollbar := m.renderScrollbar()
+func (my *Model) renderContentWithScrollbar() string {
+	viewportContent := my.viewport.View()
+	scrollbar := my.renderScrollbar()
 
 	// Join viewport and scrollbar horizontally
 	return lipgloss.JoinHorizontal(lipgloss.Top, viewportContent, scrollbar)
 }
 
 // renderScrollbar renders the scrollbar based on current scroll position.
-func (m *Model) renderScrollbar() string {
+func (my *Model) renderScrollbar() string {
 	// Only show scrollbar if content exceeds viewport height
-	totalLines := m.viewport.TotalLineCount()
-	visibleLines := m.viewport.Height
+	totalLines := my.viewport.TotalLineCount()
+	visibleLines := my.viewport.Height
 
 	if totalLines <= visibleLines {
 		return ""
 	}
 
 	// Calculate scrollbar thumb position and size
-	scrollPercent := float64(m.viewport.YOffset) / float64(totalLines-visibleLines)
+	scrollPercent := float64(my.viewport.YOffset) / float64(totalLines-visibleLines)
 	thumbHeight := max(1, visibleLines*visibleLines/totalLines)
 	if thumbHeight < 1 {
 		thumbHeight = 1
@@ -406,9 +406,9 @@ func (m *Model) renderScrollbar() string {
 	var sb strings.Builder
 	for i := 0; i < trackHeight; i++ {
 		if i >= thumbPos && i < thumbPos+thumbHeight {
-			sb.WriteString(m.styles.ScrollbarThumb.Render("█"))
+			sb.WriteString(my.styles.ScrollbarThumb.Render("█"))
 		} else {
-			sb.WriteString(m.styles.ScrollbarTrack.Render("░"))
+			sb.WriteString(my.styles.ScrollbarTrack.Render("░"))
 		}
 		if i < trackHeight-1 {
 			sb.WriteString("\n")
@@ -427,25 +427,25 @@ func max(a, b int) int {
 }
 
 // handleInput processes user input.
-func (m *Model) handleInput(input string) tea.Cmd {
+func (my *Model) handleInput(input string) tea.Cmd {
 	// Reset user scrolled state when user sends a new message
-	m.userScrolled = false
+	my.userScrolled = false
 
 	// Add to history
-	m.history.Add(input)
-	m.history.Save()
+	my.history.Add(input)
+	my.history.Save()
 
 	// Check for commands
 	if strings.HasPrefix(input, "/") {
-		return m.handleCommand(input)
+		return my.handleCommand(input)
 	}
 
 	// Parse input for @ references
-	parsed, err := ParseInput(input, m)
+	parsed, err := ParseInput(input, my)
 	if err != nil {
-		m.addMessage("agent", fmt.Sprintf("Error parsing input: %v", err))
-		m.viewport.SetContent(m.renderMessages())
-		m.viewport.GotoBottom()
+		my.addMessage("agent", fmt.Sprintf("Error parsing input: %v", err))
+		my.viewport.SetContent(my.renderMessages())
+		my.viewport.GotoBottom()
 		return nil
 	}
 
@@ -456,16 +456,16 @@ func (m *Model) handleInput(input string) tea.Cmd {
 	}
 
 	// Display original input to user
-	m.addMessage("user", input)
-	m.viewport.SetContent(m.renderMessages())
-	m.viewport.GotoBottom()
+	my.addMessage("user", input)
+	my.viewport.SetContent(my.renderMessages())
+	my.viewport.GotoBottom()
 
 	// Send full message (with context) to agent
-	return m.sendToAgent(fullMessage)
+	return my.sendToAgent(fullMessage)
 }
 
 // handleCommand handles slash commands.
-func (m *Model) handleCommand(cmd string) tea.Cmd {
+func (my *Model) handleCommand(cmd string) tea.Cmd {
 	parts := strings.Fields(cmd)
 	if len(parts) == 0 {
 		return nil
@@ -475,19 +475,19 @@ func (m *Model) handleCommand(cmd string) tea.Cmd {
 
 	switch command {
 	case "/quit", "/q", "/exit":
-		m.quitting = true
+		my.quitting = true
 		return tea.Quit
 
 	case "/clear", "/c":
-		m.messages = make([]Message, 0)
-		m.viewport.SetContent(m.renderMessages())
+		my.messages = make([]Message, 0)
+		my.viewport.SetContent(my.renderMessages())
 		return nil
 
 	case "/skills", "/s":
-		return m.listSkills()
+		return my.listSkills()
 
 	case "/status":
-		return m.showStatus()
+		return my.showStatus()
 
 	case "/help", "/h":
 		help := `Available commands:
@@ -499,24 +499,24 @@ func (m *Model) handleCommand(cmd string) tea.Cmd {
   /task add <title>  - Add a new task
   /task complete <id> - Complete a task
   /help, /h     - Show this help message`
-		m.addMessage("agent", help)
-		m.viewport.SetContent(m.renderMessages())
-		m.viewport.GotoBottom()
+		my.addMessage("agent", help)
+		my.viewport.SetContent(my.renderMessages())
+		my.viewport.GotoBottom()
 		return nil
 
 	case "/task":
-		return m.handleTaskCommand(parts)
+		return my.handleTaskCommand(parts)
 
 	default:
-		m.addMessage("agent", fmt.Sprintf("Unknown command: %s. Type /help for available commands.", command))
-		m.viewport.SetContent(m.renderMessages())
-		m.viewport.GotoBottom()
+		my.addMessage("agent", fmt.Sprintf("Unknown command: %s. Type /help for available commands.", command))
+		my.viewport.SetContent(my.renderMessages())
+		my.viewport.GotoBottom()
 		return nil
 	}
 }
 
 // completeCommand provides tab completion for commands.
-func (m *Model) completeCommand(input string) string {
+func (my *Model) completeCommand(input string) string {
 	// Handle task subcommands
 	if strings.HasPrefix(input, "/task ") {
 		taskCommands := []string{"list", "add", "complete", "delete"}
@@ -548,7 +548,7 @@ func (m *Model) completeCommand(input string) string {
 }
 
 // completeReference provides tab completion for @ references (skills and files).
-func (m *Model) completeReference(input string) string {
+func (my *Model) completeReference(input string) string {
 	if !strings.HasPrefix(input, "@") {
 		return input
 	}
@@ -556,12 +556,12 @@ func (m *Model) completeReference(input string) string {
 	prefix := input[1:] // Remove @
 
 	// Try skill completion first
-	if skills := m.getMatchingSkills(prefix); len(skills) > 0 {
+	if skills := my.getMatchingSkills(prefix); len(skills) > 0 {
 		return "@" + skills[0]
 	}
 
 	// Try file path completion
-	if files := m.getMatchingFiles(prefix); len(files) > 0 {
+	if files := my.getMatchingFiles(prefix); len(files) > 0 {
 		return "@" + files[0]
 	}
 
@@ -569,11 +569,11 @@ func (m *Model) completeReference(input string) string {
 }
 
 // getMatchingSkills returns skills that match the given prefix.
-func (m *Model) getMatchingSkills(prefix string) []string {
+func (my *Model) getMatchingSkills(prefix string) []string {
 	var matches []string
 
 	// Load skills from cache or RPC
-	skills := m.loadSkillsCache()
+	skills := my.loadSkillsCache()
 
 	for _, skill := range skills {
 		if strings.HasPrefix(skill.Name, prefix) {
@@ -585,7 +585,7 @@ func (m *Model) getMatchingSkills(prefix string) []string {
 }
 
 // getMatchingFiles returns files that match the given prefix.
-func (m *Model) getMatchingFiles(prefix string) []string {
+func (my *Model) getMatchingFiles(prefix string) []string {
 	var matches []string
 
 	// Expand ~ to home directory
@@ -630,14 +630,14 @@ func (m *Model) getMatchingFiles(prefix string) []string {
 }
 
 // loadSkillsCache loads skills into cache for completion.
-func (m *Model) loadSkillsCache() []SkillInfo {
-	if m.skillCache != nil {
-		return m.skillCache
+func (my *Model) loadSkillsCache() []SkillInfo {
+	if my.skillCache != nil {
+		return my.skillCache
 	}
 
 	// Try to load from RPC if available
-	if m.rpcClient != nil {
-		skills, err := m.rpcClient.ListSkills()
+	if my.rpcClient != nil {
+		skills, err := my.rpcClient.ListSkills()
 		if err == nil {
 			var cache []SkillInfo
 			for _, s := range skills {
@@ -646,19 +646,19 @@ func (m *Model) loadSkillsCache() []SkillInfo {
 					Description: s.Description,
 				})
 			}
-			m.skillCache = cache
+			my.skillCache = cache
 			return cache
 		}
 	}
 
 	// Return empty cache
-	m.skillCache = []SkillInfo{}
-	return m.skillCache
+	my.skillCache = []SkillInfo{}
+	return my.skillCache
 }
 
 // GetSkill implements SkillProvider interface.
-func (m *Model) GetSkill(name string) (SkillInfo, error) {
-	skills := m.loadSkillsCache()
+func (my *Model) GetSkill(name string) (SkillInfo, error) {
+	skills := my.loadSkillsCache()
 	for _, skill := range skills {
 		if skill.Name == name {
 			return skill, nil
@@ -668,13 +668,13 @@ func (m *Model) GetSkill(name string) (SkillInfo, error) {
 }
 
 // ListSkills implements SkillProvider interface.
-func (m *Model) ListSkills() []SkillInfo {
-	return m.loadSkillsCache()
+func (my *Model) ListSkills() []SkillInfo {
+	return my.loadSkillsCache()
 }
 
 // addMessage adds a message to the chat.
-func (m *Model) addMessage(role, content string) {
-	m.messages = append(m.messages, Message{
+func (my *Model) addMessage(role, content string) {
+	my.messages = append(my.messages, Message{
 		Role:      role,
 		Content:   content,
 		Timestamp: time.Now(),
@@ -682,21 +682,21 @@ func (m *Model) addMessage(role, content string) {
 }
 
 // renderMessages renders all messages as a string with proper wrapping.
-func (m *Model) renderMessages() string {
+func (my *Model) renderMessages() string {
 	var b strings.Builder
 
 	// Calculate available width for message content
 	// Subtract padding (2 for left padding) and some margin
-	availableWidth := m.viewport.Width - 4
+	availableWidth := my.viewport.Width - 4
 	if availableWidth < 20 {
 		availableWidth = 20 // Minimum width
 	}
 
 	// Create wrapping styles based on available width
-	userStyle := m.styles.UserMessage.Width(availableWidth)
-	agentStyle := m.styles.AgentMessage.Width(availableWidth)
+	userStyle := my.styles.UserMessage.Width(availableWidth)
+	agentStyle := my.styles.AgentMessage.Width(availableWidth)
 
-	for _, msg := range m.messages {
+	for _, msg := range my.messages {
 		switch msg.Role {
 		case "user":
 			b.WriteString(userStyle.Render("You: " + msg.Content))
@@ -710,13 +710,13 @@ func (m *Model) renderMessages() string {
 }
 
 // sendToAgent sends a message to the agent via RPC.
-func (m *Model) sendToAgent(message string) tea.Cmd {
+func (my *Model) sendToAgent(message string) tea.Cmd {
 	return func() tea.Msg {
-		if m.rpcClient == nil {
+		if my.rpcClient == nil {
 			return errorMsg("not connected to gateway")
 		}
 
-		response, err := m.rpcClient.ProcessMessage(m.sessionID, message)
+		response, err := my.rpcClient.ProcessMessage(my.sessionID, message)
 		if err != nil {
 			return errorMsg(err.Error())
 		}
@@ -726,13 +726,13 @@ func (m *Model) sendToAgent(message string) tea.Cmd {
 }
 
 // listSkills lists available skills.
-func (m *Model) listSkills() tea.Cmd {
+func (my *Model) listSkills() tea.Cmd {
 	return func() tea.Msg {
-		if m.rpcClient == nil {
+		if my.rpcClient == nil {
 			return errorMsg("not connected to gateway")
 		}
 
-		skills, err := m.rpcClient.ListSkills()
+		skills, err := my.rpcClient.ListSkills()
 		if err != nil {
 			return errorMsg(err.Error())
 		}
@@ -752,13 +752,13 @@ func (m *Model) listSkills() tea.Cmd {
 }
 
 // showStatus shows gateway status.
-func (m *Model) showStatus() tea.Cmd {
+func (my *Model) showStatus() tea.Cmd {
 	return func() tea.Msg {
-		if m.rpcClient == nil {
+		if my.rpcClient == nil {
 			return errorMsg("not connected to gateway")
 		}
 
-		status, err := m.rpcClient.GetStatus()
+		status, err := my.rpcClient.GetStatus()
 		if err != nil {
 			return errorMsg(err.Error())
 		}
@@ -773,7 +773,7 @@ func (m *Model) showStatus() tea.Cmd {
 }
 
 // sendMessageCmd creates a command that adds a message.
-func (m *Model) sendMessageCmd(content string, isAgent bool) tea.Cmd {
+func (my *Model) sendMessageCmd(content string, isAgent bool) tea.Cmd {
 	return func() tea.Msg {
 		if isAgent {
 			return responseMsg(content)
@@ -795,9 +795,9 @@ type streamDoneMsg struct {
 	fullContent string
 }
 
-func (m *Model) sendToAgentStream(message string) tea.Cmd {
+func (my *Model) sendToAgentStream(message string) tea.Cmd {
 	return func() tea.Msg {
-		if m.rpcClient == nil {
+		if my.rpcClient == nil {
 			return errorMsg("not connected to gateway")
 		}
 
@@ -809,19 +809,19 @@ func generateSessionID() string {
 	return fmt.Sprintf("session-%d", time.Now().UnixNano())
 }
 
-func (m *Model) processStreamFinalize() tea.Cmd {
+func (my *Model) processStreamFinalize() tea.Cmd {
 	return func() tea.Msg {
-		return streamDoneMsg{fullContent: m.streamBuffer.String()}
+		return streamDoneMsg{fullContent: my.streamBuffer.String()}
 	}
 }
 
-func (m *Model) processStreamChunks(sessionID, message string) tea.Cmd {
+func (my *Model) processStreamChunks(sessionID, message string) tea.Cmd {
 	return func() tea.Msg {
-		if m.rpcClient == nil {
+		if my.rpcClient == nil {
 			return errorMsg("not connected to gateway")
 		}
 
-		chunks, err := m.rpcClient.ProcessMessageStream(sessionID, message)
+		chunks, err := my.rpcClient.ProcessMessageStream(sessionID, message)
 		if err != nil {
 			return errorMsg(err.Error())
 		}
@@ -839,7 +839,7 @@ func (m *Model) processStreamChunks(sessionID, message string) tea.Cmd {
 }
 
 // handleTaskCommand handles /task subcommands
-func (m *Model) handleTaskCommand(parts []string) tea.Cmd {
+func (my *Model) handleTaskCommand(parts []string) tea.Cmd {
 	if len(parts) < 2 {
 		return func() tea.Msg {
 			return responseMsg("Usage: /task <command> [args]\nCommands: list, add, complete, delete")
@@ -850,7 +850,7 @@ func (m *Model) handleTaskCommand(parts []string) tea.Cmd {
 
 	switch subcommand {
 	case "list":
-		return m.listTasks()
+		return my.listTasks()
 	case "add":
 		if len(parts) < 3 {
 			return func() tea.Msg {
@@ -870,21 +870,21 @@ func (m *Model) handleTaskCommand(parts []string) tea.Cmd {
 			}
 			title += parts[i]
 		}
-		return m.addTask(title, description)
+		return my.addTask(title, description)
 	case "complete":
 		if len(parts) < 3 {
 			return func() tea.Msg {
 				return responseMsg("Usage: /task complete <task-id>")
 			}
 		}
-		return m.completeTask(parts[2])
+		return my.completeTask(parts[2])
 	case "delete":
 		if len(parts) < 3 {
 			return func() tea.Msg {
 				return responseMsg("Usage: /task delete <task-id>")
 			}
 		}
-		return m.deleteTask(parts[2])
+		return my.deleteTask(parts[2])
 	default:
 		return func() tea.Msg {
 			return responseMsg(fmt.Sprintf("Unknown task command: %s. Available: list, add, complete, delete", subcommand))
@@ -893,13 +893,13 @@ func (m *Model) handleTaskCommand(parts []string) tea.Cmd {
 }
 
 // listTasks lists all tasks
-func (m *Model) listTasks() tea.Cmd {
+func (my *Model) listTasks() tea.Cmd {
 	return func() tea.Msg {
-		if m.rpcClient == nil {
+		if my.rpcClient == nil {
 			return errorMsg("not connected to gateway")
 		}
 
-		tasks, err := m.rpcClient.ListTasks("")
+		tasks, err := my.rpcClient.ListTasks("")
 		if err != nil {
 			return errorMsg(err.Error())
 		}
@@ -923,13 +923,13 @@ func (m *Model) listTasks() tea.Cmd {
 }
 
 // addTask adds a new task
-func (m *Model) addTask(title, description string) tea.Cmd {
+func (my *Model) addTask(title, description string) tea.Cmd {
 	return func() tea.Msg {
-		if m.rpcClient == nil {
+		if my.rpcClient == nil {
 			return errorMsg("not connected to gateway")
 		}
 
-		taskID, err := m.rpcClient.AddTask(title, description)
+		taskID, err := my.rpcClient.AddTask(title, description)
 		if err != nil {
 			return errorMsg(err.Error())
 		}
@@ -939,13 +939,13 @@ func (m *Model) addTask(title, description string) tea.Cmd {
 }
 
 // completeTask marks a task as completed
-func (m *Model) completeTask(taskID string) tea.Cmd {
+func (my *Model) completeTask(taskID string) tea.Cmd {
 	return func() tea.Msg {
-		if m.rpcClient == nil {
+		if my.rpcClient == nil {
 			return errorMsg("not connected to gateway")
 		}
 
-		err := m.rpcClient.CompleteTask(taskID)
+		err := my.rpcClient.CompleteTask(taskID)
 		if err != nil {
 			return errorMsg(err.Error())
 		}
@@ -955,13 +955,13 @@ func (m *Model) completeTask(taskID string) tea.Cmd {
 }
 
 // deleteTask deletes a task
-func (m *Model) deleteTask(taskID string) tea.Cmd {
+func (my *Model) deleteTask(taskID string) tea.Cmd {
 	return func() tea.Msg {
-		if m.rpcClient == nil {
+		if my.rpcClient == nil {
 			return errorMsg("not connected to gateway")
 		}
 
-		err := m.rpcClient.DeleteTask(taskID)
+		err := my.rpcClient.DeleteTask(taskID)
 		if err != nil {
 			return errorMsg(err.Error())
 		}
@@ -971,17 +971,17 @@ func (m *Model) deleteTask(taskID string) tea.Cmd {
 }
 
 // AddMessage adds a message to the chat (public for testing).
-func (m *Model) AddMessage(role, content string) {
-	m.addMessage(role, content)
+func (my *Model) AddMessage(role, content string) {
+	my.addMessage(role, content)
 }
 
 // RenderMessages renders all messages as a string (public for testing).
-func (m *Model) RenderMessages() string {
-	return m.renderMessages()
+func (my *Model) RenderMessages() string {
+	return my.renderMessages()
 }
 
 // SetViewportSize sets the viewport dimensions (public for testing).
-func (m *Model) SetViewportSize(width, height int) {
-	m.viewport.Width = width
-	m.viewport.Height = height
+func (my *Model) SetViewportSize(width, height int) {
+	my.viewport.Width = width
+	my.viewport.Height = height
 }
