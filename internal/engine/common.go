@@ -1,0 +1,5 @@
+package engine
+
+import "github.com/lixianmin/pc/baml_client/types"
+
+type ChatResult = types.Union8BashToolOrChatResponseOrEditToolOrReadToolOrUseSkillOrWebFetchToolOrWebSearchToolOrWriteTool

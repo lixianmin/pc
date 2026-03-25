@@ -9,15 +9,14 @@ import (
 
 	"github.com/lixianmin/logo"
 	"github.com/lixianmin/pc/baml_client/types"
+	"github.com/lixianmin/pc/internal/agent_tools"
 	"github.com/lixianmin/pc/internal/debug"
 	"github.com/lixianmin/pc/internal/plugin"
 	"github.com/lixianmin/pc/internal/skill"
 	"github.com/lixianmin/pc/internal/task"
-	pkgerr "github.com/lixianmin/pc/pkg/error"
+	"github.com/lixianmin/pc/pkg/ks"
 	pkgtypes "github.com/lixianmin/pc/pkg/types"
 )
-
-type ChatResult = types.Union8BashToolOrChatResponseOrEditToolOrReadToolOrUseSkillOrWebFetchToolOrWebSearchToolOrWriteTool
 
 type PluginCaller interface {
 	ListPlugins() []*pkgtypes.Plugin
@@ -27,7 +26,6 @@ type PluginCaller interface {
 // Engine is the core engine implementation.
 type Engine struct {
 	pluginManager  *plugin.PluginManager
-	mockCaller     PluginCaller
 	sessions       map[string]*Session
 	mu             sync.RWMutex
 	llmPlugin      *pkgtypes.Plugin
@@ -38,8 +36,6 @@ type Engine struct {
 
 	// Task management
 	taskManager *task.Manager
-	decomposer  *task.Decomposer
-	taskEnabled bool
 
 	// Skill management
 	skillManager *skill.SkillManager
@@ -55,29 +51,13 @@ func NewEngine(pm *plugin.PluginManager) *Engine {
 		maxIterations: 10,
 		toolTimeout:   30 * time.Second,
 		taskManager:   task.NewManager(""),
-		decomposer:    task.NewDecomposer(),
 		llmClient:     NewClient(),
-	}
-}
-
-// NewEngineWithMock creates a new engine with a mock plugin caller for testing.
-func NewEngineWithMock(caller PluginCaller) *Engine {
-	return &Engine{
-		mockCaller:    caller,
-		sessions:      make(map[string]*Session),
-		maxIterations: 10,
-		toolTimeout:   30 * time.Second,
 	}
 }
 
 // SetPromptRecorder sets the prompt recorder for debugging.
 func (my *Engine) SetPromptRecorder(recorder *debug.PromptRecorder) {
 	my.promptRecorder = recorder
-}
-
-// SetMaxIterations sets the maximum ReAct loop iterations.
-func (my *Engine) SetMaxIterations(n int) {
-	my.maxIterations = n
 }
 
 // SetToolTimeout sets the tool execution timeout.
@@ -97,12 +77,7 @@ func (my *Engine) SetSystemPrompt(prompt string) {
 
 // BuildSystemPrompt builds the dynamic system prompt with tools and skills.
 func (my *Engine) BuildSystemPrompt() string {
-	return my.buildDynamicSystemPrompt()
-}
-
-// SetTaskEnabled enables or disables task decomposition.
-func (my *Engine) SetTaskEnabled(enabled bool) {
-	my.taskEnabled = enabled
+	return my.buildSystemPrompt()
 }
 
 // GetTaskManager returns the task manager.
@@ -133,11 +108,11 @@ func (my *Engine) GetSkill(name string) *skill.Skill {
 // ProcessMessage processes an incoming message with ReAct loop.
 func (my *Engine) ProcessMessage(ctx context.Context, sessionId, message string) (string, error) {
 	if sessionId == "" {
-		return "", pkgerr.NewAppError("EngineProcess", "session ID cannot be empty")
+		return "", ks.NewAppError("EngineProcess", "session ID cannot be empty")
 	}
 
 	if message == "" {
-		return "", pkgerr.NewAppError("EngineProcess", "message cannot be empty")
+		return "", ks.NewAppError("EngineProcess", "message cannot be empty")
 	}
 
 	my.mu.RLock()
@@ -145,27 +120,13 @@ func (my *Engine) ProcessMessage(ctx context.Context, sessionId, message string)
 	my.mu.RUnlock()
 
 	if !exists {
-		return "", pkgerr.NewAppErrorf("EngineProcess", "session not found: %s", sessionId)
+		return "", ks.NewAppErrorf("EngineProcess", "session not found: %s", sessionId)
 	}
 
 	logo.Info("[Session:", sessionId, "] User:", message)
 
-	// Check for task decomposition trigger
-	if my.taskEnabled && my.isGoalMessage(message) {
-		response, err := my.handleGoalDecomposition(ctx, sessionId, message)
-		if err != nil {
-			return "", err
-		}
-		if response != "" {
-			if err := session.AddMessage("assistant", response); err != nil {
-				return "", pkgerr.WrapAppError("EngineProcess", "failed to save assistant response", err)
-			}
-			return response, nil
-		}
-	}
-
 	if err := session.AddMessage("user", message); err != nil {
-		return "", pkgerr.WrapAppError("EngineProcess", "failed to save user message", err)
+		return "", ks.WrapAppError("EngineProcess", "failed to save user message", err)
 	}
 
 	var response string
@@ -175,7 +136,7 @@ func (my *Engine) ProcessMessage(ctx context.Context, sessionId, message string)
 		resp, err := my.reactLoop(ctx, session, message)
 		if err != nil {
 			logo.Error("[Session:", sessionId, "] ReAct loop failed:", err)
-			return "", pkgerr.WrapAppError("EngineProcess", "failed to process message", err)
+			return "", ks.WrapAppError("EngineProcess", "failed to process message", err)
 		}
 		response = resp
 		logo.Info("[Session:", sessionId, "] ReAct loop completed, response length:", len(response))
@@ -185,7 +146,7 @@ func (my *Engine) ProcessMessage(ctx context.Context, sessionId, message string)
 	}
 
 	if err := session.AddMessage("assistant", response); err != nil {
-		return "", pkgerr.WrapAppError("EngineProcess", "failed to save assistant response", err)
+		return "", ks.WrapAppError("EngineProcess", "failed to save assistant response", err)
 	}
 
 	logResp := response
@@ -202,55 +163,51 @@ func (my *Engine) reactLoop(ctx context.Context, session *Session, initialMessag
 	currentMessage := initialMessage
 
 	for iteration := 0; iteration < my.maxIterations; iteration++ {
-		logo.Info("[ReAct] Iteration", iteration+1, "/", my.maxIterations)
+		logo.JsonI("iteration", iteration+1)
 
-		result, err := my.callLLM(ctx, session, currentMessage)
+		var result, err = my.callLLM(ctx, session, currentMessage)
 		if err != nil {
-			return "", pkgerr.WrapAppError("EngineReact", fmt.Sprintf("LLM call failed at iteration %d", iteration+1), err)
+			return "", ks.WrapAppError("EngineReact", fmt.Sprintf("LLM call failed at iteration %d", iteration+1), err)
 		}
 
-		if result.IsChatResponse() {
+		var chatResponse = result.AsChatResponse()
+		if chatResponse != nil {
 			logo.Info("[ReAct] ChatResponse received, returning final response")
-			return result.AsChatResponse().Content, nil
+			return chatResponse.Content, nil
 		}
 
 		logo.Info("[ReAct] Tool call detected")
 
 		if err := session.AddMessage("assistant", "[Tool call]"); err != nil {
-			return "", pkgerr.WrapAppError("EngineReact", "failed to save assistant message", err)
+			return "", ks.WrapAppError("EngineReact", "failed to save assistant message", err)
 		}
 
-		toolCtx, cancel := context.WithTimeout(ctx, my.toolTimeout)
+		// 执行工具调用
+		var toolCtx, cancel = context.WithTimeout(ctx, my.toolTimeout)
 		defer cancel()
 
-		var executor *ToolExecutor
-		if my.mockCaller != nil {
-			executor = NewToolExecutor(my.mockCaller)
-		} else {
-			executor = NewToolExecutor(my.pluginManager)
-		}
-		toolResult := executor.ExecuteResult(toolCtx, result)
-
-		toolResultsMessage := FormatToolResult(toolResult)
-		if err := session.AddMessage("system", toolResultsMessage); err != nil {
-			return "", pkgerr.WrapAppError("EngineReact", "failed to save tool results", err)
+		var toolResult, toolErr = my.callTool(toolCtx, result)
+		if toolErr != nil {
+			logo.Error("[ReAct] Tool execution failed:", toolErr)
+			return "", ks.WrapAppError("EngineReact", "tool execution failed", toolErr)
 		}
 
-		currentMessage = toolResultsMessage
+		if err := session.AddMessage("system", toolResult); err != nil {
+			return "", ks.WrapAppError("EngineReact", "failed to save tool results", err)
+		}
+
+		// 这里是有用的， 必须重设一下
+		// currentMessage = toolResultsMessage
 	}
 
-	return "", pkgerr.NewAppErrorf("EngineReact", "exceeded maximum iterations (%d)", my.maxIterations)
+	return "", ks.NewAppErrorf("EngineReact", "exceeded maximum iterations (%d)", my.maxIterations)
 }
 
 // callLLM calls the LLM via BAML to generate a response.
 func (my *Engine) callLLM(ctx context.Context, session *Session, message string) (*ChatResult, error) {
 	startTime := time.Now()
 
-	var systemPrompt = my.buildDynamicSystemPrompt()
-	if my.systemPrompt != "" {
-		systemPrompt = my.systemPrompt + "\n\n" + systemPrompt
-	}
-
+	var systemPrompt = my.buildSystemPrompt()
 	history := session.GetMessages()
 	var messages []types.Message
 	for _, msg := range history {
@@ -280,178 +237,37 @@ func (my *Engine) callLLM(ctx context.Context, session *Session, message string)
 	return &result, nil
 }
 
-// callLLMViaPlugin 使用插件调用 LLM（原有实现）
-func (my *Engine) callLLMViaPlugin(ctx context.Context, session *Session, message string) (string, error) {
-	startTime := time.Now()
-
-	var history = session.GetMessages()
-
-	systemPrompt := my.buildDynamicSystemPrompt()
-
-	capacity := len(history) + 1
-	if systemPrompt != "" {
-		capacity++
-	}
-	messages := make([]map[string]string, 0, capacity)
-
-	if systemPrompt != "" {
-		messages = append(messages, map[string]string{
-			"role":    "system",
-			"content": systemPrompt,
-		})
+func (my *Engine) callTool(ctx context.Context, result *ChatResult) (string, error) {
+	if item := result.AsBashTool(); item != nil {
+		return agent_tools.Bash(ctx, "", item.Command)
 	}
 
-	for _, msg := range history {
-		messages = append(messages, map[string]string{
-			"role":    msg.Role,
-			"content": msg.Content,
-		})
-	}
-	messages = append(messages, map[string]string{
-		"role":    "user",
-		"content": message,
-	})
-
-	var requestId string
-	if my.promptRecorder != nil {
-		requestId, _ = my.promptRecorder.Record(session.Id, messages)
+	if item := result.AsEditTool(); item != nil {
+		return agent_tools.Edit(ctx, item.FilePath, item.OldString, item.NewString, false)
 	}
 
-	params := map[string]any{
-		"messages": messages,
+	if item := result.AsReadTool(); item != nil {
+		return agent_tools.Read(ctx, item.FilePath, 0, 100)
 	}
 
-	result, err := my.pluginManager.CallPlugin(my.llmPlugin, "complete", params)
-	if err != nil {
-		logo.Error("[Engine.callLLMViaPlugin] Plugin call failed:", err)
-		return "", err
+	if item := result.AsWriteTool(); item != nil {
+		return agent_tools.Write(ctx, item.FilePath, item.Content)
 	}
 
-	resultMap, ok := result.(map[string]any)
-	if !ok {
-		logo.Error("[Engine.callLLMViaPlugin] Unexpected result type:", resultMap)
-		return "", pkgerr.NewAppError("EngineLLM", "unexpected LLM response format")
-	}
-
-	content, ok := resultMap["content"].(string)
-	if !ok {
-		logo.Error("[Engine.callLLMViaPlugin] Missing content in result:", resultMap)
-		return "", pkgerr.NewAppError("EngineLLM", "LLM response missing content")
-	}
-
-	elapsed := time.Since(startTime)
-	var totalChars int
-	for _, m := range messages {
-		totalChars += len(m["content"])
-	}
-
-	if requestId != "" {
-		logo.Info("[LLM] req=", requestId, " tokens=", totalChars, " time=", elapsed)
-	} else {
-		logo.Info("[Engine.callLLMViaPlugin] LLM call completed, response length:", len(content))
-	}
-
-	return content, nil
+	return "", ks.NewAppError("EngineCallTool", "unsupported tool type")
 }
 
-func (my *Engine) buildDynamicSystemPrompt() string {
+func (my *Engine) buildSystemPrompt() string {
 	var parts []string
 
 	if my.systemPrompt != "" {
 		parts = append(parts, my.systemPrompt)
 	}
 
-	var availableTools = my.getAvailableTools()
-	if len(availableTools) > 0 {
-		parts = append(parts, "", my.buildToolGuide(availableTools))
+	var skills = my.ListSkills()
+	if len(skills) > 0 {
+		parts = append(parts, "", my.buildSkillGuide(skills))
 	}
-
-	availableSkills := my.ListSkills()
-	if len(availableSkills) > 0 {
-		parts = append(parts, "", my.buildSkillGuide(availableSkills))
-	}
-
-	return strings.Join(parts, "\n")
-}
-
-func (my *Engine) getAvailableTools() []ToolInfo {
-	var tools []ToolInfo
-
-	if my.pluginManager == nil && my.mockCaller == nil {
-		return tools
-	}
-
-	if my.pluginManager != nil {
-		executor := NewToolExecutor(my.pluginManager)
-		toolNames := executor.ListAvailableTools()
-		logo.Info("[Engine.getAvailableTools] Found", len(toolNames), "tools:", toolNames)
-
-		for _, name := range toolNames {
-			tools = append(tools, ToolInfo{
-				Name:        name,
-				Description: fmt.Sprintf("%s tool", name),
-				Type:        "builtin",
-			})
-		}
-
-		plugins := my.pluginManager.ListPlugins()
-		for _, p := range plugins {
-			if p.Type == pkgtypes.PluginTypeTool && p.Enabled {
-				tools = append(tools, ToolInfo{
-					Name:        p.Name,
-					Description: fmt.Sprintf("%s tool", p.Name),
-					Type:        string(p.Type),
-				})
-			}
-		}
-		return tools
-	}
-
-	if my.mockCaller != nil {
-		plugins := my.mockCaller.ListPlugins()
-		for _, p := range plugins {
-			if p.Type == pkgtypes.PluginTypeTool && p.Enabled {
-				tools = append(tools, ToolInfo{
-					Name:        p.Name,
-					Description: fmt.Sprintf("%s tool", p.Name),
-					Type:        string(p.Type),
-				})
-			}
-		}
-	}
-
-	return tools
-}
-
-func (my *Engine) buildToolGuide(tools []ToolInfo) string {
-	var parts []string
-
-	parts = append(parts, "## 工具使用指南")
-	parts = append(parts, "")
-	parts = append(parts, "当你需要获取外部信息或执行操作时，可以使用以下工具。")
-	parts = append(parts, "")
-
-	parts = append(parts, "### 可用工具")
-	for _, t := range tools {
-		parts = append(parts, fmt.Sprintf("- **%s**: %s", t.Name, t.Description))
-	}
-
-	parts = append(parts, "")
-	parts = append(parts, "### 工具调用格式")
-	parts = append(parts, "")
-	parts = append(parts, "使用以下 XML 格式调用工具：")
-	parts = append(parts, "")
-	parts = append(parts, "<invoke>")
-	parts = append(parts, "<name>工具名</name>")
-	parts = append(parts, "<params>{\"参数\": \"值\"}</params>")
-	parts = append(parts, "</invoke>")
-	parts = append(parts, "")
-
-	parts = append(parts, "### ReAct 工作流程")
-	parts = append(parts, "1. 思考：分析用户需求")
-	parts = append(parts, "2. 行动：调用工具")
-	parts = append(parts, "3. 观察：接收工具结果")
-	parts = append(parts, "4. 回复：基于结果回答用户")
 
 	return strings.Join(parts, "\n")
 }
@@ -480,12 +296,6 @@ func (my *Engine) buildSkillGuide(skills []skill.Skill) string {
 	return strings.Join(parts, "\n")
 }
 
-type ToolInfo struct {
-	Name        string
-	Description string
-	Type        string
-}
-
 // FetchSession returns the session if exists, otherwise creates a new one.
 func (my *Engine) FetchSession(sessionId string) *Session {
 	if sessionId == "" {
@@ -503,14 +313,6 @@ func (my *Engine) FetchSession(sessionId string) *Session {
 	return session
 }
 
-// CloseSession closes a session.
-func (my *Engine) CloseSession(sessionId string) error {
-	my.mu.Lock()
-	defer my.mu.Unlock()
-	delete(my.sessions, sessionId)
-	return nil
-}
-
 // Close closes the engine.
 func (my *Engine) Close() error {
 	my.mu.Lock()
@@ -519,68 +321,4 @@ func (my *Engine) Close() error {
 		delete(my.sessions, key)
 	}
 	return nil
-}
-
-// isGoalMessage checks if the message is a goal decomposition request.
-func (my *Engine) isGoalMessage(message string) bool {
-	if strings.HasPrefix(message, "/task ") {
-		return true
-	}
-
-	goalPrefixes := []string{"我想", "我要", "请帮我", "帮我"}
-	for _, prefix := range goalPrefixes {
-		if strings.HasPrefix(message, prefix) {
-			return true
-		}
-	}
-
-	return false
-}
-
-// handleGoalDecomposition handles goal decomposition and task creation.
-func (my *Engine) handleGoalDecomposition(ctx context.Context, sessionId string, message string) (string, error) {
-	var goal string
-	var err error
-
-	if strings.HasPrefix(message, "/task ") {
-		goal, err = my.decomposer.ParseGoal(strings.TrimPrefix(message, "/task "))
-	} else {
-		goal, err = my.decomposer.ParseGoal(message)
-	}
-
-	if err != nil {
-		return "", pkgerr.WrapAppError("EngineGoal", "failed to parse goal", err)
-	}
-
-	if goal == "" {
-		return "", pkgerr.NewAppError("EngineGoal", "goal cannot be empty")
-	}
-
-	steps, err := my.decomposer.Decompose(goal)
-	if err != nil {
-		return "", pkgerr.WrapAppError("EngineGoal", "failed to decompose goal", err)
-	}
-
-	newTask, err := my.taskManager.AddTask(goal)
-	if err != nil {
-		return "", pkgerr.WrapAppError("EngineGoal", "failed to create task", err)
-	}
-
-	for _, step := range steps {
-		if err := newTask.AddStep(step); err != nil {
-			logo.Warn("Failed to add step:", step, err)
-		}
-	}
-
-	logo.Info("[Session:", sessionId, "] Created task:", goal, "with", len(steps), "steps")
-
-	var responseBuilder strings.Builder
-	responseBuilder.WriteString("已为您创建任务：\n\n")
-	responseBuilder.WriteString(fmt.Sprintf("**%s**\n\n", goal))
-	responseBuilder.WriteString("步骤：\n")
-	for i, step := range steps {
-		responseBuilder.WriteString(fmt.Sprintf("%d. %s\n", i+1, step))
-	}
-
-	return responseBuilder.String(), nil
 }

@@ -1,7 +1,6 @@
-package error
+package ks
 
 import (
-	"errors"
 	"fmt"
 )
 
@@ -16,10 +15,6 @@ func (my *AppError) Error() string {
 		return fmt.Sprintf("[%s] %s: %v", my.Code, my.Message, my.Cause)
 	}
 	return fmt.Sprintf("[%s] %s", my.Code, my.Message)
-}
-
-func (my *AppError) Unwrap() error {
-	return my.Cause
 }
 
 func NewAppError(code, message string) *AppError {
@@ -42,13 +37,4 @@ func WrapAppError(code, message string, cause error) *AppError {
 		Message: message,
 		Cause:   cause,
 	}
-}
-
-func AsAppError(err error, target **AppError) bool {
-	return errors.As(err, target)
-}
-
-func IsAppError(err error) bool {
-	var appErr *AppError
-	return errors.As(err, &appErr)
 }

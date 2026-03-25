@@ -1,4 +1,4 @@
-package builtin
+package agent_tools
 
 import (
 	"context"
@@ -7,27 +7,7 @@ import (
 	"path/filepath"
 )
 
-type WriteTool struct{}
-
-func NewWriteTool() *WriteTool {
-	return &WriteTool{}
-}
-
-func (my *WriteTool) Name() string {
-	return "write"
-}
-
-func (my *WriteTool) Execute(ctx context.Context, params map[string]any) (string, error) {
-	path, ok := params["path"].(string)
-	if !ok || path == "" {
-		return "", fmt.Errorf("missing required parameter: path")
-	}
-
-	content, ok := params["content"].(string)
-	if !ok {
-		return "", fmt.Errorf("missing required parameter: content")
-	}
-
+func Write(ctx context.Context, path string, content string) (string, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve path: %w", err)

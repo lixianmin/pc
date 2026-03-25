@@ -8,9 +8,9 @@ import (
 	"sync"
 
 	"github.com/lixianmin/pc/internal/config"
-	"github.com/lixianmin/pc/internal/logger"
 	"github.com/lixianmin/pc/internal/plugin"
 	"github.com/lixianmin/pc/internal/skill"
+	"github.com/lixianmin/pc/pkg/logger"
 	"github.com/lixianmin/pc/pkg/types"
 )
 

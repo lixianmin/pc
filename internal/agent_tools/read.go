@@ -1,4 +1,4 @@
-package builtin
+package agent_tools
 
 import (
 	"bufio"
@@ -9,32 +9,7 @@ import (
 	"strings"
 )
 
-type ReadTool struct{}
-
-func NewReadTool() *ReadTool {
-	return &ReadTool{}
-}
-
-func (my *ReadTool) Name() string {
-	return "read"
-}
-
-func (my *ReadTool) Execute(ctx context.Context, params map[string]any) (string, error) {
-	path, ok := params["path"].(string)
-	if !ok || path == "" {
-		return "", fmt.Errorf("missing required parameter: path")
-	}
-
-	offset := 1
-	if v, ok := params["offset"].(float64); ok && v > 0 {
-		offset = int(v)
-	}
-
-	limit := 2000
-	if v, ok := params["limit"].(float64); ok && v > 0 {
-		limit = int(v)
-	}
-
+func Read(ctx context.Context, path string, offset int, limit int) (string, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve path: %w", err)

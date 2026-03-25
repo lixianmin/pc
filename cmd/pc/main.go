@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/lixianmin/got/loom"
 	"github.com/lixianmin/logo"
-	"github.com/lixianmin/pc/internal/logger"
+	"github.com/lixianmin/pc/pkg/logger"
 )
 
 func main() {

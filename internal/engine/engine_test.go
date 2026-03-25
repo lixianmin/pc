@@ -56,7 +56,6 @@ func TestEngine_TaskDecomposition(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e := NewEngine(nil)
-			e.SetTaskEnabled(true)
 			ctx := context.Background()
 			_ = e.FetchSession(tt.sessionId)
 

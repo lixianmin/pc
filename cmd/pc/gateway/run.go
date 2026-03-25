@@ -14,9 +14,9 @@ import (
 	"github.com/lixianmin/pc/internal/debug"
 	"github.com/lixianmin/pc/internal/engine"
 	"github.com/lixianmin/pc/internal/gateway"
-	"github.com/lixianmin/pc/internal/logger"
 	"github.com/lixianmin/pc/internal/plugin"
 	"github.com/lixianmin/pc/internal/wizard"
+	"github.com/lixianmin/pc/pkg/logger"
 	"github.com/spf13/cobra"
 )
 

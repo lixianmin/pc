@@ -9,17 +9,17 @@ class Message {
 type ToolsList = BashTool | ReadTool | WriteTool | EditTool | WebSearchTool | WebFetchTool
 
 function Chat(messages: Message[], system_prompt: string) -> ChatResponse | ToolsList | UseSkill {
-  client GLM47
+  client GLM5
   prompt #"
     {{ _.role("system") }}
     {{ system_prompt }}
 
-    {{ ctx.output_format }}
-
     {% for msg in messages %}
-    {{ _.role(msg.role) }}
-    {{ msg.content }}
+      {{ _.role(msg.role) }}
+      {{ msg.content }}
     {% endfor %}
+
+    {{ ctx.output_format }}
   "#
 }
 

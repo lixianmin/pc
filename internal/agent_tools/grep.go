@@ -1,4 +1,4 @@
-package builtin
+package agent_tools
 
 import (
 	"bufio"
@@ -10,29 +10,7 @@ import (
 	"strings"
 )
 
-type GrepTool struct{}
-
-func NewGrepTool() *GrepTool {
-	return &GrepTool{}
-}
-
-func (my *GrepTool) Name() string {
-	return "grep"
-}
-
-func (my *GrepTool) Execute(ctx context.Context, params map[string]any) (string, error) {
-	pattern, ok := params["pattern"].(string)
-	if !ok || pattern == "" {
-		return "", fmt.Errorf("missing required parameter: pattern")
-	}
-
-	searchPath, _ := params["path"].(string)
-	if searchPath == "" {
-		searchPath = "."
-	}
-
-	includePattern, _ := params["include"].(string)
-
+func Grep(ctx context.Context, pattern string, searchPath string, includePattern string) (string, error) {
 	re, err := regexp.Compile(pattern)
 	if err != nil {
 		return "", fmt.Errorf("invalid regex pattern: %w", err)

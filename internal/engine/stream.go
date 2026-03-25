@@ -106,7 +106,7 @@ func (my *Engine) ProcessMessageStream(ctx context.Context, sessionId, message s
 
 func (my *Engine) callLLMStream(ctx context.Context, session *Session, message string) (<-chan string, error) {
 	history := session.GetMessages()
-	systemPrompt := my.buildDynamicSystemPrompt()
+	systemPrompt := my.buildSystemPrompt()
 
 	var messages []types.Message
 	for _, msg := range history {
@@ -135,71 +135,6 @@ func (my *Engine) callLLMStream(ctx context.Context, session *Session, message s
 			}
 			if chunk.Content != "" {
 				ch <- chunk.Content
-			}
-		}
-	}()
-
-	return ch, nil
-}
-
-func (my *Engine) callLLMStreamViaPlugin(ctx context.Context, session *Session, message string) (<-chan string, error) {
-	history := session.GetMessages()
-	systemPrompt := my.buildDynamicSystemPrompt()
-
-	capacity := len(history) + 1
-	if systemPrompt != "" {
-		capacity++
-	}
-	messages := make([]map[string]string, 0, capacity)
-
-	if systemPrompt != "" {
-		messages = append(messages, map[string]string{
-			"role":    "system",
-			"content": systemPrompt,
-		})
-	}
-
-	for _, msg := range history {
-		messages = append(messages, map[string]string{
-			"role":    msg.Role,
-			"content": msg.Content,
-		})
-	}
-	messages = append(messages, map[string]string{
-		"role":    "user",
-		"content": message,
-	})
-
-	params := map[string]any{
-		"messages": messages,
-	}
-
-	result, err := my.pluginManager.CallPlugin(my.llmPlugin, "stream", params)
-	if err != nil {
-		return nil, err
-	}
-
-	resultMap, ok := result.(map[string]any)
-	if !ok {
-		return nil, fmt.Errorf("unexpected stream response format")
-	}
-
-	chunks, ok := resultMap["chunks"].([]any)
-	if !ok {
-		return nil, fmt.Errorf("stream response missing chunks")
-	}
-
-	ch := make(chan string, len(chunks))
-	go func() {
-		defer close(ch)
-		for _, chunk := range chunks {
-			chunkMap, ok := chunk.(map[string]any)
-			if !ok {
-				continue
-			}
-			content, _ := chunkMap["content"].(string)
-			if content != "" {
-				ch <- content
 			}
 		}
 	}()
