@@ -5,35 +5,33 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/lixianmin/got/convert"
+	"github.com/lixianmin/pc/pkg/ks"
 )
 
-func Edit(ctx context.Context, filePath, oldString, newString string, replaceAll bool) (string, error) {
+func Edit(ctx context.Context, filePath, oldString, newString string, expectedReplacements int) (string, error) {
 	content, err := os.ReadFile(filePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read file: %w", err)
+		return "", ks.TraceError("ReadFileError", "err", err)
 	}
 
-	contentStr := string(content)
-
+	var contentStr = convert.String(content)
 	if !strings.Contains(contentStr, oldString) {
-		return "", fmt.Errorf("old_string not found in file")
+		return "", ks.TraceError("OldStringNotFound", "filePath", filePath, "oldString", oldString)
 	}
 
-	count := strings.Count(contentStr, oldString)
-	if count > 1 && !replaceAll {
-		return "", fmt.Errorf("found %d matches, please use replace_all=true or provide more context", count)
+	if expectedReplacements <= 1 {
+		expectedReplacements = 1
 	}
 
 	var newContent string
-	if replaceAll {
-		newContent = strings.ReplaceAll(contentStr, oldString, newString)
-	} else {
-		newContent = strings.Replace(contentStr, oldString, newString, 1)
+	newContent = strings.Replace(contentStr, oldString, newString, expectedReplacements)
+
+	if err := os.WriteFile(filePath, convert.Bytes(newContent), 0644); err != nil {
+		return "", ks.TraceError("WriteFileError", "err", err)
 	}
 
-	if err := os.WriteFile(filePath, []byte(newContent), 0644); err != nil {
-		return "", fmt.Errorf("failed to write file: %w", err)
-	}
-
-	return fmt.Sprintf("Successfully edited %s", filePath), nil
+	var result = fmt.Sprintf("Successfully edited %s", filePath)
+	return result, nil
 }

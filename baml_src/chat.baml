@@ -6,7 +6,7 @@ class Message {
   content string
 }
 
-type ToolsList = BashTool | EditTool| ReadTool | WebFetchTool | WebSearchTool | WriteTool 
+type ToolsList = Bash | Edit| Read | WebFetch | WebSearch | Write 
 
 function Chat(systemPrompt: string, messages: Message[]) -> ChatResponse | ToolsList | UseSkill {
   client GLM5

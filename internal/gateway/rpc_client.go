@@ -75,7 +75,7 @@ func (my *RpcClient) Call(method protocol.RpcMethod, params any) (*protocol.RpcR
 
 	// Create request
 	var request = &protocol.RpcRequest{
-		ID:     requestId,
+		Id:     requestId,
 		Method: protocol.RpcMethod(method),
 		Params: paramsJson,
 	}

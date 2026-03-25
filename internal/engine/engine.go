@@ -9,6 +9,7 @@ import (
 
 	"github.com/lixianmin/logo"
 	"github.com/lixianmin/pc/baml_client"
+	"github.com/lixianmin/pc/baml_client/types"
 	"github.com/lixianmin/pc/internal/agent_tools"
 	"github.com/lixianmin/pc/internal/debug"
 	"github.com/lixianmin/pc/internal/plugin"
@@ -107,92 +108,72 @@ func (my *Engine) GetSkill(name string) *skill.Skill {
 // ProcessMessage processes an incoming message with ReAct loop.
 func (my *Engine) ProcessMessage(ctx context.Context, session *Session, message string) (string, error) {
 	if session == nil {
-		return "", ks.NewAppError("NilSession", "session cannot be nil")
+		return "", ks.TraceError("NilSession")
 	}
 
 	if message == "" {
-		return "", ks.NewAppError("EmptyMessage", "message cannot be empty")
+		return "", ks.TraceError("EmptyMessage")
 	}
 
 	var sessionId = session.Id
 	logo.JsonI("sessionId", sessionId, "message", message)
+
 	session.AddMessage("user", message)
-
-	var response string
-	var hasLLM = (my.pluginManager != nil && my.llmPlugin != nil)
-
-	if hasLLM {
-		logo.Info("[Session:", sessionId, "] Starting ReAct loop")
-
-		resp, err := my.reactLoop(ctx, session, message)
-		if err != nil {
-			logo.Error("[Session:", sessionId, "] ReAct loop failed:", err)
-			return "", ks.NewAppError("EngineProcess", "failed to process message, err=%q", err)
-		}
-		response = resp
-		logo.Info("[Session:", sessionId, "] ReAct loop completed, response length:", len(response))
-	} else {
-		response = fmt.Sprintf("Echo: %s", message)
-		logo.Info("[Session:", sessionId, "] No LLM plugin, echoing")
-	}
-
-	session.AddMessage("assistant", response)
-
-	logResp := response
-	if len(logResp) > 100 {
-		logResp = logResp[:97] + "..."
-	}
-	logo.Info("[Session:", sessionId, "] Assistant:", logResp)
-
-	return response, nil
+	var response, err = my.reactLoop(ctx, session)
+	return response, err
 }
 
 // reactLoop implements the ReAct (Reasoning + Acting) loop.
-func (my *Engine) reactLoop(ctx context.Context, session *Session, initialMessage string) (string, error) {
+func (my *Engine) reactLoop(ctx context.Context, session *Session) (string, error) {
+	var sessionId = session.Id
 	for iteration := 0; iteration < my.maxIterations; iteration++ {
-		logo.JsonI("iteration", iteration)
+		logo.JsonI("sessionId", sessionId, "iteration", iteration+1)
 
-		var result, err = my.callLLM(ctx, session)
+		var chatResult, err = my.llmChat(ctx, session)
 		if err != nil {
-			return "", ks.NewAppError("CallLlmFailed", "iteration=%d, err=%q", iteration, err)
+			return "", ks.TraceError("CallLLMFailed", "sessionId", sessionId, "err", err)
 		}
 
-		var chatResponse = result.AsChatResponse()
+		var chatResponse = chatResult.AsChatResponse()
 		if chatResponse != nil {
-			logo.Info("ChatResponse received, returning final response")
-			return chatResponse.Content, nil
+			var response = chatResponse.Content
+			session.AddMessage("assistant", response)
+			logo.JsonI("sessionId", sessionId, "response", response)
+
+			return response, nil
 		}
 
-		logo.Info("[ReAct] Tool call detected")
-		session.AddMessage("assistant", "[Tool call]")
+		logo.JsonI("title", "tool use", "sessionId", sessionId)
 
-		// 执行工具调用
+		// 使用工具
 		var toolCtx, cancel = context.WithTimeout(ctx, my.toolTimeout)
 		defer cancel()
 
-		var toolResult, toolErr = my.callTool(toolCtx, result)
+		var toolResult, toolErr = my.useTool(toolCtx, chatResult)
 		if toolErr != nil {
-			logo.JsonW("toolErr", toolErr)
-			return "", ks.NewAppError("CallToolFailed", "tool execution failed, err=%q", toolErr)
+			// 失败的时候， 把失败信息给llm，要求重试
+			session.AddMessage("assistant", toolErr.Error())
+			logo.JsonI("sessionId", sessionId, "err", toolErr)
+			continue
 		}
 
-		session.AddMessage("system", toolResult)
+		session.AddMessage("assistant", toolResult)
 	}
 
-	return "", ks.NewAppError("IterationExceeded", "exceeded maximum iterations (%d)", my.maxIterations)
+	return "", ks.TraceError("IterationExceeded", "maxIterations", my.maxIterations)
 }
 
-// callLLM calls the LLM via BAML to generate a response.
-func (my *Engine) callLLM(ctx context.Context, session *Session) (*ChatResult, error) {
+// llmChat calls the LLM via BAML to generate a response.
+func (my *Engine) llmChat(ctx context.Context, session *Session) (*ChatResult, error) {
 	var startTime = time.Now()
 
 	var systemPrompt = my.buildSystemPrompt()
 	var messages = session.AsBamlMessages()
+	my.printPrompt(systemPrompt, messages)
 
 	var chatResult, err = baml_client.Chat(ctx, systemPrompt, messages)
 	if err != nil {
-		logo.JsonW("err", err)
-		return nil, err
+		return nil, ks.TraceError("BamlChatError", "err", err)
 	}
 
 	var totalChars int
@@ -200,28 +181,49 @@ func (my *Engine) callLLM(ctx context.Context, session *Session) (*ChatResult, e
 		totalChars += len(m.Content)
 	}
 
-	logo.JsonI("totalChars", totalChars, "elapsed", time.Since(startTime).Seconds())
+	logo.JsonI("totalChars", totalChars, "elapsed", time.Since(startTime))
 	return &chatResult, nil
 }
 
-func (my *Engine) callTool(ctx context.Context, result *ChatResult) (string, error) {
-	if item := result.AsBashTool(); item != nil {
-		return agent_tools.Bash(ctx, "", item.Command)
+func (my *Engine) printPrompt(systemPrompt string, messages []types.Message) {
+	var sb strings.Builder
+	sb.WriteString("=== System Prompt ===\n")
+	sb.WriteString(systemPrompt)
+	sb.WriteString("\n\n")
+
+	sb.WriteString("=== Conversation History ===\n")
+	for _, m := range messages {
+		fmt.Fprintf(&sb, "[%s] %s\n", m.Role, m.Content)
 	}
 
-	if item := result.AsEditTool(); item != nil {
-		return agent_tools.Edit(ctx, item.FilePath, item.OldString, item.NewString, false)
+	logo.Info(sb.String())
+}
+
+func (my *Engine) useTool(ctx context.Context, result *ChatResult) (string, error) {
+	if item := result.AsBash(); item != nil {
+		var timeout = time.Duration(defaultInt(item.Timeout, 600000) * int(time.Millisecond))
+		var toolCtx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+
+		return agent_tools.Bash(toolCtx, item.Command)
 	}
 
-	if item := result.AsReadTool(); item != nil {
-		return agent_tools.Read(ctx, item.FilePath, 0, 100)
+	if item := result.AsEdit(); item != nil {
+		var expectedReplacements = defaultInt(item.ExpectedReplacements, 1)
+		return agent_tools.Edit(ctx, item.FilePath, item.OldString, item.NewString, expectedReplacements)
 	}
 
-	if item := result.AsWriteTool(); item != nil {
+	if item := result.AsRead(); item != nil {
+		var offset = defaultInt(item.Offset, 0)
+		var limit = defaultInt(item.Limit, 0)
+		return agent_tools.Read(ctx, item.FilePath, offset, limit)
+	}
+
+	if item := result.AsWrite(); item != nil {
 		return agent_tools.Write(ctx, item.FilePath, item.Content)
 	}
 
-	return "", ks.NewAppError("UnknownToolType", "unknown tool type")
+	return "", ks.TraceError("UnknownToolType")
 }
 
 func (my *Engine) buildSystemPrompt() string {

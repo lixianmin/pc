@@ -14,9 +14,10 @@ func Init(level int, logDir string) {
 	}
 
 	theLogger.SetFilterLevel(level)
+	const flag = logo.FlagDate | logo.FlagTime | logo.FlagShortFile | logo.FlagLevel
 
 	var fileHook = logo.NewRollingFileHook(
-		logo.WithHookFlag(logo.FlagDate|logo.FlagTime|logo.FlagLevel),
+		logo.WithHookFlag(flag),
 		logo.WithDirName(logDir),
 		// logo.WithFileNamePrefix("pc"),
 		logo.WithMaxFileSize(10*1024*1024),

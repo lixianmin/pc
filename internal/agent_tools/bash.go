@@ -6,20 +6,19 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+
+	"github.com/lixianmin/logo"
+	"github.com/lixianmin/pc/pkg/ks"
+	"github.com/lixianmin/pc/pkg/tools"
 )
 
-func Bash(ctx context.Context, workdir string, command string) (string, error) {
-	if IsDangerousCommand(command) {
-		return "", fmt.Errorf("command is potentially dangerous and has been blocked")
+func Bash(ctx context.Context, command string) (string, error) {
+	if isDangerousCommand(command) {
+		return "", ks.TraceError("DangerousCommand", "command", command)
 	}
 
-	var cmd *exec.Cmd
-	if workdir != "" {
-		cmd = exec.CommandContext(ctx, "sh", "-c", command)
-		cmd.Dir = workdir
-	} else {
-		cmd = exec.CommandContext(ctx, "sh", "-c", command)
-	}
+	logo.JsonI("command", command)
+	var cmd *exec.Cmd = exec.CommandContext(ctx, "sh", "-c", command)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -32,16 +31,15 @@ func Bash(ctx context.Context, workdir string, command string) (string, error) {
 	}
 
 	if err != nil {
-		if ctx.Err() == context.DeadlineExceeded {
-			return "", fmt.Errorf("command timed out")
-		}
-		return "", fmt.Errorf("command failed: %w", err)
+		return "", ks.TraceError("BashError", "command", command, "err", err)
 	}
 
-	return output, nil
+	logo.JsonI("command", command, "output", tools.StrTake(output, 300))
+	var result = fmt.Sprintf("bash command: `%s` \n\n bash output: \n```%s``` ", command, output)
+	return result, nil
 }
 
-func IsDangerousCommand(command string) bool {
+func isDangerousCommand(command string) bool {
 	dangerousPatterns := []string{
 		"rm -rf /",
 		"mkfs",

@@ -120,7 +120,7 @@ func TestRPCResponse_IsError(t *testing.T) {
 func TestRPCRequest_Marshal(t *testing.T) {
 	params := json.RawMessage(`{"key":"value"}`)
 	req := &RpcRequest{
-		ID:     "req-1",
+		Id:     "req-1",
 		Method: "TestMethod",
 		Params: params,
 	}
@@ -135,8 +135,8 @@ func TestRPCRequest_Marshal(t *testing.T) {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
 
-	if decoded.ID != req.ID {
-		t.Errorf("ID = %q, want %q", decoded.ID, req.ID)
+	if decoded.Id != req.Id {
+		t.Errorf("ID = %q, want %q", decoded.Id, req.Id)
 	}
 
 	if decoded.Method != req.Method {

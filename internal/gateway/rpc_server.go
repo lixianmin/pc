@@ -13,7 +13,9 @@ import (
 	"github.com/lixianmin/logo"
 	"github.com/lixianmin/pc/internal/engine"
 	"github.com/lixianmin/pc/internal/plugin"
+	"github.com/lixianmin/pc/pkg/ks"
 	"github.com/lixianmin/pc/pkg/protocol"
+	"github.com/lixianmin/pc/pkg/tools"
 )
 
 type RpcHandler func(ctx context.Context, params json.RawMessage) (interface{}, error)
@@ -172,29 +174,29 @@ func (my *RpcServer) handleConnection(conn net.Conn) {
 }
 
 func (my *RpcServer) handleRequest(ctx context.Context, req *protocol.RpcRequest) *protocol.RpcResponse {
-	if req.ID == "" {
-		logo.Error("RPC request missing ID")
+	if req.Id == "" {
+		logo.JsonW("title", "missing request id")
 		return protocol.NewRpcErrorResponse("", protocol.RpcErrorCodeInvalidRequest, "missing request id")
 	}
 
 	if req.Method == "" {
-		logo.Error("RPC request missing method, ID:", req.ID)
-		return protocol.NewRpcErrorResponse(req.ID, protocol.RpcErrorCodeInvalidRequest, "missing method")
+		logo.JsonW("title", "empty method", "id", req.Id)
+		return protocol.NewRpcErrorResponse(req.Id, protocol.RpcErrorCodeInvalidRequest, "missing method")
 	}
 
 	handler, ok := my.handlers[req.Method]
 	if !ok {
-		logo.Error("RPC method not found:", req.Method, "ID:", req.ID)
-		return protocol.NewRpcErrorResponse(req.ID, protocol.RpcErrorCodeMethodNotFound, "method not found: "+string(req.Method))
+		logo.JsonW("method", req.Method, "id", req.Id)
+		return protocol.NewRpcErrorResponse(req.Id, protocol.RpcErrorCodeMethodNotFound, "method not found: "+string(req.Method))
 	}
 
 	result, err := handler(ctx, req.Params)
 	if err != nil {
-		logo.Error("RPC handler error for method:", req.Method, ", error:", err)
-		return protocol.NewRpcErrorResponse(req.ID, protocol.RpcErrorCodeInternalError, err.Error())
+		logo.JsonW("method", req.Method, "err", tools.StrTake(err.Error(), 300))
+		return protocol.NewRpcErrorResponse(req.Id, protocol.RpcErrorCodeInternalError, err.Error())
 	}
 
-	return protocol.NewRpcResponse(req.ID, result)
+	return protocol.NewRpcResponse(req.Id, result)
 }
 
 func (my *RpcServer) sendError(conn net.Conn, id string, code int, message string) {
@@ -225,27 +227,24 @@ func (my *RpcServer) sendError(conn net.Conn, id string, code int, message strin
 func (my *RpcServer) handleProcessMessage(ctx context.Context, params json.RawMessage) (any, error) {
 	var req protocol.ProcessMessageParams
 	if err := json.Unmarshal(params, &req); err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
+		return nil, ks.TraceError("UnmarshalFailed", "err", err)
 	}
 
-	if req.SessionId == "" {
-		return nil, fmt.Errorf("sessionId is required")
+	var sessionId = req.SessionId
+	if sessionId == "" {
+		return nil, ks.TraceError("EmptySessionId")
 	}
 
 	if req.Message == "" {
-		return nil, fmt.Errorf("message is required")
+		return nil, ks.TraceError("EmptyMessage")
 	}
 
-	logo.Info("[RPC] handleProcessMessage: sessionId=", req.SessionId, ", message=", req.Message)
-
-	var session = my.engine.FetchSession(req.SessionId)
-	response, err := my.engine.ProcessMessage(ctx, session, req.Message)
+	var session = my.engine.FetchSession(sessionId)
+	var response, err = my.engine.ProcessMessage(ctx, session, req.Message)
 	if err != nil {
-		logo.Error("[RPC] handleProcessMessage error:", err)
 		return nil, err
 	}
 
-	logo.Info("[RPC] handleProcessMessage completed: response length=", len(response))
 	return &protocol.ProcessMessageResult{Response: response}, nil
 }
 

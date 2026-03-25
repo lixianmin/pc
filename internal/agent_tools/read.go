@@ -47,5 +47,6 @@ func Read(ctx context.Context, path string, offset int, limit int) (string, erro
 		return "", fmt.Errorf("error reading file: %w", scanner.Err())
 	}
 
-	return strings.Join(lines, "\n"), nil
+	var result = strings.Join(lines, "\n")
+	return result, nil
 }

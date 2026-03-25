@@ -22,5 +22,6 @@ func Write(ctx context.Context, path string, content string) (string, error) {
 		return "", fmt.Errorf("failed to write file: %w", err)
 	}
 
-	return fmt.Sprintf("Successfully wrote %d bytes to %s", len(content), path), nil
+	var result = fmt.Sprintf("Successfully wrote %d bytes to %s", len(content), path)
+	return result, nil
 }

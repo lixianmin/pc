@@ -31,7 +31,7 @@ const (
 
 // RpcRequest represents an RPC request.
 type RpcRequest struct {
-	ID     string          `json:"id"`
+	Id     string          `json:"id"`
 	Method RpcMethod       `json:"method"`
 	Params json.RawMessage `json:"params,omitempty"`
 }
