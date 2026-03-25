@@ -107,7 +107,7 @@ func (my *Engine) GetSkill(name string) *skill.Skill {
 // ProcessMessage processes an incoming message with ReAct loop.
 func (my *Engine) ProcessMessage(ctx context.Context, session *Session, message string) (string, error) {
 	if session == nil {
-		return "", ks.NewAppError("InvalidSession", "session cannot be nil")
+		return "", ks.NewAppError("NilSession", "session cannot be nil")
 	}
 
 	if message == "" {
@@ -120,6 +120,7 @@ func (my *Engine) ProcessMessage(ctx context.Context, session *Session, message 
 
 	var response string
 	var hasLLM = (my.pluginManager != nil && my.llmPlugin != nil)
+
 	if hasLLM {
 		logo.Info("[Session:", sessionId, "] Starting ReAct loop")
 
