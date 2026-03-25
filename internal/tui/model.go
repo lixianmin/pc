@@ -795,16 +795,6 @@ type streamDoneMsg struct {
 	fullContent string
 }
 
-func (my *Model) sendToAgentStream(message string) tea.Cmd {
-	return func() tea.Msg {
-		if my.rpcClient == nil {
-			return errorMsg("not connected to gateway")
-		}
-
-		return streamStartMsg{}
-	}
-}
-
 func generateSessionID() string {
 	return fmt.Sprintf("session-%d", time.Now().UnixNano())
 }
@@ -812,29 +802,6 @@ func generateSessionID() string {
 func (my *Model) processStreamFinalize() tea.Cmd {
 	return func() tea.Msg {
 		return streamDoneMsg{fullContent: my.streamBuffer.String()}
-	}
-}
-
-func (my *Model) processStreamChunks(sessionID, message string) tea.Cmd {
-	return func() tea.Msg {
-		if my.rpcClient == nil {
-			return errorMsg("not connected to gateway")
-		}
-
-		chunks, err := my.rpcClient.ProcessMessageStream(sessionID, message)
-		if err != nil {
-			return errorMsg(err.Error())
-		}
-
-		var fullContent strings.Builder
-		for _, chunk := range chunks {
-			if chunk.Error != "" {
-				return errorMsg(chunk.Error)
-			}
-			fullContent.WriteString(chunk.Content)
-		}
-
-		return streamDoneMsg{fullContent: fullContent.String()}
 	}
 }
 

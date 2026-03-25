@@ -3,22 +3,12 @@ package engine
 import (
 	"context"
 
-	baml "github.com/lixianmin/pc/baml_client"
+	"github.com/lixianmin/pc/baml_client"
 	"github.com/lixianmin/pc/baml_client/types"
 )
 
-type Client struct{}
-
-func NewClient() *Client {
-	return &Client{}
-}
-
-func (my *Client) Chat(ctx context.Context, messages []types.Message, systemPrompt string) (ChatResult, error) {
-	return baml.Chat(ctx, messages, systemPrompt)
-}
-
-func (my *Client) StreamChat(ctx context.Context, messages []types.Message, systemPrompt string) <-chan StreamChunk {
-	stream, err := baml.Stream.Chat(ctx, messages, systemPrompt)
+func streamChat(ctx context.Context, systemPrompt string, messages []types.Message) <-chan StreamChunk {
+	stream, err := baml_client.Stream.Chat(ctx, systemPrompt, messages)
 	ch := make(chan StreamChunk, 100)
 
 	if err != nil {

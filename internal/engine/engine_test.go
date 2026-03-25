@@ -57,9 +57,9 @@ func TestEngine_TaskDecomposition(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			e := NewEngine(nil)
 			ctx := context.Background()
-			_ = e.FetchSession(tt.sessionId)
+			session := e.FetchSession(tt.sessionId)
 
-			resp, err := e.ProcessMessage(ctx, tt.sessionId, tt.message)
+			resp, err := e.ProcessMessage(ctx, session, tt.message)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ProcessMessage() error = %v, wantErr %v", err, tt.wantErr)
 				return

@@ -1,6 +1,10 @@
 package engine
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/lixianmin/pc/baml_client/types"
+)
 
 // Message represents a message in a session.
 type Message struct {
@@ -25,12 +29,8 @@ func NewSession(sessionId string) *Session {
 }
 
 // AddMessage adds a message to the session.
-func (my *Session) AddMessage(role, content string) error {
-	if content == "" {
-		return fmt.Errorf("content cannot be empty")
-	}
-
-	msg := Message{
+func (my *Session) AddMessage(role, content string) *Message {
+	var msg = Message{
 		Role:    role,
 		Content: content,
 	}
@@ -44,14 +44,26 @@ func (my *Session) AddMessage(role, content string) error {
 		my.Messages = append(my.Messages, msg)
 	}
 
-	return nil
+	return &msg
 }
 
-// GetMessages returns all messages in the session.
-func (my *Session) GetMessages() []Message {
+// CloneMessages returns all messages in the session.
+func (my *Session) CloneMessages() []Message {
 	// Return a copy to avoid external modification
-	result := make([]Message, len(my.Messages))
+	var result = make([]Message, len(my.Messages))
 	copy(result, my.Messages)
+	return result
+}
+
+func (my *Session) AsBamlMessages() []types.Message {
+	var result = make([]types.Message, 0, len(my.Messages))
+	for _, msg := range my.Messages {
+		result = append(result, types.Message{
+			Role:    msg.Role,
+			Content: msg.Content,
+		})
+	}
+
 	return result
 }
 

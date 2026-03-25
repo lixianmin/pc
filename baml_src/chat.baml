@@ -6,13 +6,13 @@ class Message {
   content string
 }
 
-type ToolsList = BashTool | ReadTool | WriteTool | EditTool | WebSearchTool | WebFetchTool
+type ToolsList = BashTool | EditTool| ReadTool | WebFetchTool | WebSearchTool | WriteTool 
 
-function Chat(messages: Message[], system_prompt: string) -> ChatResponse | ToolsList | UseSkill {
+function Chat(systemPrompt: string, messages: Message[]) -> ChatResponse | ToolsList | UseSkill {
   client GLM5
   prompt #"
     {{ _.role("system") }}
-    {{ system_prompt }}
+    {{ systemPrompt }}
 
     {% for msg in messages %}
       {{ _.role(msg.role) }}
@@ -31,17 +31,18 @@ test ChatMultiTurn {
       { role: "assistant", content: "Nice to meet you, Alice!" },
       { role: "user", content: "What is my name?" }
     ]
-    system_prompt: "You are a helpful assistant."
+    systemPrompt: "You are a helpful assistant."
   }
 }
 
 test ChatChineseInput {
   functions [Chat]
   args {
+    systemPrompt: "你是一个有帮助的助手。"
+
     messages [
       { role: "user", content: "你好，请介绍一下你自己。" }
     ]
-    system_prompt: "你是一个有帮助的助手。"
   }
   @client(GLM5)
 }

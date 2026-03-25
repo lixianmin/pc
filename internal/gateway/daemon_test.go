@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 )
 
 func TestNewDaemon(t *testing.T) {
@@ -150,13 +149,10 @@ func TestDaemon_Stop_StalePidfile(t *testing.T) {
 }
 
 func TestStatus_Struct(t *testing.T) {
-	now := time.Now()
-
 	status := &Status{
-		Running:   true,
-		Pid:       12345,
-		StartTime: now,
-		Error:     "",
+		Running: true,
+		Pid:     12345,
+		Error:   "",
 	}
 
 	if !status.Running {

@@ -222,7 +222,7 @@ func (my *RpcServer) sendError(conn net.Conn, id string, code int, message strin
 	}
 }
 
-func (my *RpcServer) handleProcessMessage(ctx context.Context, params json.RawMessage) (interface{}, error) {
+func (my *RpcServer) handleProcessMessage(ctx context.Context, params json.RawMessage) (any, error) {
 	var req protocol.ProcessMessageParams
 	if err := json.Unmarshal(params, &req); err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
@@ -238,9 +238,8 @@ func (my *RpcServer) handleProcessMessage(ctx context.Context, params json.RawMe
 
 	logo.Info("[RPC] handleProcessMessage: sessionId=", req.SessionId, ", message=", req.Message)
 
-	my.engine.FetchSession(req.SessionId)
-
-	response, err := my.engine.ProcessMessage(ctx, req.SessionId, req.Message)
+	var session = my.engine.FetchSession(req.SessionId)
+	response, err := my.engine.ProcessMessage(ctx, session, req.Message)
 	if err != nil {
 		logo.Error("[RPC] handleProcessMessage error:", err)
 		return nil, err
@@ -250,7 +249,7 @@ func (my *RpcServer) handleProcessMessage(ctx context.Context, params json.RawMe
 	return &protocol.ProcessMessageResult{Response: response}, nil
 }
 
-func (my *RpcServer) handleProcessMessageStream(ctx context.Context, params json.RawMessage) (interface{}, error) {
+func (my *RpcServer) handleProcessMessageStream(ctx context.Context, params json.RawMessage) (any, error) {
 	var req protocol.ProcessMessageParams
 	if err := json.Unmarshal(params, &req); err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
@@ -266,7 +265,7 @@ func (my *RpcServer) handleProcessMessageStream(ctx context.Context, params json
 
 	my.engine.FetchSession(req.SessionId)
 
-	streamCh := my.engine.ProcessMessageStream(ctx, req.SessionId, req.Message)
+	streamCh := my.engine.Stream.ProcessMessage(ctx, req.SessionId, req.Message)
 
 	var chunks []protocol.ProcessMessageStreamChunk
 	for chunk := range streamCh {
@@ -284,7 +283,7 @@ func (my *RpcServer) handleProcessMessageStream(ctx context.Context, params json
 	return map[string]any{"chunks": chunks}, nil
 }
 
-func (my *RpcServer) handleGetStatus(ctx context.Context, params json.RawMessage) (interface{}, error) {
+func (my *RpcServer) handleGetStatus(ctx context.Context, params json.RawMessage) (any, error) {
 	plugins := my.pluginManager.ListPlugins()
 
 	return &protocol.GatewayStatus{
@@ -295,7 +294,7 @@ func (my *RpcServer) handleGetStatus(ctx context.Context, params json.RawMessage
 	}, nil
 }
 
-func (my *RpcServer) handleListSkills(ctx context.Context, params json.RawMessage) (interface{}, error) {
+func (my *RpcServer) handleListSkills(ctx context.Context, params json.RawMessage) (any, error) {
 	var skills []protocol.SkillInfo
 
 	if my.engine != nil {
@@ -313,7 +312,7 @@ func (my *RpcServer) handleListSkills(ctx context.Context, params json.RawMessag
 	}, nil
 }
 
-func (my *RpcServer) handleExecuteSkill(ctx context.Context, params json.RawMessage) (interface{}, error) {
+func (my *RpcServer) handleExecuteSkill(ctx context.Context, params json.RawMessage) (any, error) {
 	var req protocol.ExecuteSkillParams
 	if err := json.Unmarshal(params, &req); err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
@@ -328,13 +327,13 @@ func (my *RpcServer) handleExecuteSkill(ctx context.Context, params json.RawMess
 	}, nil
 }
 
-func (my *RpcServer) handleListTasks(ctx context.Context, params json.RawMessage) (interface{}, error) {
+func (my *RpcServer) handleListTasks(ctx context.Context, params json.RawMessage) (any, error) {
 	return &protocol.ListTasksResult{
 		Tasks: []protocol.TaskInfo{},
 	}, nil
 }
 
-func (my *RpcServer) handleAddTask(ctx context.Context, params json.RawMessage) (interface{}, error) {
+func (my *RpcServer) handleAddTask(ctx context.Context, params json.RawMessage) (any, error) {
 	var req protocol.AddTaskParams
 	if err := json.Unmarshal(params, &req); err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
@@ -349,7 +348,7 @@ func (my *RpcServer) handleAddTask(ctx context.Context, params json.RawMessage) 
 	}, nil
 }
 
-func (my *RpcServer) handleCompleteTask(ctx context.Context, params json.RawMessage) (interface{}, error) {
+func (my *RpcServer) handleCompleteTask(ctx context.Context, params json.RawMessage) (any, error) {
 	var req protocol.CompleteTaskParams
 	if err := json.Unmarshal(params, &req); err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
@@ -364,7 +363,7 @@ func (my *RpcServer) handleCompleteTask(ctx context.Context, params json.RawMess
 	}, nil
 }
 
-func (my *RpcServer) handleDeleteTask(ctx context.Context, params json.RawMessage) (interface{}, error) {
+func (my *RpcServer) handleDeleteTask(ctx context.Context, params json.RawMessage) (any, error) {
 	var req protocol.DeleteTaskParams
 	if err := json.Unmarshal(params, &req); err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)

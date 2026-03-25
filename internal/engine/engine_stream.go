@@ -7,7 +7,6 @@ import (
 
 	"github.com/lixianmin/got/loom"
 	"github.com/lixianmin/logo"
-	"github.com/lixianmin/pc/baml_client/types"
 )
 
 type StreamChunk struct {
@@ -20,11 +19,11 @@ func NewStreamChunk(content string) StreamChunk {
 	return StreamChunk{Content: content, Done: false}
 }
 
-func NewStreamDone() StreamChunk {
+func NewStreamChunkDone() StreamChunk {
 	return StreamChunk{Done: true}
 }
 
-func NewStreamError(err error) StreamChunk {
+func NewStreamChunkError(err error) StreamChunk {
 	return StreamChunk{Error: err.Error(), Done: true}
 }
 
@@ -38,51 +37,56 @@ func (my StreamChunk) String() string {
 	return fmt.Sprintf("StreamChunk{Content: %q}", my.Content)
 }
 
-func (my *Engine) ProcessMessageStream(ctx context.Context, sessionId, message string) <-chan StreamChunk {
+type EngineStream struct {
+	dad *Engine
+}
+
+func (my *EngineStream) ProcessMessage(ctx context.Context, sessionId, message string) <-chan StreamChunk {
 	ch := make(chan StreamChunk, 100)
 
 	loom.Go(func(later loom.Later) {
 		defer close(ch)
 
 		if sessionId == "" {
-			ch <- NewStreamError(fmt.Errorf("session ID cannot be empty"))
+			ch <- NewStreamChunkError(fmt.Errorf("session ID cannot be empty"))
 			return
 		}
 
 		if message == "" {
-			ch <- NewStreamError(fmt.Errorf("message cannot be empty"))
+			ch <- NewStreamChunkError(fmt.Errorf("message cannot be empty"))
 			return
 		}
 
-		my.mu.RLock()
-		session, exists := my.sessions[sessionId]
-		my.mu.RUnlock()
+		var dad = my.dad
+		dad.mu.RLock()
+		session, exists := dad.sessions[sessionId]
+		dad.mu.RUnlock()
 
 		if !exists {
-			ch <- NewStreamError(fmt.Errorf("session not found: %s", sessionId))
+			ch <- NewStreamChunkError(fmt.Errorf("session not found: %s", sessionId))
 			return
 		}
 
 		logo.Info("[Stream Session:", sessionId, "] User:", message)
 
 		if err := session.AddMessage("user", message); err != nil {
-			ch <- NewStreamError(fmt.Errorf("failed to save user message: %w", err))
+			ch <- NewStreamChunkError(fmt.Errorf("failed to save user message: %w", err))
 			return
 		}
 
-		hasLLM := my.llmClient != nil || (my.pluginManager != nil && my.llmPlugin != nil)
+		hasLLM := (dad.pluginManager != nil && dad.llmPlugin != nil)
 		if !hasLLM {
 			ch <- NewStreamChunk(fmt.Sprintf("Echo: %s", message))
-			ch <- NewStreamDone()
+			ch <- NewStreamChunkDone()
 			return
 		}
 
 		logo.Info("[Stream Session:", sessionId, "] Starting streaming")
 
 		var fullContent strings.Builder
-		streamCh, err := my.callLLMStream(ctx, session, message)
+		streamCh, err := my.callLLM(ctx, session)
 		if err != nil {
-			ch <- NewStreamError(fmt.Errorf("failed to start streaming: %w", err))
+			ch <- NewStreamChunkError(fmt.Errorf("failed to start streaming: %w", err))
 			return
 		}
 
@@ -93,39 +97,27 @@ func (my *Engine) ProcessMessageStream(ctx context.Context, sessionId, message s
 
 		response := fullContent.String()
 		if err := session.AddMessage("assistant", response); err != nil {
-			ch <- NewStreamError(fmt.Errorf("failed to save assistant response: %w", err))
+			ch <- NewStreamChunkError(fmt.Errorf("failed to save assistant response: %w", err))
 			return
 		}
 
 		logo.Info("[Stream Session:", sessionId, "] Streaming completed, response length:", len(response))
-		ch <- NewStreamDone()
+		ch <- NewStreamChunkDone()
 	})
 
 	return ch
 }
 
-func (my *Engine) callLLMStream(ctx context.Context, session *Session, message string) (<-chan string, error) {
-	history := session.GetMessages()
-	systemPrompt := my.buildSystemPrompt()
+func (my *EngineStream) callLLM(ctx context.Context, session *Session) (<-chan string, error) {
+	var systemPrompt = my.dad.buildSystemPrompt()
+	var messages = session.AsBamlMessages()
 
-	var messages []types.Message
-	for _, msg := range history {
-		messages = append(messages, types.Message{
-			Role:    msg.Role,
-			Content: msg.Content,
-		})
-	}
-	messages = append(messages, types.Message{
-		Role:    "user",
-		Content: message,
-	})
-
-	stream := my.llmClient.StreamChat(ctx, messages, systemPrompt)
+	var chunks = streamChat(ctx, systemPrompt, messages)
 
 	ch := make(chan string, 100)
 	go func() {
 		defer close(ch)
-		for chunk := range stream {
+		for chunk := range chunks {
 			if chunk.Error != "" {
 				logo.Error("[Engine.callLLMStreamViaBAML] Stream error:", chunk.Error)
 				return

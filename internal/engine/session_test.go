@@ -69,7 +69,7 @@ func TestSessionAddMessage(t *testing.T) {
 				t.Errorf("AddMessage() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if !tt.wantErr {
-				msgs := s.GetMessages()
+				msgs := s.CloneMessages()
 				if len(msgs) != 1 {
 					t.Errorf("message count = %v, want 1", len(msgs))
 				}
@@ -110,7 +110,7 @@ func TestSessionGetMessages(t *testing.T) {
 			s := NewSession("test-session")
 			tt.setup(s)
 
-			msgs := s.GetMessages()
+			msgs := s.CloneMessages()
 			if len(msgs) != tt.wantCount {
 				t.Errorf("GetMessages() count = %v, want %v", len(msgs), tt.wantCount)
 			}
@@ -122,10 +122,10 @@ func TestSessionGetMessagesReturnsCopy(t *testing.T) {
 	s := NewSession("test-session")
 	s.AddMessage("user", "Hello")
 
-	msgs := s.GetMessages()
+	msgs := s.CloneMessages()
 	msgs[0].Content = "Modified"
 
-	originalMsgs := s.GetMessages()
+	originalMsgs := s.CloneMessages()
 	if originalMsgs[0].Content == "Modified" {
 		t.Error("GetMessages() returned reference instead of copy")
 	}
@@ -177,7 +177,7 @@ func TestSessionContextLimit(t *testing.T) {
 		s.AddMessage("user", "message")
 	}
 
-	msgs := s.GetMessages()
+	msgs := s.CloneMessages()
 	if len(msgs) != 3 {
 		t.Errorf("message count = %v, want 3", len(msgs))
 	}
@@ -190,7 +190,7 @@ func TestSessionClear(t *testing.T) {
 
 	s.Clear()
 
-	msgs := s.GetMessages()
+	msgs := s.CloneMessages()
 	if len(msgs) != 0 {
 		t.Errorf("message count after Clear() = %v, want 0", len(msgs))
 	}
