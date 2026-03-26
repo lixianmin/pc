@@ -1,6 +1,11 @@
 package lane
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/lixianmin/logo"
+	"github.com/lixianmin/logo/tools"
+)
 
 /********************************************************************
 created:    2020-09-02
@@ -23,7 +28,7 @@ type Error struct {
 	Message string `json:"message"`
 }
 
-func NewError(code string, format string, args ...interface{}) *Error {
+func NewError(code string, format string, args ...any) *Error {
 	var message = format
 	if len(args) > 0 {
 		message = fmt.Sprintf(format, args...)
@@ -35,6 +40,19 @@ func NewError(code string, format string, args ...interface{}) *Error {
 	}
 
 	return err
+}
+
+func TraceError(code string, args ...any) *Error {
+	var message = ""
+	if len(args) > 0 {
+		message = tools.FormatJson(args...)
+		logo.GetLogger().Info(message)
+	}
+
+	return &Error{
+		Code:    code,
+		Message: message,
+	}
 }
 
 func (err *Error) Error() string {
