@@ -17,8 +17,12 @@ func TestServer(t *testing.T) {
 		return &serde.JsonSerde{}
 	}))
 
-	server.On("hello", func(ctx context.Context, input any) error {
-		logo.JsonI("hello", "world")
+	type HelloRequest struct {
+		Name string
+	}
+
+	On(server, "hello", func(ctx context.Context, input HelloRequest) error {
+		logo.JsonI("hello", input.Name)
 		return nil
 	})
 
@@ -29,6 +33,9 @@ func TestServer(t *testing.T) {
 	var client = NewClientSession()
 	client.Connect(address, WithSerde(&serde.JsonSerde{}), WithOnHandShaken(func(bean *serde.JsonHandshake) {
 		logo.JsonI("handshaken", bean)
+		client.Send("hello", HelloRequest{
+			Name: "panda",
+		})
 	}))
 
 	select {}

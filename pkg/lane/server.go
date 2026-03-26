@@ -110,7 +110,8 @@ func (my *Server) Listen() {
 	my.accept.Listen()
 }
 
-func (my *Server) On(route string, handler HandlerFn) error {
+func On[T any](server *Server, route string, handler HandlerFn[T]) error {
+
 	if route == "" {
 		return TraceError("NilRoute")
 	}
@@ -119,16 +120,16 @@ func (my *Server) On(route string, handler HandlerFn) error {
 		return TraceError("NilHandler", "route", route)
 	}
 
-	my.handlerLock.Lock()
-	defer my.handlerLock.Unlock()
+	server.handlerLock.Lock()
+	defer server.handlerLock.Unlock()
 
-	if _, exists := my.routeHandlers[route]; exists {
+	if _, exists := server.routeHandlers[route]; exists {
 		return TraceError("RouteAlreadyExists", "route", route)
 	}
 
-	my.routeHandlers[route] = &HandlerItem{
+	server.routeHandlers[route] = &HandlerItem{
 		Route:   route,
-		Handler: handler,
+		Handler: wrapTypedHandler(handler),
 	}
 
 	return nil
@@ -140,6 +141,15 @@ func (my *Server) getHandlerByRoute(route string) *HandlerItem {
 
 	var handler = my.routeHandlers[route]
 	return handler
+}
+
+func (my *Server) createSerde(name string, session *ServerSession) serde.Serde {
+	var builder = my.serdeBuilders[name]
+	if builder != nil {
+		return builder(session)
+	}
+
+	return nil
 }
 
 func createCommonPackBuffer(pack serde.Packet) []byte {

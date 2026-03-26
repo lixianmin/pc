@@ -2,7 +2,6 @@ package lane
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"reflect"
 	"sync"
@@ -84,14 +83,15 @@ func (my *ServerSession) Close() error {
 	return my.wc.Close(func() error {
 		var err = my.link.Close()
 		my.attachment.dispose()
-		my.onEventClosed()
+		my.onClosed()
 		return err
 	})
 }
 
-func (my *ServerSession) onEventClosed() {
+func (my *ServerSession) onClosed() {
 	my.handlerLock.Lock()
 	defer my.handlerLock.Unlock()
+
 	{
 		for _, handler := range my.onClosedHandlers {
 			handler()
@@ -101,15 +101,10 @@ func (my *ServerSession) onEventClosed() {
 }
 
 func (my *ServerSession) onReceivedData(reader *iox.OctetsReader) error {
-	var packets, err1 = serde.DecodePacket(reader)
-	if err1 != nil {
-		var err2 = fmt.Errorf("failed to decode message: %s", err1.Error())
-		return err2
-	}
-
+	var packets = serde.DecodePacket(reader)
 	for _, pack := range packets {
-		if err3 := my.onReceivedPacket(pack); err3 != nil {
-			return err3
+		if err := my.onReceivedPacket(pack); err != nil {
+			return err
 		}
 	}
 
@@ -119,8 +114,10 @@ func (my *ServerSession) onReceivedData(reader *iox.OctetsReader) error {
 func (my *ServerSession) onReceivedPacket(pack serde.Packet) error {
 	var route = convert.String(pack.Route)
 	switch route {
-	case serde.Handshake, serde.HandshakeRe:
+	case serde.Handshake:
 		return nil
+	case serde.HandshakeRe:
+		return my.onReceivedHandshakeRe(pack)
 	case serde.Heartbeat:
 		// 现在server只有一个goroutine用于阻塞式读取网络数据，因此server缺少定时发送heartbeat的能力，因此采用client主动heartbeat而server回复的方案
 		if _, err2 := my.link.Write(my.server.heartbeatBuffer); err2 != nil {
@@ -132,6 +129,23 @@ func (my *ServerSession) onReceivedPacket(pack serde.Packet) error {
 	default:
 		return my.onReceivedUserdata(pack)
 	}
+}
+
+func (my *ServerSession) onReceivedHandshakeRe(input serde.Packet) error {
+	var info serde.JsonHandshakeRe
+	var err = convert.FromJsonE(input.Data, &info)
+	if err != nil {
+		return err
+	}
+
+	var serde = my.server.createSerde(info.Serde, my)
+	if serde == nil {
+		return NewError("InvalidSerde", "info.Serde=%s", info.Serde)
+	}
+
+	my.serde = serde
+	// my.onEventHandShaken()
+	return nil
 }
 
 func (my *ServerSession) onReceivedUserdata(input serde.Packet) error {
@@ -146,7 +160,7 @@ func (my *ServerSession) onReceivedUserdata(input serde.Packet) error {
 		return ErrNilSerde
 	}
 
-	var ctx = my.attachment.Get1(KeyContext).(context.Context)
+	var ctx = context.WithValue(context.Background(), keySession, my)
 	handlerItem.Handler(ctx, input)
 
 	return nil

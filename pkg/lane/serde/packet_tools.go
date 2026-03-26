@@ -21,7 +21,7 @@ func EncodePacket(writer *iox.OctetsWriter, pack Packet) {
 	_ = writer.WriteBytes(pack.Data)
 }
 
-func DecodePacket(reader *iox.OctetsReader) ([]Packet, error) {
+func DecodePacket(reader *iox.OctetsReader) []Packet {
 	var packets []Packet = nil
 	var stream = reader.Stream()
 
@@ -31,25 +31,25 @@ func DecodePacket(reader *iox.OctetsReader) ([]Packet, error) {
 		var route, err = reader.ReadBytes()
 		if errors.Is(err, iox.ErrNotEnoughData) {
 			rewindStream(stream, lastPosition)
-			return packets, nil
+			return packets
 		}
 
 		requestId, err := reader.Read7BitEncodedInt()
 		if errors.Is(err, iox.ErrNotEnoughData) {
 			rewindStream(stream, lastPosition)
-			return packets, nil
+			return packets
 		}
 
 		code, err := reader.ReadBytes()
 		if errors.Is(err, iox.ErrNotEnoughData) {
 			rewindStream(stream, lastPosition)
-			return packets, nil
+			return packets
 		}
 
 		data, err := reader.ReadBytes()
 		if errors.Is(err, iox.ErrNotEnoughData) {
 			rewindStream(stream, lastPosition)
-			return packets, nil
+			return packets
 		}
 
 		var pack = Packet{Route: route, RequestId: requestId, Code: code, Data: data}

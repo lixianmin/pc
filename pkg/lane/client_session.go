@@ -2,10 +2,8 @@ package lane
 
 import (
 	"crypto/tls"
-	"fmt"
 	"net"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/lixianmin/got/convert"
@@ -39,13 +37,8 @@ type ClientSession struct {
 	routeHandlers   map[string]func([]byte, *Error)
 }
 
-// idGenerator 用于生成Client ID，替代全局变量
-var idGenerator int64
-
 func NewClientSession() *ClientSession {
-	var id = atomic.AddInt64(&idGenerator, 1)
 	var my = &ClientSession{
-		id:                id,
 		writer:            iox.NewOctetsWriter(&iox.OctetsStream{}),
 		heartbeatInterval: time.Minute, // 初始给一个大一些的值, 防止client自己超时, 回头server会重置该值
 		requestHandlers:   map[int32]func([]byte, *Error){},
@@ -145,16 +138,11 @@ func (my *ClientSession) onReadHandler(reader *iox.OctetsReader, err error) {
 }
 
 func (my *ClientSession) onReceivedData(reader *iox.OctetsReader) error {
-	var packets, err1 = serde.DecodePacket(reader)
-	if err1 != nil {
-		var err2 = fmt.Errorf("failed to decode message: %s", err1.Error())
-		return err2
-	}
-
+	var packets = serde.DecodePacket(reader)
 	for _, pack := range packets {
-		var err3 = my.onReceivedPacket(pack)
-		if err3 != nil {
-			return err3
+		var err1 = my.onReceivedPacket(pack)
+		if err1 != nil {
+			return err1
 		}
 	}
 
@@ -184,8 +172,9 @@ func (my *ClientSession) onReceivedHandshake(pack serde.Packet) error {
 	}
 
 	logo.JsonI("handshake", handshake)
-	my.heartbeatInterval = time.Duration(handshake.Heartbeat) * time.Second
 	my.nonce = handshake.Nonce
+	my.heartbeatInterval = time.Duration(handshake.Heartbeat) * time.Second
+	my.id = handshake.SessionId
 	my.handshakeRe()
 
 	if my.onHandShaken != nil {
