@@ -135,11 +135,24 @@ type ProcessMessageResult struct {
 	Response string `json:"response"`
 }
 
-// ProcessMessageStreamChunk represents a streaming chunk.
+type StreamChunkType string
+
+const (
+	ChunkTypeThinking   StreamChunkType = "thinking"
+	ChunkTypeToolCall   StreamChunkType = "tool_call"
+	ChunkTypeToolResult StreamChunkType = "tool_result"
+	ChunkTypeResponse   StreamChunkType = "response"
+	ChunkTypeDone       StreamChunkType = "done"
+	ChunkTypeError      StreamChunkType = "error"
+)
+
 type ProcessMessageStreamChunk struct {
-	Content string `json:"content"`
-	Done    bool   `json:"done"`
-	Error   string `json:"error,omitempty"`
+	Type    StreamChunkType `json:"type"`
+	Content string          `json:"content,omitempty"`
+	Tool    string          `json:"tool,omitempty"`
+	Meta    any             `json:"meta,omitempty"`
+	Done    bool            `json:"done"`
+	Error   string          `json:"error,omitempty"`
 }
 
 // GatewayStatus represents the gateway status.

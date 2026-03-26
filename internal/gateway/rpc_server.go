@@ -143,8 +143,12 @@ func (my *RpcServer) handleConnection(conn net.Conn) {
 			continue
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+		if req.Method == protocol.RpcMethodProcessMessageStream {
+			my.handleStreamRequest(conn, &req)
+			continue
+		}
 
+		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 		resp := my.handleRequest(ctx, &req)
 		cancel()
 
@@ -154,23 +158,59 @@ func (my *RpcServer) handleConnection(conn net.Conn) {
 			continue
 		}
 
-		respLength := int32(len(respData))
-		lengthBytes := []byte{
-			byte(respLength >> 24),
-			byte(respLength >> 16),
-			byte(respLength >> 8),
-			byte(respLength),
-		}
-		if _, err := conn.Write(lengthBytes); err != nil {
-			logo.Error("Failed to write length prefix:", err)
-			return
+		my.writeResponse(conn, respData)
+	}
+}
+
+func (my *RpcServer) handleStreamRequest(conn net.Conn, req *protocol.RpcRequest) {
+	var params protocol.ProcessMessageParams
+	if err := json.Unmarshal(req.Params, &params); err != nil {
+		my.sendError(conn, req.Id, protocol.RpcErrorCodeInvalidParams, "invalid params")
+		return
+	}
+
+	if params.SessionId == "" {
+		my.sendError(conn, req.Id, protocol.RpcErrorCodeInvalidParams, "sessionId is required")
+		return
+	}
+
+	if params.Message == "" {
+		my.sendError(conn, req.Id, protocol.RpcErrorCodeInvalidParams, "message is required")
+		return
+	}
+
+	session := my.engine.FetchSession(params.SessionId)
+
+	streamCh := my.engine.Stream.ProcessMessage(context.Background(), session, params.Message)
+
+	for chunk := range streamCh {
+		resp := protocol.NewRpcResponse(req.Id, chunk)
+		respData, err := json.Marshal(resp)
+		if err != nil {
+			logo.Error("Failed to marshal stream chunk:", err)
+			continue
 		}
 
-		if _, err := conn.Write(respData); err != nil {
-			logo.Error("Failed to write response:", err)
+		if err := my.writeResponse(conn, respData); err != nil {
+			logo.Error("Failed to write stream chunk:", err)
 			return
 		}
 	}
+}
+
+func (my *RpcServer) writeResponse(conn net.Conn, data []byte) error {
+	length := int32(len(data))
+	lengthBytes := []byte{
+		byte(length >> 24),
+		byte(length >> 16),
+		byte(length >> 8),
+		byte(length),
+	}
+	if _, err := conn.Write(lengthBytes); err != nil {
+		return err
+	}
+	_, err := conn.Write(data)
+	return err
 }
 
 func (my *RpcServer) handleRequest(ctx context.Context, req *protocol.RpcRequest) *protocol.RpcResponse {
@@ -262,9 +302,9 @@ func (my *RpcServer) handleProcessMessageStream(ctx context.Context, params json
 		return nil, fmt.Errorf("message is required")
 	}
 
-	my.engine.FetchSession(req.SessionId)
+	session := my.engine.FetchSession(req.SessionId)
 
-	streamCh := my.engine.Stream.ProcessMessage(ctx, req.SessionId, req.Message)
+	streamCh := my.engine.Stream.ProcessMessage(ctx, session, req.Message)
 
 	var chunks []protocol.ProcessMessageStreamChunk
 	for chunk := range streamCh {

@@ -229,7 +229,141 @@ func (my *RpcClient) ProcessMessageStream(sessionID, message string) ([]protocol
 		chunks = append(chunks, chunk)
 	}
 
+	if len(chunks) == 0 {
+		return nil, fmt.Errorf("no streaming chunks returned")
+	}
+
 	return chunks, nil
+}
+
+func (my *RpcClient) ProcessMessageStreamRaw(sessionID, message string) (<-chan protocol.ProcessMessageStreamChunk, error) {
+	params := &protocol.ProcessMessageParams{
+		SessionId: sessionID,
+		Message:   message,
+	}
+
+	if my.conn == nil {
+		return nil, fmt.Errorf("not connected")
+	}
+
+	requestId := ulid.Make().String()
+	paramsJson, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal params: %w", err)
+	}
+
+	request := &protocol.RpcRequest{
+		Id:     requestId,
+		Method: protocol.RpcMethodProcessMessageStream,
+		Params: paramsJson,
+	}
+
+	reqData, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	length := int32(len(reqData))
+	lengthBytes := []byte{
+		byte(length >> 24),
+		byte(length >> 16),
+		byte(length >> 8),
+		byte(length),
+	}
+	if _, err := my.conn.Write(lengthBytes); err != nil {
+		return nil, fmt.Errorf("failed to write length prefix: %w", err)
+	}
+
+	if _, err := my.conn.Write(reqData); err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+
+	ch := make(chan protocol.ProcessMessageStreamChunk, 100)
+
+	go func() {
+		defer close(ch)
+		for {
+			if err := my.conn.SetReadDeadline(time.Now().Add(my.timeout)); err != nil {
+				ch <- protocol.ProcessMessageStreamChunk{Error: err.Error(), Done: true}
+				return
+			}
+
+			lengthBuf := make([]byte, 4)
+			totalRead := 0
+			for totalRead < 4 {
+				n, err := my.reader.Read(lengthBuf[totalRead:])
+				if err != nil {
+					if err.Error() == "EOF" {
+						return
+					}
+					ch <- protocol.ProcessMessageStreamChunk{Error: err.Error(), Done: true}
+					return
+				}
+				totalRead += n
+			}
+
+			length := int32(lengthBuf[0])<<24 | int32(lengthBuf[1])<<16 | int32(lengthBuf[2])<<8 | int32(lengthBuf[3])
+			if length <= 0 || length > 10*1024*1024 {
+				ch <- protocol.ProcessMessageStreamChunk{Error: fmt.Sprintf("invalid response length: %d", length), Done: true}
+				return
+			}
+
+			respData := make([]byte, length)
+			totalRead = 0
+			for totalRead < int(length) {
+				n, err := my.reader.Read(respData[totalRead:])
+				if err != nil {
+					ch <- protocol.ProcessMessageStreamChunk{Error: err.Error(), Done: true}
+					return
+				}
+				totalRead += n
+			}
+
+			my.conn.SetReadDeadline(time.Time{})
+
+			var resp protocol.RpcResponse
+			if err := json.Unmarshal(respData, &resp); err != nil {
+				ch <- protocol.ProcessMessageStreamChunk{Error: err.Error(), Done: true}
+				return
+			}
+
+			if resp.IsError() {
+				ch <- protocol.ProcessMessageStreamChunk{Error: resp.Error.Message, Done: true}
+				return
+			}
+
+			resultMap, ok := resp.Result.(map[string]any)
+			if !ok {
+				ch <- protocol.ProcessMessageStreamChunk{Error: "unexpected result format", Done: true}
+				return
+			}
+
+			chunk := protocol.ProcessMessageStreamChunk{}
+			if content, ok := resultMap["content"].(string); ok {
+				chunk.Content = content
+			}
+			if done, ok := resultMap["done"].(bool); ok {
+				chunk.Done = done
+			}
+			if errMsg, ok := resultMap["error"].(string); ok {
+				chunk.Error = errMsg
+			}
+			if typ, ok := resultMap["type"].(string); ok {
+				chunk.Type = protocol.StreamChunkType(typ)
+			}
+			if tool, ok := resultMap["tool"].(string); ok {
+				chunk.Tool = tool
+			}
+
+			ch <- chunk
+
+			if chunk.Done || chunk.Error != "" {
+				return
+			}
+		}
+	}()
+
+	return ch, nil
 }
 
 func (my *RpcClient) GetStatus() (*protocol.GatewayStatus, error) {
