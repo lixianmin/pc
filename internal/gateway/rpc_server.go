@@ -179,8 +179,7 @@ func (my *RpcServer) handleStreamRequest(conn net.Conn, req *protocol.RpcRequest
 		return
 	}
 
-	session := my.engine.FetchSession(params.SessionId)
-
+	var session = my.engine.FetchSession(params.SessionId)
 	streamCh := my.engine.Stream.ProcessMessage(context.Background(), session, params.Message)
 
 	for chunk := range streamCh {

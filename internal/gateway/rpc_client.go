@@ -156,35 +156,6 @@ func (my *RpcClient) Call(method protocol.RpcMethod, params any) (*protocol.RpcR
 	return &resp, nil
 }
 
-// ProcessMessage sends a message to be processed.
-func (my *RpcClient) ProcessMessage(sessionID, message string) (string, error) {
-	params := &protocol.ProcessMessageParams{
-		SessionId: sessionID,
-		Message:   message,
-	}
-
-	resp, err := my.Call((protocol.RpcMethodProcessMessage), params)
-	if err != nil {
-		return "", err
-	}
-
-	if resp.IsError() {
-		return "", resp.Error
-	}
-
-	var result protocol.ProcessMessageResult
-	resultJSON, err := json.Marshal(resp.Result)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal result: %w", err)
-	}
-
-	if err := json.Unmarshal(resultJSON, &result); err != nil {
-		return "", fmt.Errorf("failed to unmarshal result: %w", err)
-	}
-
-	return result.Response, nil
-}
-
 func (my *RpcClient) ProcessMessageStream(sessionID, message string) ([]protocol.ProcessMessageStreamChunk, error) {
 	params := &protocol.ProcessMessageParams{
 		SessionId: sessionID,
@@ -236,9 +207,9 @@ func (my *RpcClient) ProcessMessageStream(sessionID, message string) ([]protocol
 	return chunks, nil
 }
 
-func (my *RpcClient) ProcessMessageStreamRaw(sessionID, message string) (<-chan protocol.ProcessMessageStreamChunk, error) {
+func (my *RpcClient) ProcessMessageStreamRaw(sessionId, message string) (<-chan protocol.ProcessMessageStreamChunk, error) {
 	params := &protocol.ProcessMessageParams{
-		SessionId: sessionID,
+		SessionId: sessionId,
 		Message:   message,
 	}
 

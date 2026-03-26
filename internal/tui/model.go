@@ -12,6 +12,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/lixianmin/pc/internal/gateway"
+	"github.com/lixianmin/pc/pkg/protocol"
+	"github.com/lixianmin/pc/pkg/tools"
 )
 
 // Message represents a chat message.
@@ -41,8 +43,9 @@ type Model struct {
 	userScrolled bool
 
 	// Streaming state
-	isStreaming  bool
-	streamBuffer strings.Builder
+	isStreaming   bool
+	streamBuffer  strings.Builder
+	streamChannel <-chan protocol.ProcessMessageStreamChunk
 
 	// Styles
 	styles *Styles
@@ -288,9 +291,12 @@ func (my *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		my.isStreaming = true
 		my.streamBuffer.Reset()
 		my.status = "Streaming..."
+		return my, my.pollStreamChunk()
 
 	case streamChunkMsg:
-		my.streamBuffer.WriteString(msg.content)
+		formatted := formatChunkContent(msg.chunk)
+		my.streamBuffer.WriteString(formatted)
+		my.streamBuffer.WriteString("\n")
 		if my.ready {
 			lastIdx := len(my.messages) - 1
 			if lastIdx >= 0 && my.messages[lastIdx].Role == "agent-streaming" {
@@ -306,10 +312,7 @@ func (my *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				my.viewport.GotoBottom()
 			}
 		}
-
-		if msg.done {
-			return my, my.processStreamFinalize()
-		}
+		return my, my.pollStreamChunk()
 
 	case streamDoneMsg:
 		my.isStreaming = false
@@ -700,7 +703,7 @@ func (my *Model) renderMessages() string {
 		switch msg.Role {
 		case "user":
 			b.WriteString(userStyle.Render("You: " + msg.Content))
-		case "agent":
+		case "agent", "agent-streaming":
 			b.WriteString(agentStyle.Render("Agent: " + msg.Content))
 		}
 		b.WriteString("\n\n")
@@ -716,12 +719,39 @@ func (my *Model) sendToAgent(message string) tea.Cmd {
 			return errorMsg("not connected to gateway")
 		}
 
-		response, err := my.rpcClient.ProcessMessage(my.sessionID, message)
+		ch, err := my.rpcClient.ProcessMessageStreamRaw(my.sessionID, message)
 		if err != nil {
 			return errorMsg(err.Error())
 		}
 
-		return responseMsg(response)
+		my.streamChannel = ch
+		return streamStartMsg{}
+	}
+}
+
+func (my *Model) pollStreamChunk() tea.Cmd {
+	return func() tea.Msg {
+		if my.streamChannel == nil {
+			return streamDoneMsg{}
+		}
+
+		chunk, ok := <-my.streamChannel
+		if !ok {
+			my.streamChannel = nil
+			return streamDoneMsg{fullContent: my.streamBuffer.String()}
+		}
+
+		if chunk.Error != "" {
+			my.streamChannel = nil
+			return errorMsg(chunk.Error)
+		}
+
+		if chunk.Done {
+			my.streamChannel = nil
+			return streamDoneMsg{fullContent: my.streamBuffer.String()}
+		}
+
+		return streamChunkMsg{chunk: chunk}
 	}
 }
 
@@ -787,8 +817,7 @@ type responseMsg string
 type errorMsg string
 type statusMsg string
 type streamChunkMsg struct {
-	content string
-	done    bool
+	chunk protocol.ProcessMessageStreamChunk
 }
 type streamStartMsg struct{}
 type streamDoneMsg struct {
@@ -799,9 +828,35 @@ func generateSessionID() string {
 	return fmt.Sprintf("session-%d", time.Now().UnixNano())
 }
 
-func (my *Model) processStreamFinalize() tea.Cmd {
-	return func() tea.Msg {
-		return streamDoneMsg{fullContent: my.streamBuffer.String()}
+func formatChunkContent(chunk protocol.ProcessMessageStreamChunk) string {
+	switch chunk.Type {
+	case protocol.ChunkTypeThinking:
+		return fmt.Sprintf("⚙ %s", chunk.Content)
+	case protocol.ChunkTypeToolCall:
+		desc := tools.StrTake(chunk.Content, 60)
+		return fmt.Sprintf("▶ %s: %s", chunk.Tool, desc)
+	case protocol.ChunkTypeToolResult:
+		return fmt.Sprintf("  ✓ %s", summarizeToolResult(chunk.Tool, chunk.Content))
+	case protocol.ChunkTypeResponse:
+		return chunk.Content
+	default:
+		return chunk.Content
+	}
+}
+
+func summarizeToolResult(tool, output string) string {
+	switch tool {
+	case "bash":
+		lines := strings.Count(output, "\n") + 1
+		return fmt.Sprintf("完成 (%d 行输出)", lines)
+	case "read":
+		return fmt.Sprintf("已读取 %d 字符", len(output))
+	case "write":
+		return "文件已写入"
+	case "edit":
+		return "文件已修改"
+	default:
+		return "完成"
 	}
 }
 

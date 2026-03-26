@@ -10,56 +10,6 @@ import (
 	"github.com/lixianmin/pc/pkg/protocol"
 )
 
-type StreamChunkType = protocol.StreamChunkType
-
-const (
-	ChunkTypeThinking   = protocol.ChunkTypeThinking
-	ChunkTypeToolCall   = protocol.ChunkTypeToolCall
-	ChunkTypeToolResult = protocol.ChunkTypeToolResult
-	ChunkTypeResponse   = protocol.ChunkTypeResponse
-	ChunkTypeDone       = protocol.ChunkTypeDone
-	ChunkTypeError      = protocol.ChunkTypeError
-)
-
-type StreamChunk struct {
-	Type    StreamChunkType `json:"type"`
-	Content string          `json:"content,omitempty"`
-	Tool    string          `json:"tool,omitempty"`
-	Meta    any             `json:"meta,omitempty"`
-	Done    bool            `json:"done"`
-	Error   string          `json:"error,omitempty"`
-}
-
-func NewStreamChunk(typ StreamChunkType, content string) StreamChunk {
-	return StreamChunk{Type: typ, Content: content}
-}
-
-func NewStreamChunkToolCall(tool, content string) StreamChunk {
-	return StreamChunk{Type: ChunkTypeToolCall, Tool: tool, Content: content}
-}
-
-func NewStreamChunkToolResult(tool, content string) StreamChunk {
-	return StreamChunk{Type: ChunkTypeToolResult, Tool: tool, Content: content}
-}
-
-func NewStreamChunkDone() StreamChunk {
-	return StreamChunk{Type: ChunkTypeDone, Done: true}
-}
-
-func NewStreamChunkError(err error) StreamChunk {
-	return StreamChunk{Type: ChunkTypeError, Error: err.Error(), Done: true}
-}
-
-func (my StreamChunk) String() string {
-	if my.Error != "" {
-		return fmt.Sprintf("StreamChunk{Error: %s}", my.Error)
-	}
-	if my.Done {
-		return "StreamChunk{Done: true}"
-	}
-	return fmt.Sprintf("StreamChunk{Type: %s, Content: %q}", my.Type, my.Content)
-}
-
 type EngineStream struct {
 	dad *Engine
 }
@@ -102,7 +52,7 @@ func (my *EngineStream) reactLoop(ctx context.Context, session *Session, ch chan
 	const maxIterations = 10
 
 	for iteration := 0; iteration < maxIterations; iteration++ {
-		ch <- NewStreamChunk(ChunkTypeThinking, fmt.Sprintf("Thinking (iteration %d)...", iteration+1))
+		ch <- NewStreamChunk(protocol.ChunkTypeThinking, fmt.Sprintf("Thinking (iteration %d)...", iteration+1))
 
 		result, err := my.callLLM(ctx, session)
 		if err != nil {
@@ -110,12 +60,12 @@ func (my *EngineStream) reactLoop(ctx context.Context, session *Session, ch chan
 		}
 
 		if chatResp := result.AsChatResponse(); chatResp != nil {
-			ch <- NewStreamChunk(ChunkTypeResponse, chatResp.Content)
+			ch <- NewStreamChunk(protocol.ChunkTypeResponse, chatResp.Content)
 			session.AddMessage("assistant", chatResp.Content)
 			return chatResp.Content, nil
 		}
 
-		_, toolResult, err := my.executeToolCall(result, ch)
+		_, toolResult, err := my.useTool(result, ch)
 		if err != nil {
 			session.AddMessage("assistant", fmt.Sprintf("Tool error: %s", err))
 			continue
@@ -127,7 +77,7 @@ func (my *EngineStream) reactLoop(ctx context.Context, session *Session, ch chan
 	return "", fmt.Errorf("max iterations (%d) exceeded", maxIterations)
 }
 
-func (my *EngineStream) executeToolCall(result *ChatResult, ch chan<- StreamChunk) (string, string, error) {
+func (my *EngineStream) useTool(result *ChatResult, ch chan<- StreamChunk) (string, string, error) {
 	if bash := result.AsBash(); bash != nil {
 		ch <- NewStreamChunkToolCall("bash", bash.Command)
 		output, err := my.dad.useTool(context.Background(), result)
@@ -135,6 +85,7 @@ func (my *EngineStream) executeToolCall(result *ChatResult, ch chan<- StreamChun
 			ch <- NewStreamChunkToolResult("bash", fmt.Sprintf("Error: %s", err))
 			return "bash", "", err
 		}
+
 		ch <- NewStreamChunkToolResult("bash", truncateOutput(output, 500))
 		return "bash", output, nil
 	}
