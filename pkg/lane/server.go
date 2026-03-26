@@ -110,8 +110,7 @@ func (my *Server) Listen() {
 	my.accept.Listen()
 }
 
-func On[T any](server *Server, route string, handler HandlerFn[T]) error {
-
+func (my *Server) On(route string, handler HandlerFn) error {
 	if route == "" {
 		return TraceError("NilRoute")
 	}
@@ -120,19 +119,23 @@ func On[T any](server *Server, route string, handler HandlerFn[T]) error {
 		return TraceError("NilHandler", "route", route)
 	}
 
-	server.handlerLock.Lock()
-	defer server.handlerLock.Unlock()
+	my.handlerLock.Lock()
+	defer my.handlerLock.Unlock()
 
-	if _, exists := server.routeHandlers[route]; exists {
+	if _, exists := my.routeHandlers[route]; exists {
 		return TraceError("RouteAlreadyExists", "route", route)
 	}
 
-	server.routeHandlers[route] = &HandlerItem{
+	my.routeHandlers[route] = &HandlerItem{
 		Route:   route,
-		Handler: wrapTypedHandler(handler),
+		Handler: handler,
 	}
 
 	return nil
+}
+
+func On[T any](server *Server, route string, handler HandlerFnTyped[T]) error {
+	return server.On(route, TypedHandler(handler))
 }
 
 func (my *Server) getHandlerByRoute(route string) *HandlerItem {

@@ -13,16 +13,16 @@ author:     lixianmin
 Copyright (C) - All Rights Reserved
 *********************************************************************/
 
-type innerHandlerFn func(ctx context.Context, input any) error
+type HandlerFn func(ctx context.Context, input any) error
 
-type HandlerFn[T any] func(ctx context.Context, input T) error
+type HandlerFnTyped[T any] func(ctx context.Context, input T) error
 
 type HandlerItem struct {
 	Route   string
-	Handler innerHandlerFn
+	Handler HandlerFn
 }
 
-func wrapTypedHandler[T any](handler HandlerFn[T]) innerHandlerFn {
+func TypedHandler[T any](handler HandlerFnTyped[T]) HandlerFn {
 	return func(ctx context.Context, input any) error {
 		var pack, ok = input.(serde.Packet)
 		if !ok {
@@ -34,8 +34,8 @@ func wrapTypedHandler[T any](handler HandlerFn[T]) innerHandlerFn {
 			return TraceError("NilSession")
 		}
 
-		var session1 = session.(*ServerSession)
-		var serde = session1.serde
+		var session1 = session.(Session)
+		var serde = session1.Serde()
 		if serde == nil {
 			return ErrNilSerde
 		}

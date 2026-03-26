@@ -21,10 +21,10 @@ func TestServer(t *testing.T) {
 		Name string
 	}
 
-	On(server, "hello", func(ctx context.Context, input HelloRequest) error {
+	server.On("hello", TypedHandler(func(ctx context.Context, input HelloRequest) error {
 		logo.JsonI("hello", input.Name)
 		return nil
-	})
+	}))
 
 	loom.Go(func(later loom.Later) {
 		server.Listen()

@@ -224,6 +224,41 @@ func (my *ServerSession) OnClosed(handler func()) {
 	}
 }
 
+func (my *ServerSession) Send(route string, v any) error {
+	if route == "" {
+		return ErrInvalidRoute
+	}
+
+	if my.wc.IsClosed() {
+		return nil
+	}
+
+	if my.serde == nil {
+		return ErrNilSerde
+	}
+
+	var pack = serde.Packet{Route: convert.Bytes(route)}
+
+	var err2, isError2 = v.(error)
+	if !isError2 {
+		var payload, err3 = serializeOrRaw(my.serde, v)
+		if err3 != nil {
+			return err3
+		}
+
+		pack.Data = payload
+	} else if err4, ok := v.(*Error); ok {
+		pack.Code = convert.Bytes(err4.Code)
+		pack.Data = convert.Bytes(err4.Message)
+	} else {
+		pack.Code = convert.Bytes("PlainError")
+		pack.Data = convert.Bytes(err2.Error())
+	}
+
+	var err5 = my.sendPacket(pack)
+	return err5
+}
+
 // Id 全局唯一id
 func (my *ServerSession) Id() int64 {
 	return my.id
@@ -239,4 +274,8 @@ func (my *ServerSession) Attachment() Attachment {
 
 func (my *ServerSession) Nonce() int32 {
 	return my.attachment.Int32(keyNonce)
+}
+
+func (my *ServerSession) Serde() serde.Serde {
+	return my.serde
 }

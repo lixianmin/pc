@@ -2,6 +2,8 @@ package lane
 
 import (
 	"math/rand"
+
+	"github.com/lixianmin/pc/pkg/lane/serde"
 )
 
 /********************************************************************
@@ -26,6 +28,19 @@ var keySession = keyType{}
 
 // 	return fetus.(*sessionImpl)
 // }
+
+func serializeOrRaw(serde serde.Serde, v any) ([]byte, error) {
+	if data, ok := v.([]byte); ok {
+		return data, nil
+	}
+
+	var data, err = serde.Serialize(v)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
 
 func fetchNonce() int32 {
 	// nonce一定不为0
