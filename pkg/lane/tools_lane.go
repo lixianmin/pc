@@ -1,8 +1,10 @@
 package lane
 
 import (
+	"context"
 	"math/rand"
 
+	"github.com/lixianmin/logo"
 	"github.com/lixianmin/pc/pkg/lane/serde"
 )
 
@@ -19,15 +21,15 @@ type keyType struct{}
 var keyNonce = keyType{}
 var keySession = keyType{}
 
-// func GetSessionFromCtx(ctx context.Context) Session {
-// 	var fetus = ctx.Value(keySession)
-// 	if fetus == nil {
-// 		logo.Warn("ctx doesn't contain the session")
-// 		return nil
-// 	}
+func GetSessionFromCtx(ctx context.Context) *ServerSession {
+	var fetus = ctx.Value(keySession)
+	if fetus == nil {
+		logo.Warn("ctx doesn't contain the session")
+		return nil
+	}
 
-// 	return fetus.(*sessionImpl)
-// }
+	return fetus.(*ServerSession)
+}
 
 func serializeOrRaw(serde serde.Serde, v any) ([]byte, error) {
 	if data, ok := v.([]byte); ok {

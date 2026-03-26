@@ -10,6 +10,7 @@ Copyright (C) - All Rights Reserved
 *********************************************************************/
 
 type Session interface {
+	Nonce() int32
 	Serde() serde.Serde
 	Send(route string, v any) error
 }

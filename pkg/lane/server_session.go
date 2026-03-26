@@ -3,7 +3,6 @@ package lane
 import (
 	"context"
 	"net"
-	"reflect"
 	"sync"
 
 	"github.com/lixianmin/got/convert"
@@ -27,7 +26,6 @@ type ServerSession struct {
 	writeLock  sync.Mutex
 	id         int64
 	link       intern.Link
-	ctxValue   reflect.Value
 	attachment *AttachmentImpl
 	wc         loom.WaitClose
 	serde      serde.Serde
@@ -47,10 +45,6 @@ func newServerSession(server *Server, link intern.Link, id int64) *ServerSession
 
 	// 线上有大量的非法请求, 感觉是攻击, 先用Debug输出吧, 否则会生成大量无效日志
 	logo.Info("create session(%d), addr=%s", my.id, my.link.RemoteAddr())
-	var ctx = context.WithValue(context.Background(), keySession, my)
-	my.attachment.Set(KeyContext, ctx)
-
-	my.ctxValue = reflect.ValueOf(ctx)
 	my.startGoLoop()
 
 	// 这个设计, 可以保证finalizer被调用到, 但极大延长了对象在内存中存活的时间, 导致内存上涨很快. 外网扫描器很多, 有可能导致内存OOM
@@ -151,8 +145,8 @@ func (my *ServerSession) onReceivedHandshakeRe(input serde.Packet) error {
 func (my *ServerSession) onReceivedUserdata(input serde.Packet) error {
 	// client发来的消息, 必须有handlerItem, 因此一定有kind才是合理的. server推送的消息可以没有kind
 	var route = convert.String(input.Route)
-	var handlerItem = my.server.getHandlerByRoute(route)
-	if handlerItem == nil {
+	var handler = my.server.getHandlerByRoute(route)
+	if handler == nil {
 		return ErrEmptyHandler
 	}
 
@@ -161,7 +155,7 @@ func (my *ServerSession) onReceivedUserdata(input serde.Packet) error {
 	}
 
 	var ctx = context.WithValue(context.Background(), keySession, my)
-	handlerItem.Handler(ctx, input)
+	handler(ctx, input)
 
 	return nil
 }
@@ -229,12 +223,12 @@ func (my *ServerSession) Send(route string, v any) error {
 		return ErrInvalidRoute
 	}
 
-	if my.wc.IsClosed() {
-		return nil
-	}
-
 	if my.serde == nil {
 		return ErrNilSerde
+	}
+
+	if my.wc.IsClosed() || v == nil {
+		return nil
 	}
 
 	var pack = serde.Packet{Route: convert.Bytes(route)}

@@ -16,7 +16,7 @@ Copyright (C) - All Rights Reserved
 type clientOptions struct {
 	serde        serde.Serde
 	tlsConfig    *tls.Config
-	onHandShaken func(bean *serde.JsonHandshake)
+	onHandShaken func(bean serde.JsonHandshake)
 }
 
 type ClientOption func(options *clientOptions)
@@ -33,7 +33,7 @@ func WithTlsConfig(config *tls.Config) ClientOption {
 	}
 }
 
-func WithOnHandShaken(handler func(bean *serde.JsonHandshake)) ClientOption {
+func WithOnHandShaken(handler func(bean serde.JsonHandshake)) ClientOption {
 	return func(opt *clientOptions) {
 		opt.onHandShaken = handler
 	}

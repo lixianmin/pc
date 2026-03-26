@@ -35,7 +35,7 @@ type (
 		kickInterval      time.Duration
 
 		handlerLock   sync.RWMutex
-		routeHandlers map[string]*HandlerItem
+		routeHandlers map[string]ServerHandlerFn
 	}
 )
 
@@ -58,7 +58,7 @@ func NewServer(accept Acceptor, opts ...ServerOption) *Server {
 		heartbeatBuffer:   createCommonPackBuffer(serde.Packet{Route: convert.Bytes(serde.Heartbeat)}),
 		heartbeatInterval: options.HeartbeatInterval,
 		kickInterval:      options.KickInterval,
-		routeHandlers:     make(map[string]*HandlerItem),
+		routeHandlers:     make(map[string]ServerHandlerFn),
 	}
 
 	// 除默认支持JsonSerde外, 可额外添加ProtoSerde等支持
@@ -110,13 +110,13 @@ func (my *Server) Listen() {
 	my.accept.Listen()
 }
 
-func (my *Server) On(route string, handler HandlerFn) error {
+func (my *Server) On(route string, fn ServerHandlerFn) error {
 	if route == "" {
 		return TraceError("NilRoute")
 	}
 
-	if handler == nil {
-		return TraceError("NilHandler", "route", route)
+	if fn == nil {
+		return TraceError("NilServerHandler", "route", route)
 	}
 
 	my.handlerLock.Lock()
@@ -126,19 +126,11 @@ func (my *Server) On(route string, handler HandlerFn) error {
 		return TraceError("RouteAlreadyExists", "route", route)
 	}
 
-	my.routeHandlers[route] = &HandlerItem{
-		Route:   route,
-		Handler: handler,
-	}
-
+	my.routeHandlers[route] = fn
 	return nil
 }
 
-func On[T any](server *Server, route string, handler HandlerFnTyped[T]) error {
-	return server.On(route, TypedHandler(handler))
-}
-
-func (my *Server) getHandlerByRoute(route string) *HandlerItem {
+func (my *Server) getHandlerByRoute(route string) ServerHandlerFn {
 	my.handlerLock.RLock()
 	defer my.handlerLock.RUnlock()
 

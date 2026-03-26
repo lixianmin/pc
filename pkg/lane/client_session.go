@@ -30,19 +30,19 @@ type ClientSession struct {
 	conn      net.Conn
 
 	heartbeatInterval  time.Duration
-	onHandShaken       func(bean *serde.JsonHandshake)
+	onHandShaken       func(bean serde.JsonHandshake)
 	requestIdGenerator int32
 
-	requestHandlers map[int32]func([]byte, *Error)
-	routeHandlers   map[string]func([]byte, *Error)
+	requestHandlers map[int32]ClientHandlerFn
+	routeHandlers   map[string]ClientHandlerFn
 }
 
 func NewClientSession() *ClientSession {
 	var my = &ClientSession{
 		writer:            iox.NewOctetsWriter(&iox.OctetsStream{}),
 		heartbeatInterval: time.Minute, // 初始给一个大一些的值, 防止client自己超时, 回头server会重置该值
-		requestHandlers:   map[int32]func([]byte, *Error){},
-		routeHandlers:     map[string]func([]byte, *Error){},
+		requestHandlers:   make(map[int32]ClientHandlerFn),
+		routeHandlers:     make(map[string]ClientHandlerFn),
 	}
 
 	return my
@@ -178,7 +178,7 @@ func (my *ClientSession) onReceivedHandshake(pack serde.Packet) error {
 	my.handshakeRe()
 
 	if my.onHandShaken != nil {
-		my.onHandShaken(&handshake)
+		my.onHandShaken(handshake)
 	}
 
 	// 启动heartbeat
@@ -205,7 +205,7 @@ func (my *ClientSession) onReceivedUserdata(pack serde.Packet) error {
 	if handler == nil {
 		// 有些协议, 真不想处理, 就不设置handlers了. 通常只要有requestId, 就是故意不处理的
 		if pack.RequestId == 0 {
-			logo.Warn("no handler, route=%s, requestId=0", convert.String(pack.Route))
+			logo.Warn("no handler, route=%s, requestId=0, data=%s", convert.String(pack.Route), convert.String(pack.Data))
 		}
 
 		return nil
@@ -217,15 +217,15 @@ func (my *ClientSession) onReceivedUserdata(pack serde.Packet) error {
 		var message = convert.String(pack.Data)
 		var err = NewError(code, "%s", message)
 
-		handler(nil, err)
+		handler(my, nil, err)
 	} else {
-		handler(pack.Data, nil)
+		handler(my, pack.Data, nil)
 	}
 
 	return nil
 }
 
-func (my *ClientSession) fetchHandler(pack serde.Packet) func([]byte, *Error) {
+func (my *ClientSession) fetchHandler(pack serde.Packet) ClientHandlerFn {
 	var requestId = pack.RequestId
 	if requestId != 0 {
 		if handler, ok := my.requestHandlers[requestId]; ok {
@@ -243,26 +243,34 @@ func (my *ClientSession) fetchHandler(pack serde.Packet) func([]byte, *Error) {
 }
 
 func (my *ClientSession) Send(route string, v any) error {
-	if my.wc.IsClosed() {
-		return nil
+	if route == "" {
+		return ErrInvalidRoute
 	}
 
-	var data, err1 = my.serde.Serialize(v)
-	if err1 != nil {
-		return err1
-	}
-
-	var pack = serde.Packet{Route: convert.Bytes(route), Data: data}
-	var err3 = my.sendPacket(pack)
-	return err3
-}
-
-func (my *ClientSession) Request(route string, request any, pResponse any, handler func(*Error)) error {
 	if my.serde == nil {
 		return ErrNilSerde
 	}
 
-	if route == "" || request == nil || pResponse == nil {
+	if my.wc.IsClosed() || v == nil {
+		return nil
+	}
+
+	var payload, err1 = serializeOrRaw(my.serde, v)
+	if err1 != nil {
+		return err1
+	}
+
+	var pack = serde.Packet{Route: convert.Bytes(route), Data: payload}
+	var err2 = my.sendPacket(pack)
+	return err2
+}
+
+func (my *ClientSession) Request(route string, request any, handler func(session *ClientSession, responseBytes []byte, err *Error)) error {
+	if my.serde == nil {
+		return ErrNilSerde
+	}
+
+	if route == "" || request == nil {
 		return ErrInvalidArgument
 	}
 
@@ -280,52 +288,27 @@ func (my *ClientSession) Request(route string, request any, pResponse any, handl
 	}
 
 	if handler != nil {
-		my.requestHandlers[requestId] = func(data1 []byte, err *Error) {
-			if data1 != nil {
-				var err2 = my.serde.Deserialize(data1, pResponse)
-				var err3 *Error
-				if err2 != nil {
-					err3 = NewError("ErrDeserialize", "err2=%q", err2)
-				}
-
-				handler(err3)
-			} else {
-				handler(err)
-			}
-		}
+		my.requestHandlers[requestId] = handler
 	}
 
 	return my.sendPacket(pack)
 }
 
-func (my *ClientSession) On(route string, pResponse any, handler func(*Error)) error {
+func (my *ClientSession) On(route string, handler ClientHandlerFn) error {
 	if route == "" {
-		return ErrInvalidRoute
+		return TraceError("NilRoute")
 	}
 
 	if handler == nil {
-		return ErrEmptyHandler
+		return TraceError("NilHandler", "route", route)
 	}
 
-	my.routeHandlers[route] = func(data1 []byte, err *Error) {
-		if data1 != nil {
-			var err2 = my.serde.Deserialize(data1, pResponse)
-			var err3 *Error
-			if err2 != nil {
-				err3 = NewError("ErrDeserialize", "err2=%q", err2)
-			}
-
-			handler(err3)
-		} else {
-			handler(err)
-		}
+	if _, exists := my.routeHandlers[route]; exists {
+		return TraceError("RouteAlreadyExists", "route", route)
 	}
 
+	my.routeHandlers[route] = handler
 	return nil
-}
-
-func (my *ClientSession) Nonce() int32 {
-	return my.nonce
 }
 
 func (my *ClientSession) sendPacket(pack serde.Packet) error {
@@ -340,4 +323,12 @@ func (my *ClientSession) sendPacket(pack serde.Packet) error {
 	var buffer = stream.Bytes()
 	var _, err = my.conn.Write(buffer)
 	return err
+}
+
+func (my *ClientSession) Nonce() int32 {
+	return my.nonce
+}
+
+func (my *ClientSession) Serde() serde.Serde {
+	return my.serde
 }
